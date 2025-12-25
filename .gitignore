@@ -1,0 +1,37 @@
+# Nix build results
+result
+result-*
+
+# Hardware configurations (host-specific, regenerated during install)
+# NOTE: We keep placeholders in repo, but ignore if accidentally copied
+
+# CRITICAL SECURITY: Never commit private keys!
+# Age private keys
+keys.txt
+*.key
+secrets/*.key
+secrets/keys.txt
+~/.config/sops/age/keys.txt
+
+# Decrypted secrets (SOPS decrypts to .dec files)
+secrets/*.yaml.dec
+secrets/*.json.dec
+secrets/*.env.dec
+*.dec
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+
+# Local testing
+.direnv/
+.envrc
