@@ -32,6 +32,14 @@ creation_rules:
           - *sukkub
           - *azazel
   
+  # WiFi secrets - shared between all hosts (passwords for home, work, etc.)
+  - path_regex: secrets/wifi\.yaml$
+    key_groups:
+      - age:
+          - *admin
+          - *sukkub
+          - *azazel
+  
   # Common secrets - all hosts can decrypt
   - path_regex: secrets/common\.yaml$
     key_groups:
