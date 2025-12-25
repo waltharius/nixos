@@ -7,7 +7,8 @@ Multi-host NixOS configuration with flakes, home-manager, and sops-nix for secur
 - **Declarative Configuration**: Everything in code, fully reproducible
 - **Multi-Host Support**: Sukkub (test), Azazel (production)
 - **Home Manager Integration**: User environment managed declaratively
-- **Secrets Management**: SOPS with age encryption for SSH keys
+- **Secrets Management**: SOPS with age encryption for SSH keys and WiFi passwords
+- **WiFi**: NetworkManager with encrypted passwords + ad-hoc network support
 - **Modern Development Setup**: Neovim with LSP, Git, Shell tools
 - **GNOME Desktop**: Pre-configured with useful extensions
 
@@ -38,18 +39,22 @@ nixos/
 │   │   ├── locale.nix       # Localization
 │   │   ├── gnome.nix        # GNOME desktop
 │   │   ├── secrets.nix      # SOPS integration
-│   │   └── sshd.nix         # SSH server
+│   │   ├── sshd.nix         # SSH server
+│   │   └── wifi.nix         # WiFi with encrypted passwords
 │   │
 │   └── services/             # User services
 │       ├── ssh.nix          # SSH client + encrypted keys
 │       └── syncthing.nix    # File synchronization
 │
 ├── secrets/                   # Encrypted secrets (SAFE to commit!)
-│   └── ssh.yaml              # Encrypted SSH keys
+│   ├── ssh.yaml              # Encrypted SSH keys
+│   ├── wifi.yaml             # Encrypted WiFi passwords
+│   └── *.yaml.example        # Templates for secrets
 │
 └── docs/                      # Documentation
     ├── INSTALLATION.md        # Step-by-step installation guide
-    └── SSH_KEYS_SETUP.md     # SSH keys and secrets setup
+    ├── SSH_KEYS_SETUP.md     # SSH keys and secrets setup
+    └── WIFI_SETUP.md         # WiFi configuration guide
 ```
 
 ## 🚀 Quick Start
@@ -59,6 +64,7 @@ nixos/
 1. **Boot NixOS installer USB**
 2. **Follow the guide**: [docs/INSTALLATION.md](docs/INSTALLATION.md)
 3. **Configure secrets**: [docs/SSH_KEYS_SETUP.md](docs/SSH_KEYS_SETUP.md)
+4. **Setup WiFi**: [docs/WIFI_SETUP.md](docs/WIFI_SETUP.md)
 
 ### Key Installation Steps:
 
@@ -84,6 +90,7 @@ sudo nixos-install --flake ~/nixos#sukkub --no-root-password
 
 - **Boot**: systemd-boot with LUKS encryption
 - **Desktop**: GNOME 47 with useful extensions
+- **Networking**: NetworkManager with WiFi + encrypted passwords
 - **Security**: Firewall, encrypted secrets, SSH keys
 - **Services**: SSH server, Syncthing
 
@@ -110,6 +117,7 @@ sudo nixos-install --flake ~/nixos#sukkub --no-root-password
 - **SOPS + age**: All secrets encrypted with age
 - **Per-host keys**: Each machine has unique age key
 - **SSH keys**: Private keys never in plaintext
+- **WiFi passwords**: Encrypted in git, decrypted to tmpfs
 - **Git safe**: `secrets/` directory is safe to commit (encrypted)
 
 ### SSH Server
@@ -117,6 +125,12 @@ sudo nixos-install --flake ~/nixos#sukkub --no-root-password
 - **Key-only auth**: Password authentication disabled
 - **No root login**: Root cannot SSH in
 - **Firewall**: Only port 22 open
+
+### WiFi Security
+
+- **Passwords encrypted**: Never in Nix store or git plaintext
+- **Hybrid approach**: Permanent networks in config + ad-hoc networks on-demand
+- **NetworkManager**: Secure credential storage
 
 ## 🛠️ Daily Workflow
 
@@ -143,6 +157,24 @@ sudo nixos-rebuild switch --flake ~/nixos#sukkub
 nrs  # alias for the above command
 ```
 
+### WiFi Management
+
+```bash
+# List available networks
+wifi-list
+
+# Connect to ad-hoc network (cafe, hotel)
+wifi-connect "CafeName" password "guest123"
+
+# Check connection status
+wifi-status
+
+# Forget network
+wifi-forget "CafeName"
+
+# Permanent networks (home, work) connect automatically
+```
+
 ### On Another Host
 
 ```bash
@@ -159,17 +191,22 @@ sudo nixos-rebuild switch --flake ~/nixos#azazel
 Defined in `users/marcin/home.nix`:
 
 ```bash
-ll           # eza -alF with icons, git status, hyperlinks
-gs           # git status
-nrs          # sudo nixos-rebuild switch
-atuin-local  # Search history for current host only
-y            # yazi with cd on exit
+ll              # eza -alF with icons, git status, hyperlinks
+gs              # git status
+nrs             # sudo nixos-rebuild switch
+wifi-list       # nmcli device wifi list
+wifi-connect    # nmcli device wifi connect
+wifi-status     # nmcli connection show --active
+wifi-forget     # nmcli connection delete
+atuin-local     # Search history for current host only
+y               # yazi with cd on exit
 ```
 
 ## 📚 Documentation
 
 - **[INSTALLATION.md](docs/INSTALLATION.md)**: Complete installation guide
 - **[SSH_KEYS_SETUP.md](docs/SSH_KEYS_SETUP.md)**: SSH keys and secrets management
+- **[WIFI_SETUP.md](docs/WIFI_SETUP.md)**: WiFi configuration with encrypted passwords
 
 ## 🖥️ Hosts
 
@@ -227,6 +264,22 @@ cat ~/nixos/.sops.yaml
 sudo SOPS_AGE_KEY_FILE=/var/lib/sops-nix/key.txt sops -d ~/nixos/secrets/ssh.yaml
 ```
 
+### WiFi Not Connecting
+
+```bash
+# Check NetworkManager status
+systemctl status NetworkManager
+
+# List connections
+nmcli connection show
+
+# Check if password was injected
+sudo cat /etc/NetworkManager/system-connections/Home.nmconnection
+
+# Manual reload
+sudo systemctl reload NetworkManager
+```
+
 ### Build Fails
 
 ```bash
@@ -270,6 +323,7 @@ MIT License - Use freely, no warranty provided.
 - [Home Manager](https://github.com/nix-community/home-manager) - Declarative user environment
 - [SOPS-nix](https://github.com/Mic92/sops-nix) - Secrets management
 - [nixd](https://github.com/nix-community/nixd) - Nix language server
+- [NetworkManager](https://networkmanager.dev/) - Network connection manager
 
 ## 🔗 Useful Resources
 
@@ -278,6 +332,7 @@ MIT License - Use freely, no warranty provided.
 - [Nix Pills](https://nixos.org/guides/nix-pills/) - Deep dive into Nix
 - [NixOS Wiki](https://nixos.wiki/)
 - [SOPS Documentation](https://github.com/getsops/sops)
+- [NetworkManager Documentation](https://networkmanager.dev/docs/)
 
 ---
 
