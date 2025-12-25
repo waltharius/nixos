@@ -9,7 +9,13 @@ let
   create_symlink = path: config.lib.file.mkOutOfStoreSymlink path;
 in
 {
-  nixpkgs.config.allowUnfree = true;
+  # ========================================
+  # SOPS Configuration
+  # ========================================
+  sops = {
+    age.keyFile = "/var/lib/sops-nix/key.txt";
+    defaultSopsFile = ../../secrets/ssh.yaml;
+  };
 
   home.username = "marcin";
   home.homeDirectory = "/home/marcin";
@@ -72,7 +78,7 @@ in
   };
 
   # ========================================
-  # NEOVIM Configuration (MERGED)
+  # NEOVIM Configuration (MERGED + FIXED)
   # ========================================
   programs.neovim = {
     enable = true;
@@ -102,16 +108,16 @@ in
           json
         ]))
 
-      # LSP Configuration
+      # LSP Configuration - FIXED: Use new vim.lsp.config API
       {
         plugin = nvim-lspconfig;
         type = "lua";
         config = ''
-          local lspconfig = require('lspconfig')
-
           -- Nixd LSP (Nix language server)
-          lspconfig.nixd.setup({
+          vim.lsp.config.nixd = {
             cmd = { "nixd" },
+            filetypes = { "nix" },
+            root_markers = { "flake.nix", ".git" },
             settings = {
               nixd = {
                 formatting = {
@@ -127,10 +133,14 @@ in
                 },
               },
             },
-          })
+          }
+          vim.lsp.enable('nixd')
 
           -- Lua LSP
-          lspconfig.lua_ls.setup({
+          vim.lsp.config.lua_ls = {
+            cmd = { "lua-language-server" },
+            filetypes = { "lua" },
+            root_markers = { ".luarc.json", ".git" },
             settings = {
               Lua = {
                 diagnostics = {
@@ -138,7 +148,8 @@ in
                 },
               },
             },
-          })
+          }
+          vim.lsp.enable('lua_ls')
         '';
       }
 
@@ -343,11 +354,11 @@ in
     enable = true;
 
     shellAliases = {
-      # Enhanced ls with eza
-      ls = "eza";
-      ll = "eza -l";
-      la = "eza -la";
-      lt = "eza --tree";
+      # Enhanced ls with eza - FIXED with your custom command
+      ls = "eza --hyperlink --group-directories-first --color=auto --color-scale=size --color-scale-mode=gradient --icons --git";
+      ll = "eza -alF --hyperlink --group-directories-first --color=auto --color-scale=size --color-scale-mode=gradient --icons --git";
+      la = "eza -a --hyperlink --group-directories-first --color=auto --color-scale=size --color-scale-mode=gradient --icons --git";
+      lt = "eza --tree --hyperlink --group-directories-first --color=auto --icons --git";
       
       # Git shortcuts
       gs = "git status";
@@ -355,10 +366,10 @@ in
       gc = "git commit";
       gp = "git push";
       
-      # NixOS shortcuts
-      nrs = "sudo nixos-rebuild switch --flake /etc/nixos";
-      nrt = "sudo nixos-rebuild test --flake /etc/nixos";
-      nrb = "sudo nixos-rebuild boot --flake /etc/nixos";
+      # NixOS shortcuts - FIXED: Use ~/nixos instead of /etc/nixos
+      nrs = "sudo nixos-rebuild switch --flake ~/nixos";
+      nrt = "sudo nixos-rebuild test --flake ~/nixos";
+      nrb = "sudo nixos-rebuild boot --flake ~/nixos";
       
       # Atuin filter modes
       atuin-local = "ATUIN_FILTER_MODE=host atuin search -i";
@@ -368,7 +379,7 @@ in
     bashrcExtra = ''
       # Enhanced ls function
       lk() {
-        ${pkgs.eza}/bin/eza -alF --group-directories-first --icons --git "$@"
+        ${pkgs.eza}/bin/eza -alF --hyperlink --group-directories-first --color=auto --color-scale=size --color-scale-mode=gradient --icons --git "$@"
       }
 
       # Load ble.sh if available
@@ -386,8 +397,8 @@ in
         eval "$(${pkgs.zoxide}/bin/zoxide init bash)"
       fi
 
-      # Attach ble.sh after integrations
-      [[ ${BLE_VERSION-} ]] && ble-attach
+      # Attach ble.sh after integrations - FIXED: Escape BLE_VERSION
+      [[ ''${BLE_VERSION-} ]] && ble-attach || true
 
       # Yazi shell wrapper for cd on exit
       if command -v yazi &> /dev/null; then
