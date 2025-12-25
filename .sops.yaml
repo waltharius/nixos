@@ -24,6 +24,14 @@ keys:
   - &azazel REPLACE_WITH_AZAZEL_PUBLIC_KEY
 
 creation_rules:
+  # SSH secrets - shared between all hosts (keys and config)
+  - path_regex: secrets/ssh\.yaml$
+    key_groups:
+      - age:
+          - *admin
+          - *sukkub
+          - *azazel
+  
   # Common secrets - all hosts can decrypt
   - path_regex: secrets/common\.yaml$
     key_groups:
