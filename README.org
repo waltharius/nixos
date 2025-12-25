@@ -1,0 +1,462 @@
+#+TITLE: Multi-Host NixOS Configuration
+#+AUTHOR: Marcin
+#+DATE: 2025-12-25
+#+OPTIONS: toc:2 num:nil
+
+* Overview
+
+This repository contains a declarative, reproducible NixOS configuration for multiple hosts using Nix flakes, home-manager, and sops-nix for secret management.
+
+** Hosts
+
+| Host   | Hardware             | Purpose    | Special Features        |
+|--------+----------------------+------------+-------------------------|
+| sukkub | ThinkPad P50, no bat | Test/POC   | Basic setup             |
+| azazel | T16 Gen3, 128GB RAM  | Production | TLP, hibernate, 45GB swap |
+
+** Key Features
+
+- ✅ Multi-host configuration with shared modules
+- ✅ Btrfs with compression (zstd:3) for root and home
+- ✅ Home-manager for user-level configuration
+- ✅ Sops-nix for encrypted secrets management
+- ✅ Suspend-then-hibernate (azazel only)
+- ✅ Comprehensive Neovim setup with LSP
+- ✅ Reproducible builds with flake.lock
+
+* Repository Structure
+
+#+begin_src
+nixos/
+├── flake.nix                      # Main flake configuration
+├── flake.lock                     # Locked dependency versions
+├── .sops.yaml                     # SOPS public keys (safe to commit)
+├── .gitignore                     # Prevents committing secrets
+├── hosts/
+│   ├── sukkub/
+│   │   ├── configuration.nix         # Host-specific config
+│   │   └── hardware-configuration.nix # Generated during install
+│   └── azazel/
+│       ├── configuration.nix
+│       └── hardware-configuration.nix
+├── modules/
+│   ├── system/
+│   │   ├── boot.nix               # Systemd-boot + UEFI
+│   │   ├── networking.nix         # NetworkManager, SSH
+│   │   ├── locale.nix             # Polish locale settings
+│   │   ├── gnome.nix              # GNOME desktop
+│   │   └── secrets.nix            # SOPS configuration
+│   └── laptop/
+│       ├── tlp.nix                # Battery optimization
+│       └── hibernate.nix          # Suspend-then-hibernate
+├── users/
+│   └── marcin/
+│       └── home.nix               # Home-manager config
+└── secrets/
+    ├── .gitignore                 # Blocks decrypted files
+    ├── common.yaml                # Shared secrets (encrypted)
+    ├── sukkub.yaml                # Sukkub secrets (encrypted)
+    └── azazel.yaml                # Azazel secrets (encrypted)
+#+end_src
+
+* Installation Guide
+
+** Prerequisites
+
+- NixOS 25.11 minimal ISO
+- Internet connection
+- UEFI-capable system
+- For azazel: sufficient disk space for 45GB swap
+
+** Step 1: Partition Setup (Btrfs)
+
+*** Boot from NixOS ISO
+
+*** Partition the Disk
+
+#+begin_src bash
+# Example for /dev/nvme0n1
+parted /dev/nvme0n1 -- mklabel gpt
+parted /dev/nvme0n1 -- mkpart ESP fat32 1MiB 512MiB
+parted /dev/nvme0n1 -- set 1 esp on
+parted /dev/nvme0n1 -- mkpart primary btrfs 512MiB 100%
+#+end_src
+
+*** Format Partitions
+
+#+begin_src bash
+# EFI partition
+mkfs.fat -F32 /dev/nvme0n1p1
+
+# Btrfs root partition
+mkfs.btrfs -L nixos /dev/nvme0n1p2
+#+end_src
+
+*** Create Btrfs Subvolumes
+
+#+begin_src bash
+# Mount root
+mount /dev/nvme0n1p2 /mnt
+
+# Create subvolumes
+btrfs subvolume create /mnt/@root
+btrfs subvolume create /mnt/@home
+btrfs subvolume create /mnt/@nix
+
+# Unmount
+umount /mnt
+#+end_src
+
+*** Mount with Compression
+
+#+begin_src bash
+# Mount root with compression
+mount -o subvol=@root,compress=zstd:3,noatime /dev/nvme0n1p2 /mnt
+
+# Create mount points
+mkdir -p /mnt/{home,nix,boot}
+
+# Mount home with compression
+mount -o subvol=@home,compress=zstd:3,noatime /dev/nvme0n1p2 /mnt/home
+
+# Mount nix WITHOUT compression (better performance)
+mount -o subvol=@nix,noatime /dev/nvme0n1p2 /mnt/nix
+
+# Mount EFI
+mount /dev/nvme0n1p1 /mnt/boot
+#+end_src
+
+⚠️ *Important*: /nix is mounted without compression because the Nix store contains already-compressed archives. Additional compression would slow down builds with minimal space savings.
+
+** Step 2: Generate Hardware Configuration
+
+#+begin_src bash
+nixos-generate-config --root /mnt
+#+end_src
+
+This generates ~/mnt/etc/nixos/hardware-configuration.nix~ with correct UUIDs and filesystem options.
+
+** Step 3: Clone Repository
+
+#+begin_src bash
+cd /mnt/etc
+git clone https://github.com/waltharius/nixos.git
+cd nixos
+#+end_src
+
+** Step 4: Update Hardware Configuration
+
+#+begin_src bash
+# Copy generated hardware-configuration.nix to your host
+cp /mnt/etc/nixos/hardware-configuration.nix hosts/sukkub/  # or azazel
+#+end_src
+
+Edit the file to ensure btrfs options are correct:
+
+#+begin_src nix
+fileSystems."/" = {
+  device = "/dev/disk/by-uuid/YOUR-ACTUAL-UUID";
+  fsType = "btrfs";
+  options = [ "subvol=@root" "compress=zstd:3" "noatime" ];
+};
+
+fileSystems."/home" = {
+  device = "/dev/disk/by-uuid/YOUR-ACTUAL-UUID";
+  fsType = "btrfs";
+  options = [ "subvol=@home" "compress=zstd:3" "noatime" ];
+};
+
+fileSystems."/nix" = {
+  device = "/dev/disk/by-uuid/YOUR-ACTUAL-UUID";
+  fsType = "btrfs";
+  options = [ "subvol=@nix" "noatime" ];  # NO COMPRESSION
+};
+#+end_src
+
+** Step 5: Generate Age Key for Host
+
+#+begin_src bash
+# Generate host age key
+mkdir -p /mnt/var/lib/sops-nix
+age-keygen -o /mnt/var/lib/sops-nix/key.txt
+
+# Display public key - SAVE THIS!
+age-keygen -y /mnt/var/lib/sops-nix/key.txt
+# Output: age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+#+end_src
+
+⚠️ *Save the public key* - you'll need it to encrypt secrets for this host.
+
+** Step 6: Install NixOS
+
+#+begin_src bash
+# Install without secrets (they won't decrypt yet)
+nixos-install --flake /mnt/etc/nixos#sukkub --no-root-password
+
+# Set user password manually
+nixos-enter --root /mnt
+passwd marcin
+exit
+
+# Reboot
+reboot
+#+end_src
+
+** Step 7: Configure Secrets (After First Boot)
+
+On your management machine (with your personal age key):
+
+1. Add host public key to ~.sops.yaml~
+2. Re-encrypt all secrets: ~sops updatekeys secrets/*.yaml~
+3. Commit and push changes
+
+On the new host:
+
+#+begin_src bash
+cd /etc/nixos
+git pull
+sudo nixos-rebuild switch --flake .#sukkub
+#+end_src
+
+* Secrets Management with SOPS
+
+** Security Model
+
+*** What's in the Repository (SAFE)
+
+- ✅ Public keys in ~.sops.yaml~
+- ✅ Encrypted secret files (~*.yaml~)
+- ✅ SOPS configuration
+
+*** What's NOT in the Repository (PRIVATE)
+
+- ❌ Private age keys (~keys.txt~, ~/var/lib/sops-nix/key.txt~)
+- ❌ Decrypted secrets (~*.dec~ files)
+- ❌ Any ~.key~ files
+
+** Key Types
+
+| Key Type      | Location                      | Purpose           | Backup? |
+|---------------+-------------------------------+-------------------+---------|
+| Personal      | ~~/.config/sops/age/keys.txt~ | Edit secrets      | YES     |
+| Host (sukkub) | ~/var/lib/sops-nix/key.txt~   | Decrypt on host   | YES     |
+| Host (azazel) | ~/var/lib/sops-nix/key.txt~   | Decrypt on host   | YES     |
+
+** Creating/Editing Secrets
+
+#+begin_src bash
+# Edit secrets (automatically encrypted on save)
+sops secrets/common.yaml
+
+# View decrypted content
+sops -d secrets/common.yaml
+#+end_src
+
+** Adding a New Host
+
+1. Generate age key on new host during installation
+2. Add public key to ~.sops.yaml~
+3. Re-encrypt: ~sops updatekeys secrets/*.yaml~
+4. Commit and push
+
+** Emergency: Lost Host Key
+
+If you lose a host's private key:
+
+1. Generate new key on that host
+2. Update ~.sops.yaml~ with new public key
+3. Re-encrypt all secrets
+4. Your personal key ensures you never lose access
+
+* Daily Usage
+
+** Rebuilding System
+
+#+begin_src bash
+# Test configuration (doesn't modify boot entry)
+sudo nixos-rebuild test --flake /etc/nixos#sukkub
+
+# Apply and set as default boot option
+sudo nixos-rebuild switch --flake /etc/nixos#sukkub
+
+# Build for next boot (doesn't activate now)
+sudo nixos-rebuild boot --flake /etc/nixos#sukkub
+#+end_src
+
+** Updating Packages
+
+#+begin_src bash
+# Update flake.lock
+nix flake update
+
+# Update specific input
+nix flake lock --update-input nixpkgs
+
+# Rebuild with updates
+sudo nixos-rebuild switch --flake /etc/nixos#sukkub
+#+end_src
+
+** Rolling Back
+
+#+begin_src bash
+# List generations
+sudo nix-env --list-generations --profile /nix/var/nix/profiles/system
+
+# Rollback to previous generation
+sudo nixos-rebuild switch --rollback
+
+# Switch to specific generation
+sudo nix-env --switch-generation 42 --profile /nix/var/nix/profiles/system
+sudo /nix/var/nix/profiles/system/bin/switch-to-configuration switch
+#+end_src
+
+** Garbage Collection
+
+#+begin_src bash
+# Delete old generations (keeps last 3)
+sudo nix-collect-garbage --delete-older-than 3
+
+# Optimize store (deduplicate)
+sudo nix-store --optimise
+#+end_src
+
+* Laptop-Specific Features (Azazel Only)
+
+** TLP Power Management
+
+TLP is configured to optimize battery life:
+
+- *AC*: Performance mode, full CPU, charging to 80%
+- *Battery*: Power-save mode, 30% CPU max, aggressive power saving
+
+** Suspend-then-Hibernate
+
+*** How It Works
+
+1. Close lid → System suspends to RAM (fast, consumes power)
+2. After 3 hours → Automatically hibernates to disk (no power consumption)
+3. Open lid → Resume from RAM (if <3h) or disk (if >3h)
+
+*** Configuration
+
+Configured in ~modules/laptop/hibernate.nix~:
+
+- Suspend delay: 3 hours
+- Swap size: 45GB (safe for 128GB RAM)
+- Lid close: suspend-then-hibernate
+- Power button: suspend-then-hibernate
+
+*** Testing Hibernate
+
+⚠️ *Warning*: Save all work before testing!
+
+#+begin_src bash
+# Test hibernate
+sudo systemctl hibernate
+
+# Test suspend-then-hibernate
+sudo systemctl suspend-then-hibernate
+
+# Monitor hibernate process
+journalctl -f -u systemd-hibernate.service
+#+end_src
+
+* Customization
+
+** Adding a New Host
+
+1. Create host directory:
+   #+begin_src bash
+   mkdir -p hosts/newhostname
+   #+end_src
+
+2. Copy template:
+   #+begin_src bash
+   cp hosts/sukkub/configuration.nix hosts/newhostname/
+   #+end_src
+
+3. Add to ~flake.nix~:
+   #+begin_src nix
+   nixosConfigurations = {
+     # ... existing hosts ...
+     newhostname = mkHost "newhostname" "x86_64-linux";
+   };
+   #+end_src
+
+4. Generate age key during installation
+5. Add public key to ~.sops.yaml~
+
+** Adding System Packages
+
+Edit ~hosts/HOSTNAME/configuration.nix~:
+
+#+begin_src nix
+environment.systemPackages = with pkgs; [
+  neovim
+  git
+  your-package-here
+];
+#+end_src
+
+** Adding User Packages
+
+Edit ~users/marcin/home.nix~:
+
+#+begin_src nix
+home.packages = with pkgs; [
+  firefox
+  thunderbird
+  your-package-here
+];
+#+end_src
+
+* Troubleshooting
+
+** Build Fails with Missing Hardware Configuration
+
+The placeholder ~hardware-configuration.nix~ files must be replaced with actual generated files:
+
+#+begin_src bash
+nixos-generate-config --root /mnt
+cp /mnt/etc/nixos/hardware-configuration.nix hosts/HOSTNAME/
+#+end_src
+
+** SOPS Decryption Fails
+
+Check that:
+
+1. Host age key exists: ~ls -la /var/lib/sops-nix/key.txt~
+2. Public key is in ~.sops.yaml~
+3. Secrets were re-encrypted: ~sops updatekeys secrets/*.yaml~
+
+** Hibernate Fails
+
+Check swap size:
+
+#+begin_src bash
+swapon --show
+free -h
+#+end_src
+
+Swap must be larger than used RAM. Increase swap size in ~modules/laptop/hibernate.nix~.
+
+** System Won't Boot
+
+Boot into previous generation from GRUB menu, then investigate:
+
+#+begin_src bash
+journalctl -xb
+nixos-rebuild switch --rollback
+#+end_src
+
+* Resources
+
+- [[https://nixos.org/manual/nixos/stable/][NixOS Manual]]
+- [[https://nix-community.github.io/home-manager/][Home Manager Manual]]
+- [[https://github.com/Mic92/sops-nix][sops-nix Documentation]]
+- [[https://github.com/FiloSottile/age][age Encryption Tool]]
+- [[https://wiki.archlinux.org/title/Btrfs][Btrfs Wiki]]
+
+* License
+
+This configuration is provided as-is for personal use.
