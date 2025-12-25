@@ -25,6 +25,7 @@
     ssh_key_gitlab = {
       sopsFile = ../../secrets/ssh.yaml;
       path = "${config.home.homeDirectory}/.ssh/id_ed25519_gitlab";
+      mode = "0600";
     };
 
     ssh_key_tabby = {
@@ -41,9 +42,6 @@
   # SSH program configuration
   programs.ssh = {
     enable = true;
-
-    # Don't use default config (we manage everything)
-    controlPath = "~/.ssh/sockets/%r@%h-%p";
 
     matchBlocks = {
       # Global defaults for all hosts
