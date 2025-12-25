@@ -33,7 +33,7 @@ creation_rules:
           - *azazel
   
   # WiFi secrets - shared between all hosts (passwords for home, work, etc.)
-  - path_regex: secrets/wifi\.yaml$
+  - path_regex: secrets/wifi\.env$
     key_groups:
       - age:
           - *admin
