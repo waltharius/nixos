@@ -18,6 +18,14 @@ in
   programs.home-manager.enable = true;
 
   # ========================================
+  # IMPORTS - Additional modules
+  # ========================================
+  imports = [
+    ../../modules/services/syncthing.nix
+    ../../modules/services/ssh.nix
+  ];
+
+  # ========================================
   # GIT Configuration
   # ========================================
   programs.git = {
@@ -351,6 +359,10 @@ in
       nrs = "sudo nixos-rebuild switch --flake /etc/nixos";
       nrt = "sudo nixos-rebuild test --flake /etc/nixos";
       nrb = "sudo nixos-rebuild boot --flake /etc/nixos";
+      
+      # Atuin filter modes
+      atuin-local = "ATUIN_FILTER_MODE=host atuin search -i";
+      atuin-global = "ATUIN_FILTER_MODE=global atuin search -i";
     };
 
     bashrcExtra = ''
@@ -435,18 +447,36 @@ in
   };
 
   # ========================================
-  # ATUIN - Shell History
+  # ATUIN - Shell History Sync
   # ========================================
   programs.atuin = {
     enable = true;
     enableBashIntegration = true;
 
     settings = {
-      auto_sync = false;  # Disable until server is configured
+      # Your self-hosted server
+      sync_address = "https://atuin.home.lan";
+      auto_sync = true;
+      sync_frequency = "1m";
+      
+      # Filter by host by default
+      filter_mode = "host";
+      
+      # Search settings
       search_mode = "fuzzy";
       style = "compact";
       show_preview = true;
+      
+      # Smart Up arrow - filter by directory
       filter_mode_shell_up_key_binding = "directory";
+      
+      # Privacy - never save sensitive commands
+      history_filter = [
+        "^pass"
+        "^password"
+        "^secret"
+        "^atuin login"
+      ];
     };
   };
 
