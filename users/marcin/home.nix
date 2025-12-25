@@ -354,7 +354,7 @@ in
     enable = true;
 
     shellAliases = {
-      # Enhanced ls with eza - FIXED with your custom command
+      # Enhanced ls with eza
       ls = "eza --hyperlink --group-directories-first --color=auto --color-scale=size --color-scale-mode=gradient --icons --git";
       ll = "eza -alF --hyperlink --group-directories-first --color=auto --color-scale=size --color-scale-mode=gradient --icons --git";
       la = "eza -a --hyperlink --group-directories-first --color=auto --color-scale=size --color-scale-mode=gradient --icons --git";
@@ -366,10 +366,17 @@ in
       gc = "git commit";
       gp = "git push";
       
-      # NixOS shortcuts - FIXED: Use ~/nixos instead of /etc/nixos
+      # NixOS shortcuts
       nrs = "sudo nixos-rebuild switch --flake ~/nixos";
       nrt = "sudo nixos-rebuild test --flake ~/nixos";
       nrb = "sudo nixos-rebuild boot --flake ~/nixos";
+      
+      # WiFi management (NetworkManager)
+      wifi-list = "nmcli device wifi list";
+      wifi-connect = "nmcli device wifi connect";
+      wifi-status = "nmcli connection show --active";
+      wifi-forget = "nmcli connection delete";
+      wifi-scan = "nmcli device wifi rescan";
       
       # Atuin filter modes
       atuin-local = "ATUIN_FILTER_MODE=host atuin search -i";
@@ -397,7 +404,7 @@ in
         eval "$(${pkgs.zoxide}/bin/zoxide init bash)"
       fi
 
-      # Attach ble.sh after integrations - FIXED: Escape BLE_VERSION
+      # Attach ble.sh after integrations
       [[ ''${BLE_VERSION-} ]] && ble-attach || true
 
       # Yazi shell wrapper for cd on exit
