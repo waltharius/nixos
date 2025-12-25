@@ -17,6 +17,12 @@
     isNormalUser = true;
     description = "Marcin";
     extraGroups = [ "networkmanager" "wheel" ];
+    
+    # SSH authorized keys for remote access
+    # TODO: Replace with your actual public key from ~/.ssh/id_ed25519_tabby.pub
+    openssh.authorizedKeys.keys = [
+      # "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIxxx... marcin@tabby"
+    ];
   };
   
   # Allow unfree packages
