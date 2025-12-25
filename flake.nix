@@ -42,6 +42,7 @@
           ./modules/system/locale.nix
           ./modules/system/gnome.nix
           ./modules/system/secrets.nix
+          ./modules/system/sshd.nix  # SSH server for remote access
           
           # SOPS for system-level secrets
           sops-nix.nixosModules.sops
