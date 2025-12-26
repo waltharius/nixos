@@ -1,35 +1,52 @@
 # VM Test Configuration
+# Minimal configuration for VirtualBox/QEMU testing
+{ config, pkgs, lib, ... }:
+
 {
-  config,
-  pkgs,
-  lib,
-  ...
-}: {
-  # Hostname
+  # ========================================
+  # DISABLE WiFi module for VM (no WiFi hardware)
+  # ========================================
+  disabledModules = [ ../../modules/system/wifi.nix ];
+
+  # ========================================
+  # BASIC SYSTEM SETTINGS
+  # ========================================
   networking.hostName = "testvm";
-
-  # VM-specific: Spice guest for better integration
-  services.spice-vdagentd.enable = true;
+  
+  # Disable wireless (VM doesn't have WiFi)
+  networking.wireless.enable = false;
+  
+  # ========================================
+  # VM-SPECIFIC SERVICES
+  # ========================================
+  # QEMU guest agent for better VM integration
   services.qemuGuest.enable = true;
-
-  # VM-specific: No TLP (no battery in VM)
+  
+  # Spice agent for clipboard sharing and display scaling
+  services.spice-vdagentd.enable = true;
+  
+  # Disable TLP (no battery management in VM)
   services.tlp.enable = lib.mkForce false;
-
-  # VM-specific: Disable WiFi (VM uses bridged/NAT networking)
-  networking.networkmanager.wifi.enable = lib.mkForce false;
-
-  # Basic user setup
+  
+  # ========================================
+  # USER CONFIGURATION
+  # ========================================
   users.users.marcin = {
     isNormalUser = true;
     description = "Marcin";
-    extraGroups = ["wheel" "networkmanager"];
-
-    # SSH key (for testing)
+    extraGroups = [ "wheel" "networkmanager" ];
+    
+    # Explicit UID to ensure correct file ownership
+    uid = 1000;
+    
+    # SSH key for remote access
     openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhyNxm4pZR9CCnWGlDA+jotcnH5sc53LpSkSLs7XNx0 walth@fedora-laptop-tabby-2025"
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBxqKdPGwVs6FMLzRMW06vTPi7t4pGsXTc5sNBHW9LMx marcin@tabby"
     ];
   };
-
-  # System version
+  
+  # ========================================
+  # SYSTEM VERSION
+  # ========================================
   system.stateVersion = "25.11";
 }
