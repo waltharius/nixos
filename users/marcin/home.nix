@@ -32,13 +32,15 @@ in
   ];
 
   # ========================================
-  # GIT Configuration
+  # GIT Configuration (FIXED - new syntax)
   # ========================================
   programs.git = {
     enable = true;
     userName = "marcin";
-    userEmail = "nixosgitemail.frivolous320@passmail.net";
-    extraConfig = {
+    
+    # FIXED: Use programs.git.settings instead of userEmail
+    settings = {
+      user.email = "nixosgitemail.frivolous320@passmail.net";
       init.defaultBranch = "main";
       url."git@github.com:".insteadOf = "https://github.com/";
     };
