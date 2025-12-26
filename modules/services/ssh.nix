@@ -43,16 +43,17 @@
   programs.ssh = {
     enable = true;
 
+    # FIXED: Set default values explicitly instead of relying on future defaults
+    controlMaster = "auto";
+    controlPath = "~/.ssh/sockets/%r@%h-%p";
+    controlPersist = "10m";
+    serverAliveInterval = 60;
+    forwardAgent = false;
+    compression = false;
+
     matchBlocks = {
       # Global defaults for all hosts
       "*" = {
-        serverAliveInterval = 60;
-        controlMaster = "auto";
-        controlPath = "~/.ssh/sockets/%r@%h-%p";
-        controlPersist = "10m";
-        forwardAgent = false;
-        compression = false;
-
         # Include encrypted hosts configuration
         extraOptions = {
           Include = "~/.ssh/config.d/hosts";
