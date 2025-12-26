@@ -39,6 +39,9 @@
           };
         };
         modules = [
+          # Allow unfree packages globally
+          {nixpkgs.config.allowUnfree = true;}
+
           # Host-specific configuration
           ./hosts/${hostname}/configuration.nix
           ./hosts/${hostname}/hardware-configuration.nix
