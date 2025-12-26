@@ -509,6 +509,15 @@ in
     signal-desktop
     brave
     
+    # Productivity & Office
+    libreoffice-fresh      # Office suite
+    zotero                 # Reference manager
+    obsidian               # Knowledge management
+    
+    # Media & Entertainment
+    spotify                # Music streaming
+    spotify-player         # Terminal Spotify client
+    
     # Development tools
     ripgrep
     fd
