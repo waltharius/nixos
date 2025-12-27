@@ -54,7 +54,8 @@
           ./modules/system/secrets.nix
           ./modules/system/sshd.nix # SSH server for remote access
           ./modules/system/wifi.nix # WiFi with encrypted passwords
-
+          ./modules/system/auto-upgrade.nix # weekly upgrades with garbage collections
+          
           # SOPS for system-level secrets
           sops-nix.nixosModules.sops
 
