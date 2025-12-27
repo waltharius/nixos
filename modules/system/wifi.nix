@@ -144,13 +144,15 @@
   # ==========================================
 
   # This runs after 'etc' activation to inject decrypted passwords
-  system.activationScripts.wifi-inject-passwords = lib.stringAfter ["etc" "sops-install-secrets"] ''
-    # Source dotenv file from sops secrets
-    WIFI_ENV="${config.sops.secrets.wifi-env-file.path}"
-
+  # Note: sops-nix runs as a systemd service, not an activation script
+  # So secrets may not be available during first rebuild - they'll work after reboot
+  system.activationScripts.wifi-inject-passwords = lib.stringAfter ["etc"] ''
+    # Use hardcoded path to avoid circular dependency
+    WIFI_ENV="/run/secrets/wifi-env-file"
+    
     if [ -f "$WIFI_ENV" ]; then
       echo "WiFi: Injecting passwords from $WIFI_ENV"
-
+      
       # Source environment variables from decrypted file
       set -a
       source "$WIFI_ENV" || {
@@ -190,6 +192,10 @@
       fi
     else
       echo "WiFi: WARNING - secrets file not found at $WIFI_ENV" >&2
+      echo "WiFi: Networks will be created without passwords" >&2
+      echo "WiFi: After first boot, secrets will be available and you can run:" >&2
+      echo "WiFi:   sudo /nix/var/nix/profiles/system/activate" >&2
+      echo "WiFi:   sudo systemctl restart NetworkManager" >&2
     fi
   '';
 
