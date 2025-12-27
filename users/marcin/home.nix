@@ -508,6 +508,7 @@ in
     blanket
     signal-desktop
     brave
+    gnome-secrets
     
     # Productivity & Office
     libreoffice-fresh      # Office suite
