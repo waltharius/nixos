@@ -534,6 +534,8 @@ in
     fastfetch
     atuin
     btop
+    lsof
+    procfd
     
     # Nix tools
     nix-prefetch-github
