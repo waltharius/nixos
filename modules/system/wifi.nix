@@ -135,7 +135,7 @@
   system.activationScripts.wifi-inject-passwords = lib.stringAfter ["etc"] ''
     # Source dotenv file from sops secrets
     WIFI_ENV="${config.sops.secrets."wifi-env-file".path}"
-    
+
     if [ -f "$WIFI_ENV" ]; then
       # Source environment variables from decrypted file
       set -a  # automatically export all variables
