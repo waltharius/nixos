@@ -144,46 +144,86 @@
   # ==========================================
 
   # This runs after 'etc' activation to inject decrypted passwords
-  # Note: sops-nix runs as a systemd service, not an activation script
-  # So secrets may not be available during first rebuild - they'll work after reboot
+  # Uses Python for safe handling of passwords with special characters
   system.activationScripts.wifi-inject-passwords = lib.stringAfter ["etc"] ''
-    # Use hardcoded path to avoid circular dependency
     WIFI_ENV="/run/secrets/wifi-env-file"
     
     if [ -f "$WIFI_ENV" ]; then
       echo "WiFi: Injecting passwords from $WIFI_ENV"
       
-      # Source environment variables from decrypted file
-      set -a
-      source "$WIFI_ENV" || {
-        echo "WiFi: ERROR - Failed to source $WIFI_ENV" >&2
-        exit 0
-      }
-      set +a
+      # Use Python for safe password injection (handles all special chars)
+      ${pkgs.python3}/bin/python3 << 'PYTHON_EOF'
+import re
+import os
+import sys
 
-      # Inject password into hegemonia5G-1 connection
-      if [ -n "$HEGEMONIA5G_1" ]; then
-        echo "WiFi: Injecting password for hegemonia5G-1"
-        ${pkgs.gnused}/bin/sed -i "/\[wifi-security\]/a psk=$HEGEMONIA5G_1" \
-          /etc/NetworkManager/system-connections/hegemonia5G-1.nmconnection 2>/dev/null || true
-      fi
+try:
+    # Read secrets from dotenv file
+    secrets = {}
+    with open("/run/secrets/wifi-env-file", "r") as f:
+        for line in f:
+            line = line.strip()
+            if "=" in line and not line.startswith("#"):
+                key, value = line.split("=", 1)
+                secrets[key] = value
 
-      # Inject password into hegemonia5G-2 connection
-      if [ -n "$HEGEMONIA5G_2" ]; then
-        echo "WiFi: Injecting password for hegemonia5G-2"
-        ${pkgs.gnused}/bin/sed -i "/\[wifi-security\]/a psk=$HEGEMONIA5G_2" \
-          /etc/NetworkManager/system-connections/hegemonia5G-2.nmconnection 2>/dev/null || true
-      fi
+    # Map connection names to their password variables
+    connections = {
+        "hegemonia5G-1": secrets.get("HEGEMONIA5G_1", ""),
+        "hegemonia5G-2": secrets.get("HEGEMONIA5G_2", ""),
+        "salon_new24": secrets.get("SALON_NEW24", ""),
+    }
 
-      # Inject password into salon_new24 connection
-      if [ -n "$SALON_NEW24" ]; then
-        echo "WiFi: Injecting password for salon_new24"
-        ${pkgs.gnused}/bin/sed -i "/\[wifi-security\]/a psk=$SALON_NEW24" \
-          /etc/NetworkManager/system-connections/salon_new24.nmconnection 2>/dev/null || true
-      fi
+    # Inject passwords into nmconnection files
+    for conn_name, password in connections.items():
+        if not password:
+            print(f"WiFi: WARNING - No password found for {conn_name}")
+            continue
+        
+        file_path = f"/etc/NetworkManager/system-connections/{conn_name}.nmconnection"
+        
+        if not os.path.exists(file_path):
+            print(f"WiFi: WARNING - Connection file not found: {file_path}")
+            continue
+        
+        try:
+            # Read current file content
+            with open(file_path, "r") as f:
+                content = f.read()
+            
+            # Check if password already injected
+            if re.search(r"^psk=.+$", content, re.MULTILINE):
+                print(f"WiFi: Password already present in {conn_name}, skipping")
+                continue
+            
+            # Inject password after [wifi-security] section
+            # This adds "psk=password" right after the [wifi-security] line
+            content = re.sub(
+                r"(\[wifi-security\]\n)",
+                r"\1psk=" + password + "\n",
+                content
+            )
+            
+            # Write back to file
+            with open(file_path, "w") as f:
+                f.write(content)
+            
+            # Set correct permissions
+            os.chmod(file_path, 0o600)
+            
+            print(f"WiFi: Successfully injected password for {conn_name}")
+            
+        except Exception as e:
+            print(f"WiFi: ERROR injecting password for {conn_name}: {e}", file=sys.stderr)
+            continue
 
-      # Set correct permissions
-      chmod 600 /etc/NetworkManager/system-connections/*.nmconnection 2>/dev/null || true
+    print("WiFi: Password injection completed")
+
+except Exception as e:
+    print(f"WiFi: FATAL ERROR: {e}", file=sys.stderr)
+    sys.exit(0)  # Don't fail the activation
+
+PYTHON_EOF
 
       # Reload NetworkManager to apply changes
       if systemctl is-active NetworkManager.service >/dev/null 2>&1; then
@@ -193,9 +233,7 @@
     else
       echo "WiFi: WARNING - secrets file not found at $WIFI_ENV" >&2
       echo "WiFi: Networks will be created without passwords" >&2
-      echo "WiFi: After first boot, secrets will be available and you can run:" >&2
-      echo "WiFi:   sudo /nix/var/nix/profiles/system/activate" >&2
-      echo "WiFi:   sudo systemctl restart NetworkManager" >&2
+      echo "WiFi: After reboot, run: sudo /nix/var/nix/profiles/system/activate" >&2
     fi
   '';
 
