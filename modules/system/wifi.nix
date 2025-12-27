@@ -143,6 +143,7 @@
       set +a
 
       # Inject password into hegemonia5G-1 connection
+      # NOTE: Variable name uses UNDERSCORE not DASH (dotenv compliance)
       if [ -n "$HEGEMONIA5G_1" ]; then
         ${pkgs.gnused}/bin/sed -i "s|psk-flags=0|psk=$HEGEMONIA5G_1\npsk-flags=0|" \
           /etc/NetworkManager/system-connections/hegemonia5G-1.nmconnection 2>/dev/null || true
