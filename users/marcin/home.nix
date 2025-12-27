@@ -518,6 +518,7 @@ in
     # Media & Entertainment
     spotify                # Music streaming
     spotify-player         # Terminal Spotify client
+    gnome-mahjongg
     
     # Development tools
     ripgrep
