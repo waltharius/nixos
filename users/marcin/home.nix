@@ -72,14 +72,6 @@ in
   };
 
   # ========================================
-  # EMACS Configuration
-  # ========================================
-  programs.emacs = {
-    enable = true;
-    package = pkgs.emacs-pgtk;
-  };
-
-  # ========================================
   # NEOVIM Configuration (MERGED + FIXED)
   # ========================================
   programs.neovim = {
@@ -520,6 +512,9 @@ in
     spotify-player         # Terminal Spotify client
     gnome-mahjongg
     
+    # Emacs (same as nix repo - simple package installation)
+    emacs
+    
     # Development tools
     ripgrep
     fd
@@ -555,7 +550,7 @@ in
     google-fonts
     liberation_ttf
     
-    # Language tools
+    # Language tools (same as nix repo)
     hunspell
     hunspellDicts.en_GB-large
     hunspellDicts.pl_PL
@@ -571,9 +566,7 @@ in
   # ENVIRONMENT VARIABLES
   # ========================================
   home.sessionVariables = {
-    DICPATH = "${pkgs.hunspellDicts.en_GB-large}/share/hunspell:${pkgs.hunspellDicts.pl_PL}/share/hunspell";
     LANGUAGETOOL_JAR = "${pkgs.languagetool}/share/languagetool-commandline.jar";
-    EMACS_NOTES_DIR = "$HOME/Notes";
   };
 
   # ========================================
@@ -590,7 +583,7 @@ in
     };
   };
 
-  # Run-or-raise shortcuts
+  # Run-or-raise shortcuts (same as nix repo)
   xdg.configFile."run-or-raise/shortcuts.conf".text = ''
     <Control><Alt>e,${pkgs.emacs}/bin/emacs,emacs
     <Super>f,${pkgs.brave}/bin/brave,,
