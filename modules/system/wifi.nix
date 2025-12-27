@@ -47,7 +47,7 @@
     mode = "0600";
     text = ''
       [connection]
-      id=Home
+      id=hegemonia5G-1
       type=wifi
       autoconnect=true
       autoconnect-priority=100
@@ -75,7 +75,7 @@
     mode = "0600";
     text = ''
       [connection]
-      id=Work
+      id=hegemonia5G-2
       type=wifi
       autoconnect=true
       autoconnect-priority=50
@@ -103,7 +103,7 @@
     mode = "0600";
     text = ''
       [connection]
-      id=Parents
+      id=salon_new24
       type=wifi
       autoconnect=true
       autoconnect-priority=30
