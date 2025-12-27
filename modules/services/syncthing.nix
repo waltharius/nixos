@@ -52,14 +52,13 @@
     };
   };
 
-  # Grant Syncthing service proper permissions.
-  # %h - expands to $HOME
-  systemd.user.services.syncthing = {
-    Service = {
-      WorkingDirectory = "%h";
+  # FIX: Override Syncthing systemd service to grant proper permissions
+  # Using systemd drop-in file approach (safest method)
+  xdg.configFile."systemd/user/syncthing.service.d/override.conf".text = ''
+    [Service]
+    # Grant read-write access to home directory
+    # This allows Syncthing to create folder paths anywhere in your home
+    ReadWritePaths=%h
+  '';
 
-      # Grant read-write access to home directory
-      ReadWritePaths = [ "%h" ];
-    };
-  };
 }
