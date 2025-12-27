@@ -151,9 +151,8 @@
     if [ -f "$WIFI_ENV" ]; then
       echo "WiFi: Injecting passwords from $WIFI_ENV"
       
-      # Use Python for safe password injection (handles all special chars)
+      # Use Python for safe password injection (handles all special chars including backslashes)
       ${pkgs.python3}/bin/python3 << 'PYTHON_EOF'
-import re
 import os
 import sys
 
@@ -192,17 +191,24 @@ try:
                 content = f.read()
             
             # Check if password already injected
-            if re.search(r"^psk=.+$", content, re.MULTILINE):
+            if "\npsk=" in content:
                 print(f"WiFi: Password already present in {conn_name}, skipping")
                 continue
             
-            # Inject password after [wifi-security] section
-            # This adds "psk=password" right after the [wifi-security] line
-            content = re.sub(
-                r"(\[wifi-security\]\n)",
-                r"\1psk=" + password + "\n",
-                content
-            )
+            # Inject password after [wifi-security] section using safe string split
+            # This avoids regex interpretation of backslash sequences like \x, \n, etc.
+            if "\n[wifi-security]\n" in content:
+                parts = content.split("\n[wifi-security]\n", 1)
+                # Build new content with password safely inserted (no escaping issues)
+                content = (
+                    parts[0] + 
+                    "\n[wifi-security]\n" +
+                    f"psk={password}\n" +
+                    parts[1]
+                )
+            else:
+                print(f"WiFi: ERROR - No [wifi-security] section found in {conn_name}")
+                continue
             
             # Write back to file
             with open(file_path, "w") as f:
