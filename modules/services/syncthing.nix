@@ -51,4 +51,15 @@
       };
     };
   };
+
+  # Grant Syncthing service proper permissions.
+  # %h - expands to $HOME
+  systemd.user.services.syncthing = {
+    Service = {
+      WorkingDirectory = "%h";
+
+      # Grant read-write access to home directory
+      ReadWritePaths = [ "%h" ];
+    };
+  };
 }
