@@ -28,6 +28,7 @@ in
   # ========================================
   imports = [
     ../../modules/services/syncthing.nix
+    ../../modules/services/ssh.nix
   ];
 
   # ========================================

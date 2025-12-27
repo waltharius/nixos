@@ -8,7 +8,6 @@
   
   # Import host-specific modules
   imports = [
-  ../../modules/services/ssh.nix
   ];
   
   # User configuration
