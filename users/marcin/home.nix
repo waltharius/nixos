@@ -51,8 +51,8 @@ in
   # ========================================
   fonts.fontconfig.enable = true;
   
-  # Optional: Symlink custom fonts if directory exists
-  home.file.".local/share/fonts/custom" = lib.mkIf (builtins.pathExists nixos-fonts) {
+  # Custom fonts for Emacs (Playpen Sans Hebrew for journal)
+  home.file.".local/share/fonts/emacs-custom" = {
     source = create_symlink nixos-fonts;
     recursive = true;
   };
@@ -69,6 +69,49 @@ in
   xdg.configFile."alacritty" = lib.mkIf (builtins.pathExists "${dotfiles}/alacritty") {
     source = create_symlink "${dotfiles}/alacritty/";
     recursive = true;
+  };
+
+  # ========================================
+  # EMACS Configuration (full setup with packages)
+  # ========================================
+  programs.emacs = {
+    enable = true;
+    package = pkgs.emacs;
+    
+    # Install required Emacs packages for full functionality
+    extraPackages = epkgs: with epkgs; [
+      # === CORE PACKAGES (required for keybindings and menus) ===
+      transient            # Transient menus (C-c n, C-c p, etc.)
+      which-key            # Show available keybindings
+      
+      # === NOTE-TAKING SYSTEM ===
+      denote               # Note-taking with Denote
+      consult-denote       # Search integration
+      
+      # === ORG-MODE ENHANCEMENTS ===
+      org-transclusion     # Embed content from other files
+      
+      # === COMPLETION FRAMEWORK ===
+      vertico              # Vertical completion UI
+      marginalia           # Rich annotations
+      consult              # Consulting completing-read
+      orderless            # Flexible completion style
+      
+      # === GIT INTEGRATION ===
+      magit                # Git porcelain
+      
+      # === SPELL & GRAMMAR CHECKING ===
+      langtool             # LanguageTool integration
+      flyspell-correct     # Spell correction interface
+      
+      # === UI ENHANCEMENTS ===
+      doom-themes          # Theme collection
+      all-the-icons        # Icons for UI
+      
+      # === UTILITIES ===
+      helpful              # Better help buffers
+      rainbow-delimiters   # Colorful parentheses
+    ];
   };
 
   # ========================================
@@ -511,9 +554,6 @@ in
     spotify                # Music streaming
     spotify-player         # Terminal Spotify client
     gnome-mahjongg
-    
-    # Emacs (same as nix repo - simple package installation)
-    emacs
     
     # Development tools
     ripgrep
