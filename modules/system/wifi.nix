@@ -28,28 +28,14 @@
   # SOPS Secrets for WiFi Passwords
   # ==========================================
 
-  # Home WiFi password
-  sops.secrets."wifi/hegemonia5G-1" = {
+  # Entire wifi.env file containing all WiFi passwords
+  sops.secrets."wifi-env-file" = {
     sopsFile = ../../secrets/wifi.env;
     format = "dotenv";
     restartUnits = ["NetworkManager.service"];
     mode = "0600";
-  };
-
-  # Work WiFi password
-  sops.secrets."wifi/hegemonia5G-2" = {
-    sopsFile = ../../secrets/wifi.env;
-    format = "dotenv";
-    restartUnits = ["NetworkManager.service"];
-    mode = "0600";
-  };
-
-  # Parents/Frequently visited WiFi password (optional)
-  sops.secrets."wifi/salon_new24" = {
-    sopsFile = ../../secrets/wifi.env;
-    format = "dotenv";
-    restartUnits = ["NetworkManager.service"];
-    mode = "0600";
+    owner = "root";
+    group = "root";
   };
 
   # ==========================================
@@ -146,32 +132,42 @@
   # ==========================================
 
   # This runs after 'etc' activation to inject decrypted passwords
-
   system.activationScripts.wifi-inject-passwords = lib.stringAfter ["etc"] ''
-    # Source dotenv file
-    if [ -f ${config.sops.secrets."wifi-env".path} ]; then
-      source ${config.sops.secrets."wifi-env".path}
+    # Source dotenv file from sops secrets
+    WIFI_ENV="${config.sops.secrets."wifi-env-file".path}"
+    
+    if [ -f "$WIFI_ENV" ]; then
+      # Source environment variables from decrypted file
+      set -a  # automatically export all variables
+      source "$WIFI_ENV"
+      set +a
 
-      # Now use env vars
+      # Inject password into hegemonia5G-1 connection
       if [ -n "$HEGEMONIA5G_1" ]; then
         ${pkgs.gnused}/bin/sed -i "s|psk-flags=0|psk=$HEGEMONIA5G_1\npsk-flags=0|" \
           /etc/NetworkManager/system-connections/hegemonia5G-1.nmconnection 2>/dev/null || true
       fi
 
+      # Inject password into hegemonia5G-2 connection
       if [ -n "$HEGEMONIA5G_2" ]; then
         ${pkgs.gnused}/bin/sed -i "s|psk-flags=0|psk=$HEGEMONIA5G_2\npsk-flags=0|" \
           /etc/NetworkManager/system-connections/hegemonia5G-2.nmconnection 2>/dev/null || true
       fi
 
+      # Inject password into salon_new24 connection
       if [ -n "$SALON_NEW24" ]; then
         ${pkgs.gnused}/bin/sed -i "s|psk-flags=0|psk=$SALON_NEW24\npsk-flags=0|" \
           /etc/NetworkManager/system-connections/salon_new24.nmconnection 2>/dev/null || true
       fi
 
-      # Reload NetworkManager
+      # Reload NetworkManager to apply changes
       if systemctl is-active NetworkManager.service >/dev/null 2>&1; then
-        ${pkgs.systemd}/bin/systemctl reload NetworkManager.service || true
+        ${pkgs.systemd}/bin/systemctl reload NetworkManager.service 2>/dev/null || true
       fi
+    else
+      echo "Warning: WiFi secrets file not found at $WIFI_ENV" >&2
+      echo "WiFi networks will be created without passwords." >&2
+      echo "You can connect manually using NetworkManager GUI." >&2
     fi
   '';
 
