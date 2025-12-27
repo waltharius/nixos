@@ -41,15 +41,6 @@
     ptyxis
   ];
   
-  # Enable Syncthing
-  services.syncthing = {
-    enable = true;
-    openDefaultPorts = true;
-    user = "marcin";
-    dataDir = "/home/marcin";
-    configDir = "/home/marcin/.config/syncthing";
-  };
-  
   # State version - DO NOT CHANGE after initial installation
   system.stateVersion = "25.11";
 }
