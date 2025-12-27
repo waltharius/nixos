@@ -8,8 +8,7 @@
   
   # Import host-specific modules
   imports = [
-    # No TLP - no battery present
-    # No hibernate module - not useful without battery
+  ../../modules/services/ssh.nix
   ];
   
   # User configuration

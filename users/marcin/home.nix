@@ -13,7 +13,7 @@ in
   # SOPS Configuration
   # ========================================
   sops = {
-    age.keyFile = "/var/lib/sops-nix/key.txt";
+    age.keyFile = "${config.home.homeDirectory}/.config/sops/age/keys.txt";
     defaultSopsFile = ../../secrets/ssh.yaml;
   };
 
@@ -28,7 +28,6 @@ in
   # ========================================
   imports = [
     ../../modules/services/syncthing.nix
-    ../../modules/services/ssh.nix
   ];
 
   # ========================================
