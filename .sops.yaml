@@ -20,7 +20,7 @@ keys:
   
   # Host keys - generated on each machine during installation
   # Location on host: /var/lib/sops-nix/key.txt
-  - &sukkub age1vqp07rzptmjvcd0df7ppwmwjm77qckckjpht62rk246rypuy9pns8t9c32
+  - &sukkub age1lrla3ltkfljhshrlp2cqr3mzm3hvyxmka6fjs68ck2ykwgnjygwql9twy2 
   - &azazel age1t73dnh9pj2qsz3rfqgq54t2pyxh8ew6w8xsta7pfwmmxmsjswgrshue8gx
 
 creation_rules:
