@@ -9,6 +9,9 @@
     vimdiffAlias = true;
 
     plugins = with pkgs.vimPlugins; [
+      # Theme related
+      tokyonight-nvim
+
       # Completion framework
       nvim-cmp
       cmp-nvim-lsp
@@ -170,7 +173,7 @@
           floats = "transparent",
         },
       })
-      vim.cmd.colorscheme "tokyonight"
+      vim.cmd.colorscheme "tokyonight-night"
 
       -- ==========================================
       -- LSP Keybindings
