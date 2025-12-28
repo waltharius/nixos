@@ -544,6 +544,8 @@ in
     
     # File managers
     yazi
+    insync
+    insync-nautilus
     
     # Fonts
     nerd-fonts.hack
@@ -599,7 +601,7 @@ in
   xdg.configFile."run-or-raise/shortcuts.conf".text = ''
     <Control><Alt>e,${pkgs.emacs}/bin/emacs,emacs
     <Super>f,${pkgs.brave}/bin/brave,,
-    <Super>e,$(pkgs.nautilus)/bin/nautilus,nautilus
+    <Super>e,${pkgs.nautilus}/bin/nautilus,nautilus
     <Super>t,ptyxis
   '';
 }
