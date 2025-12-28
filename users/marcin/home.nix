@@ -544,8 +544,6 @@ in
     
     # File managers
     yazi
-    insync
-    insync-nautilus
     
     # Fonts
     nerd-fonts.hack
