@@ -29,6 +29,7 @@ in
   imports = [
     ../../modules/services/syncthing.nix
     ../../modules/services/ssh.nix
+    ../../modules/utils/yazi.nix
   ];
 
   # ========================================
