@@ -561,6 +561,12 @@ in
     gnomeExtensions.run-or-raise
     gnomeExtensions.gsconnect
     gnomeExtensions.just-perfection
+    gnomeExtensions.power-tracker
+    gnomeExtensions.screen-brightness-governor
+    gnomeExtensions.shu-zhi
+    gnomeExtensions.window-is-ready-remover
+    gnomeExtensions.focused-window-d-bus
+    
   ];
 
   # ========================================
@@ -580,6 +586,11 @@ in
         "run-or-raise@edvard.cz"
         "gsconnect@andyholmes.github.io"
         "just-perfection-desktop@just-perfection"
+        "power-tracker@sunjmc.gmail.com"
+        "screen-brightness-governor@vodokatovskyi.com"
+        "shu-zhi@cocoteen.github.io"
+        "window-is-ready-remover@nunofarruca@gmail.com"
+        "focused-window-d-bus@flexagoon.com"
       ];
     };
   };
