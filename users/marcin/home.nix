@@ -4,8 +4,8 @@
 
 let
   # Dotfiles symlink helper
-  dotfiles = "${config.home.homeDirectory}/nixos-dotfiles/config";
-  nixos-fonts = "${config.home.homeDirectory}/nixos-dotfiles/fonts";
+  dotfiles = "${config.home.homeDirectory}/nixos/config";
+  nixos-fonts = "${config.home.homeDirectory}/nixos/fonts";
   create_symlink = path: config.lib.file.mkOutOfStoreSymlink path;
 in
 {
