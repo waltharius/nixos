@@ -1,6 +1,4 @@
-{ pkgs, ...}:
-
-{
+{pkgs, ...}: {
   programs.neovim = {
     enable = true;
     defaultEditor = true;
@@ -11,6 +9,9 @@
     plugins = with pkgs.vimPlugins; [
       # Theme related
       tokyonight-nvim
+
+      # Formatting
+      conform-nvim
 
       # Completion framework
       nvim-cmp
@@ -130,14 +131,14 @@
       # LSP servers
       nixd
       lua-language-server
-      
+
       # Formatters
       alejandra
       stylua
       black
       nodePackages.prettier
       shfmt
-      
+
       # Tools
       ripgrep
       fd
@@ -174,6 +175,40 @@
         },
       })
       vim.cmd.colorscheme "tokyonight-night"
+
+      -- ========================================
+      -- FORMATTING (Conform.nvim)
+      -- ========================================
+      require("conform").setup({
+        formatters_by_ft = {
+          -- Your primary languages
+          python = { "black" },
+          bash = { "shfmt" },
+          sh = { "shfmt" },
+          nix = { "alejandra" },
+
+          -- Additional languages
+          lua = { "stylua" },
+          javascript = { "prettier" },
+          typescript = { "prettier" },
+          json = { "prettier" },
+          yaml = { "prettier" },
+          markdown = { "prettier" },
+          html = { "prettier" },
+          css = { "prettier" },
+        },
+
+        -- ⚡ AUTOMATIC FORMAT ON SAVE ⚡
+        format_on_save = {
+          timeout_ms = 500,
+          lsp_fallback = true,  -- Use LSP formatting if conform doesn't have a formatter
+        },
+      })
+
+      -- Optional: Manual format keybinding (in case you want to format without saving)
+      vim.keymap.set('n', '<leader>f', function()
+        require("conform").format({ async = true, lsp_fallback = true })
+      end, { desc = "Format buffer" })
 
       -- ==========================================
       -- LSP Keybindings

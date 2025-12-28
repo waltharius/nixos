@@ -1,14 +1,16 @@
 # Home Manager configuration for user marcin
 # Combines configuration from both previous setups
-{ config, pkgs, lib, ... }:
-
-let
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}: let
   # Dotfiles symlink helper
   dotfiles = "${config.home.homeDirectory}/nixos/config";
   nixos-fonts = "${config.home.homeDirectory}/nixos/fonts";
   create_symlink = path: config.lib.file.mkOutOfStoreSymlink path;
-in
-{
+in {
   # ========================================
   # SOPS Configuration
   # ========================================
@@ -39,7 +41,7 @@ in
   programs.git = {
     enable = true;
     userName = "marcin";
-    
+
     # FIXED: Use programs.git.settings instead of userEmail
     settings = {
       user.email = "nixosgitemail.frivolous320@passmail.net";
@@ -52,7 +54,7 @@ in
   # FONTS
   # ========================================
   fonts.fontconfig.enable = true;
-  
+
   # Custom fonts for Emacs (Playpen Sans Hebrew for journal)
   # Must be synced from ~/nix/fonts to ~/nixos-dotfiles/fonts
   home.file.".local/share/fonts/custom" = {
@@ -84,7 +86,7 @@ in
     historyLimit = 1000000;
     baseIndex = 1;
     terminal = "tmux-256color";
-    
+
     plugins = with pkgs.tmuxPlugins; [
       sensible
       yank
@@ -111,25 +113,25 @@ in
       ll = "eza -alF --hyperlink --group-directories-first --color=auto --color-scale=size --color-scale-mode=gradient --icons --git";
       la = "eza -a --hyperlink --group-directories-first --color=auto --color-scale=size --color-scale-mode=gradient --icons --git";
       lt = "eza --tree --hyperlink --group-directories-first --color=auto --icons --git";
-      
+
       # Git shortcuts
       gs = "git status";
       ga = "git add";
       gc = "git commit";
       gp = "git push";
-      
+
       # NixOS shortcuts
       nrs = "sudo nixos-rebuild switch --flake ~/nixos";
       nrt = "sudo nixos-rebuild test --flake ~/nixos";
       nrb = "sudo nixos-rebuild boot --flake ~/nixos";
-      
+
       # WiFi management (NetworkManager)
       wifi-list = "nmcli device wifi list";
       wifi-connect = "nmcli device wifi connect";
       wifi-status = "nmcli connection show --active";
       wifi-forget = "nmcli connection delete";
       wifi-scan = "nmcli device wifi rescan";
-      
+
       # Atuin filter modes
       atuin-local = "ATUIN_FILTER_MODE=host atuin search -i";
       atuin-global = "ATUIN_FILTER_MODE=global atuin search -i";
@@ -213,7 +215,7 @@ in
   programs.zoxide = {
     enable = true;
     enableBashIntegration = true;
-    options = [ "--cmd cd" ];
+    options = ["--cmd cd"];
   };
 
   # ========================================
@@ -228,18 +230,18 @@ in
       sync_address = "https://atuin.home.lan";
       auto_sync = true;
       sync_frequency = "1m";
-      
+
       # Filter by host by default
       filter_mode = "host";
-      
+
       # Search settings
       search_mode = "fuzzy";
       style = "compact";
       show_preview = true;
-      
+
       # Smart Up arrow - filter by directory
       filter_mode_shell_up_key_binding = "directory";
-      
+
       # Privacy - never save sensitive commands
       history_filter = [
         "^pass"
@@ -259,20 +261,20 @@ in
     signal-desktop
     brave
     gnome-secrets
-    
+
     # Productivity & Office
-    libreoffice-fresh      # Office suite
-    zotero                 # Reference manager
-    obsidian               # Knowledge management
-    
+    libreoffice-fresh # Office suite
+    zotero # Reference manager
+    obsidian # Knowledge management
+
     # Media & Entertainment
-    spotify                # Music streaming
-    spotify-player         # Terminal Spotify client
+    spotify # Music streaming
+    spotify-player # Terminal Spotify client
     gnome-mahjongg
-    
+
     # Emacs (simple installation - manages its own packages from ~/.emacs.d)
     emacs
-    
+
     # Development tools
     ripgrep
     fd
@@ -280,7 +282,7 @@ in
     wget
     curl
     git
-    
+
     # Shell utilities
     blesh
     eza
@@ -291,29 +293,29 @@ in
     btop
     lsof
     procfd
-    
+
     # Nix tools
     nix-prefetch-github
     sops
     age
     nil
     nixpkgs-fmt
-    
+
     # File managers
     yazi
-    
+
     # Fonts
     nerd-fonts.hack
     nerd-fonts.jetbrains-mono
     google-fonts
     liberation_ttf
-    
+
     # Language tools (for Emacs spell/grammar checking)
     hunspell
     hunspellDicts.en_GB-large
     hunspellDicts.pl_PL
     languagetool
-    
+
     # GNOME Extensions
     gnomeExtensions.run-or-raise
     gnomeExtensions.gsconnect
@@ -323,7 +325,6 @@ in
     gnomeExtensions.shu-zhi
     gnomeExtensions.window-is-ready-remover
     gnomeExtensions.focused-window-d-bus
-    
   ];
 
   # ========================================

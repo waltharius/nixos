@@ -1,9 +1,12 @@
-{ config, pkgs, lib, ... }:
-
 {
+  config,
+  pkgs,
+  lib,
+  ...
+}: {
   # Internal Certificates Authorities
   # These certificates are required for accessing internal infrastructure (homelab)
-  
+
   security.pki.certificates = [
     # FreeIPA CA
     # Domain: home.lan
@@ -35,6 +38,6 @@
       qgC1/zWsjRfy5uqQDI5hHi1LeTWUsM5geWC9BdBcDAW3mmIeoKcI1MuQkGevdc71
       6ZwEKtNeWK/GTR7WNJckz3wSkXAL29TVuUdDoK85QF1nrzFuBQ+N3w==
       -----END CERTIFICATE-----
-      ''
+    ''
   ];
 }

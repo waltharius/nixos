@@ -1,4 +1,4 @@
-{ pkgs, ... }: {
+{pkgs, ...}: {
   programs.yazi = {
     enable = true;
     enableBashIntegration = true; # Auto-cd functionality
@@ -6,7 +6,7 @@
 
     settings = {
       mgr = {
-        ratio = [ 1 3 4 ];
+        ratio = [1 3 4];
         sort_by = "natural";
         sort_dir_first = true;
         show_hidden = true;
@@ -27,12 +27,30 @@
       # Force text files to use the 'edit' opener defined above
       open = {
         rules = [
-          { name = "*/"; use = [ "edit" "open" "reveal" ]; }
-          { mime = "text/*"; use = [ "edit" "reveal" ]; }
-          { mime = "image/*"; use = [ "open" "reveal" ]; }
-          { mime = "{audio,video}/*"; use = [ "play" "reveal" ]; }
-          { mime = "inode/x-empty"; use = [ "edit" "reveal" ]; }
-          { mime = "application/json"; use = [ "edit" "reveal" ]; }
+          {
+            name = "*/";
+            use = ["edit" "open" "reveal"];
+          }
+          {
+            mime = "text/*";
+            use = ["edit" "reveal"];
+          }
+          {
+            mime = "image/*";
+            use = ["open" "reveal"];
+          }
+          {
+            mime = "{audio,video}/*";
+            use = ["play" "reveal"];
+          }
+          {
+            mime = "inode/x-empty";
+            use = ["edit" "reveal"];
+          }
+          {
+            mime = "application/json";
+            use = ["edit" "reveal"];
+          }
         ];
       };
     };
@@ -52,4 +70,3 @@
     exiftool
   ];
 }
-

@@ -1,10 +1,12 @@
 # Locale and keyboard configuration for Poland
-{ config, lib, ... }:
-
 {
+  config,
+  lib,
+  ...
+}: {
   # Timezone
   time.timeZone = "Europe/Warsaw";
-  
+
   # Locale settings
   i18n.defaultLocale = "en_GB.UTF-8";
   i18n.extraLocaleSettings = {
@@ -18,10 +20,10 @@
     LC_TELEPHONE = "pl_PL.UTF-8";
     LC_TIME = "pl_PL.UTF-8";
   };
-  
+
   # Console keymap
   console.keyMap = "pl2";
-  
+
   # X11 keymap
   services.xserver.xkb = {
     layout = "pl";
