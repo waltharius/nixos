@@ -12,8 +12,20 @@
   networking.firewall = {
     enable = true;
     # Allow Syncthing ports
-    allowedTCPPorts = [8384 22000];
+    allowedTCPPorts = [22 8384 22000];
+    allowedTCPPortRanges = [
+      {
+        from = 1714;
+        to = 1764;
+      }
+    ];
     allowedUDPPorts = [22000 21027];
+    allowedUDPPortRanges = [
+      {
+        from = 1714;
+        to = 1764;
+      }
+    ];
   };
 
   # Enable OpenSSH daemon
