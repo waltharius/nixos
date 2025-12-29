@@ -14,13 +14,6 @@
   imports = [
   ];
 
-  services.python-validity.enable = true;
-
-  security.pam.services = {
-    login.fprintAuth = true;
-    gdm.fprintAuth = true;
-  };
-
   # User configuration
   users.users.marcin = {
     isNormalUser = true;
