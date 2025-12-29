@@ -70,23 +70,15 @@ in {
   # ========================================
   # HOME FILE CONFIGURATION
   # ========================================
-  home.file =
-    {
-      # Custom fonts for Emacs (Playpen Sans Hebrew for journal)
-      ".local/share/fonts/custom" = {
-        source = create_symlink nixos-fonts;
-        recursive = true;
-      };
-    }
-    // builtins.listToAttrs (map (ext: {
-        name = ".local/share/gnome-shell/extensions/${ext.extensionUuid}";
-        value = {
-          source = "${ext}/share/gnome-shell/extensions/${ext.extensionUuid}";
-        };
-      })
-      myGnomeExtensions);
+  home.file = {
+    # Custom fonts for Emacs (Playpen Sans Hebrew for journal)
+    ".local/share/fonts/custom" = {
+      source = create_symlink nixos-fonts;
+      recursive = true;
+    };
+  };
 
-  # ========================================
+  # ==:wifi======================================
   # TMUX Configuration
   # ========================================
   programs.tmux = {
@@ -357,8 +349,8 @@ in {
   xdg.configFile."run-or-raise/shortcuts.conf".text = ''
     <Control><Alt>e,${pkgs.emacs}/bin/emacs,emacs
     <Super>f,${pkgs.brave}/bin/brave,,
-    <Super>e,${pkgs.nautilus}/bin/nautilus,nautilus
-    <Super>t,ptyxis
+    <Super>e,${pkgs.nautilus}/bin/nautilus,org.gnome.Nautilus.desktop
+    <Super>t,ptyxis,org.gnome.Ptyxis
     <Control>p,${pkgs.signal-desktop}/bin/signal-desktop,signal
   '';
 }
