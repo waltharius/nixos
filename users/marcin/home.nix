@@ -359,5 +359,6 @@ in {
     <Super>f,${pkgs.brave}/bin/brave,,
     <Super>e,${pkgs.nautilus}/bin/nautilus,nautilus
     <Super>t,ptyxis
+    <Control>p,${pkgs.signal-desktop}/bin/signal-desktop,signal
   '';
 }
