@@ -10,6 +10,18 @@
   dotfiles = "${config.home.homeDirectory}/nixos/config";
   nixos-fonts = "${config.home.homeDirectory}/nixos/fonts";
   create_symlink = path: config.lib.file.mkOutOfStoreSymlink path;
+
+  # Define GNOME extensions
+  myGnomeExtensions = with pkgs.gnomeExtensions; [
+    run-or-raise
+    gsconnect
+    just-perfection
+    power-tracker
+    screen-brightness-governor
+    shu-zhi
+    window-is-ready-remover
+    focused-window-d-bus
+  ];
 in {
   # ========================================
   # SOPS Configuration
@@ -55,26 +67,24 @@ in {
   # ========================================
   fonts.fontconfig.enable = true;
 
-  # Custom fonts for Emacs (Playpen Sans Hebrew for journal)
-  # Must be synced from ~/nix/fonts to ~/nixos-dotfiles/fonts
-  home.file.".local/share/fonts/custom" = {
-    source = create_symlink nixos-fonts;
-    recursive = true;
-  };
-
   # ========================================
-  # XDG CONFIG - External dotfiles
+  # HOME FILE CONFIGURATION
   # ========================================
-  # Use external nvim config if it exists, otherwise use inline config
-  xdg.configFile."nvim" = lib.mkIf (builtins.pathExists "${dotfiles}/nvim") {
-    source = create_symlink "${dotfiles}/nvim/";
-    recursive = true;
-  };
-
-  xdg.configFile."alacritty" = lib.mkIf (builtins.pathExists "${dotfiles}/alacritty") {
-    source = create_symlink "${dotfiles}/alacritty/";
-    recursive = true;
-  };
+  home.file =
+    {
+      # Custom fonts for Emacs (Playpen Sans Hebrew for journal)
+      ".local/share/fonts/custom" = {
+        source = create_symlink nixos-fonts;
+        recursive = true;
+      };
+    }
+    // builtins.listToAttrs (map (ext: {
+        name = ".local/share/gnome-shell/extensions/${ext.extensionUuid}";
+        value = {
+          source = "${ext}/share/gnome-shell/extensions/${ext.extensionUuid}";
+        };
+      })
+      myGnomeExtensions);
 
   # ========================================
   # TMUX Configuration
@@ -255,78 +265,70 @@ in {
   # ========================================
   # HOME PACKAGES
   # ========================================
-  home.packages = with pkgs; [
-    # GUI Applications
-    blanket
-    signal-desktop
-    brave
-    gnome-secrets
+  home.packages = with pkgs;
+    [
+      # GUI Applications
+      blanket
+      signal-desktop
+      brave
+      gnome-secrets
 
-    # Productivity & Office
-    libreoffice-fresh # Office suite
-    zotero # Reference manager
-    obsidian # Knowledge management
+      # Productivity & Office
+      libreoffice-fresh # Office suite
+      zotero # Reference manager
+      obsidian # Knowledge management
 
-    # Media & Entertainment
-    spotify # Music streaming
-    spotify-player # Terminal Spotify client
-    gnome-mahjongg
+      # Media & Entertainment
+      spotify # Music streaming
+      spotify-player # Terminal Spotify client
+      gnome-mahjongg
 
-    # Emacs (simple installation - manages its own packages from ~/.emacs.d)
-    emacs
+      # Emacs (simple installation - manages its own packages from ~/.emacs.d)
+      emacs
 
-    # Development tools
-    ripgrep
-    fd
-    tree
-    wget
-    curl
-    git
+      # Development tools
+      ripgrep
+      fd
+      tree
+      wget
+      curl
+      git
 
-    # Shell utilities
-    ptyxis
-    blesh
-    eza
-    zoxide
-    starship
-    fastfetch
-    atuin
-    btop
-    lsof
-    procfd
+      # Shell utilities
+      ptyxis
+      blesh
+      eza
+      zoxide
+      starship
+      fastfetch
+      atuin
+      btop
+      lsof
+      procfd
 
-    # Nix tools
-    nix-prefetch-github
-    sops
-    age
-    nil
-    nixpkgs-fmt
+      # Nix tools
+      nix-prefetch-github
+      sops
+      age
+      nil
+      nixpkgs-fmt
 
-    # File managers
-    yazi
+      # File managers
+      yazi
 
-    # Fonts
-    nerd-fonts.hack
-    nerd-fonts.jetbrains-mono
-    google-fonts
-    liberation_ttf
+      # Fonts
+      nerd-fonts.hack
+      nerd-fonts.jetbrains-mono
+      google-fonts
+      liberation_ttf
 
-    # Language tools (for Emacs spell/grammar checking)
-    hunspell
-    hunspellDicts.en_GB-large
-    hunspellDicts.pl_PL
-    languagetool
-
-    # GNOME Extensions
-    gnomeExtensions.run-or-raise
-    gnomeExtensions.gsconnect
-    gnomeExtensions.just-perfection
-    gnomeExtensions.power-tracker
-    gnomeExtensions.screen-brightness-governor
-    gnomeExtensions.shu-zhi
-    gnomeExtensions.window-is-ready-remover
-    gnomeExtensions.focused-window-d-bus
-  ];
+      # Language tools (for Emacs spell/grammar checking)
+      hunspell
+      hunspellDicts.en_GB-large
+      hunspellDicts.pl_PL
+      languagetool
+    ]
+    ++ myGnomeExtensions; # Add GNOME extensions to packages
 
   # ========================================
   # ENVIRONMENT VARIABLES
@@ -336,21 +338,18 @@ in {
   };
 
   # ========================================
-  # GNOME CONFIGURATION
+  # DCONF CONFIGURATION - CRITICAL!
   # ========================================
+
   dconf.settings = {
     "org/gnome/shell" = {
       disable-user-extensions = false;
-      enabled-extensions = [
-        "run-or-raise@edvard.cz"
-        "gsconnect@andyholmes.github.io"
-        "just-perfection-desktop@just-perfection"
-        "power-tracker@sunjmc.gmail.com"
-        "screen-brightness-governor@vodokatovskyi.com"
-        "shu-zhi@cocoteen.github.io"
-        "window-is-ready-remover@nunofarruca@gmail.com"
-        "focused-window-d-bus@flexagoon.com"
-      ];
+
+      # Automatically extract UUIDs from packages
+      enabled-extensions = map (ext: ext.extensionUuid) myGnomeExtensions;
+
+      # Explicitly empty the disabled list
+      disabled-extensions = lib.gvariant.mkEmptyArray lib.gvariant.type.string;
     };
   };
 
