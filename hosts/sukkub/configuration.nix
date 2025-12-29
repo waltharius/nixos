@@ -14,7 +14,12 @@
   imports = [
   ];
 
-  services.fprintd.enable = true;
+  services.python-validity.enable = true;
+
+  security.pam.services = {
+    login.fprintAuth = true;
+    gdm.fprintAuth = true;
+  };
 
   # User configuration
   users.users.marcin = {
@@ -37,14 +42,6 @@
 
   # System packages
   environment.systemPackages = with pkgs; [
-    neovim
-    vim
-    wget
-    curl
-    git
-    btop
-    alacritty
-    ptyxis
   ];
 
   # State version - DO NOT CHANGE after initial installation

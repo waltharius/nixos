@@ -284,6 +284,7 @@ in {
     git
 
     # Shell utilities
+    ptyxis
     blesh
     eza
     zoxide

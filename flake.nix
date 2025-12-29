@@ -18,12 +18,18 @@
     };
   };
 
+  validity-sensor = {
+    url = "github:ahbnr/nixos-06cb-009a-fingerprint-sensor";
+    inputs.nixpkgs.follows = "nixpkgs-unstable";
+  };
+
   outputs = {
     self,
     nixpkgs,
     home-manager,
     nix-flatpak,
     sops-nix,
+    validity-sensor,
     ...
   } @ inputs: let
     # Helper function to create host configurations
