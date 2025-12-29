@@ -10,6 +10,9 @@
   # Hostname
   networking.hostName = hostname;
 
+  # Fingerprint reader
+  services.fprintd.enable = true;
+
   # Import host-specific modules
   imports = [
     ../../modules/laptop/tlp.nix

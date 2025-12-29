@@ -14,6 +14,8 @@
   imports = [
   ];
 
+  services.fprintd.enable = true;
+
   # User configuration
   users.users.marcin = {
     isNormalUser = true;
