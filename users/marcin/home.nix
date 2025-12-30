@@ -4,7 +4,7 @@
   config,
   pkgs,
   lib,
-  customPkgs,
+  customPkgs ? {}, # Optional with empty default
   ...
 }: let
   # Dotfiles symlink helper
@@ -258,7 +258,7 @@ in {
   # ========================================
   # HOME PACKAGES
   # ========================================
-  some.packages = with pkgs;
+  home.packages = with pkgs;
     [
       # My custom packages
       customPkgs.rebuild-and-diff
