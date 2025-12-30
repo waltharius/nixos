@@ -24,8 +24,13 @@
     home-manager,
     nix-flatpak,
     sops-nix,
+    system,
+    pkgs,
     ...
   } @ inputs: let
+    # Import custom packages
+    customPackages = pkgs: import ./packages {inherit pkgs;};
+
     # Helper function to create host configurations
     mkHost = hostname: system:
       nixpkgs.lib.nixosSystem {
@@ -91,5 +96,8 @@
       # Test VM host for quick config testing
       testvm = mkHost "testvm" "x86_64-linux";
     };
+
+    # Expose packages for nix build, nix shell, etc.
+    packages.${system} = customPackages pkgs;
   };
 }

@@ -4,10 +4,11 @@
   config,
   pkgs,
   lib,
+  customPkgs,
   ...
 }: let
   # Dotfiles symlink helper
-  dotfiles = "${config.home.homeDirectory}/nixos/config";
+  # dotfiles = "${config.home.homeDirectory}/nixos/config";
   nixos-fonts = "${config.home.homeDirectory}/nixos/fonts";
   create_symlink = path: config.lib.file.mkOutOfStoreSymlink path;
 
@@ -123,7 +124,7 @@ in {
       gp = "git push";
 
       # NixOS shortcuts
-      nrs = "sudo nixos-rebuild switch --flake ~/nixos#$(hostname)";
+      nrs = "rebuild-and-diff";
       nrt = "sudo nixos-rebuild test --flake ~/nixos#$(hostname)";
       nrb = "sudo nixos-rebuild boot --flake ~/nixos#$(hostname)";
 
@@ -257,8 +258,11 @@ in {
   # ========================================
   # HOME PACKAGES
   # ========================================
-  home.packages = with pkgs;
+  some.packages = with pkgs;
     [
+      # My custom packages
+      customPkgs.rebuild-and-diff
+
       # GUI Applications
       blanket
       signal-desktop
