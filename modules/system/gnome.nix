@@ -69,11 +69,11 @@
     pulse.enable = true;
   };
 
-  systemcd.user.services.gsd-power = {
+  systemd.user.services.gsd-power = {
     enable = false;
   };
 
-  systemcd.user.services."org.gnome.SettingsDaemon.Power" = {
+  systemd.user.services."org.gnome.SettingsDaemon.Power" = {
     enable = false;
   };
 }
