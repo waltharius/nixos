@@ -43,6 +43,8 @@
   programs.ssh = {
     enable = true;
 
+    addKeysToAgent = "yes";
+
     # FIXED: Set default values explicitly instead of relying on future defaults
     controlMaster = "auto";
     controlPath = "~/.ssh/sockets/%r@%h-%p";
