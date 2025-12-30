@@ -26,7 +26,7 @@
   # Systemd sleep configuration
   systemd.sleep.extraConfig = ''
     # Hibernate after 3 hours of suspend
-    HibernateDelaySec=3h
+    HibernateDelaySec=1m
 
     # Use 'mem' suspend state (suspend-to-RAM)
     SuspendState=mem
@@ -55,12 +55,6 @@
       };
     };
   };
-
-  # Kernel parameters for better hibernate support
-  boot.kernelParams = [
-    # Resume from swap
-    "resume_offset=0" # Will be calculated automatically by NixOS
-  ];
 
   # Enable hibernate target
   systemd.targets = {
