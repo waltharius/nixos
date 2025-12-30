@@ -142,10 +142,6 @@ in {
     };
 
     bashrcExtra = ''
-      # Enhanced ls function
-      lk() {
-        ${pkgs.eza}/bin/eza -alF --hyperlink --group-directories-first --color=auto --color-scale=size --color-scale-mode=gradient --icons --git "$@"
-      }
 
       # Load ble.sh if available
       if [[ -f ${pkgs.blesh}/share/blesh/ble.sh ]]; then
