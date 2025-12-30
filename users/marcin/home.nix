@@ -302,6 +302,8 @@ in {
       procfd
       usbutils
       wget
+      rclone
+      rclone-ui
 
       # Nix tools
       nix-prefetch-github
