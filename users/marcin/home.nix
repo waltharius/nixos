@@ -282,13 +282,11 @@ in {
       ripgrep
       fd
       tree
-      wget
       curl
       git
 
       # Shell utilities
       ptyxis
-      cope
       blesh
       eza
       zoxide
@@ -299,6 +297,7 @@ in {
       lsof
       procfd
       usbutils
+      wget
 
       # Nix tools
       nix-prefetch-github
@@ -306,6 +305,7 @@ in {
       age
       nil
       nixpkgs-fmt
+      nvd
 
       # File managers
       yazi
