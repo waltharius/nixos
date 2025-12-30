@@ -24,12 +24,11 @@
     home-manager,
     nix-flatpak,
     sops-nix,
-    system,
-    pkgs,
     ...
   } @ inputs: let
+    system = "x86_64-linux";
     # Import custom packages
-    customPackages = pkgs: import ./packages {inherit pkgs;};
+    customPackages = import ./packages {inherit pkgs;};
 
     # Helper function to create host configurations
     mkHost = hostname: system:
@@ -42,6 +41,7 @@
             inherit system;
             config.allowUnfree = true;
           };
+          customPkgs = customPackages;
         };
         modules = [
           # Allow unfree packages globally
@@ -98,6 +98,6 @@
     };
 
     # Expose packages for nix build, nix shell, etc.
-    packages.${system} = customPackages pkgs;
+    packages.${system} = customPackages;
   };
 }
