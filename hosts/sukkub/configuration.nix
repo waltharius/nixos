@@ -12,6 +12,8 @@
 
   # Import host-specific modules
   imports = [
+    ../../modules/laptop/tlp.nix
+    ../../modules/laptop/hibernate.nix
   ];
 
   # User configuration
