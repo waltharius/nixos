@@ -348,6 +348,10 @@ in {
       # Explicitly empty the disabled list
       disabled-extensions = lib.gvariant.mkEmptyArray lib.gvariant.type.string;
     };
+    "org/gnome/settings-daemon/plugins/power" = {
+      # Allow suspend even when external monitors connected
+      lid-close-suspend-with-external-monitor = true;
+    };
   };
 
   # Run-or-raise shortcuts (same as nix repo)
