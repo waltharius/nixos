@@ -29,6 +29,15 @@
     '';
   };
 
+  # Enable GNOME Keyring with SSH agent support
+  services.gnome.gnome-keyring.enable = true;
+
+  # Enable PAM integration to auto-unlock keyring with login password
+  security.pam.services.gdm.enableGnomeKeyring = true;
+
+  # Ensure system-wide SSH agent doesn't conflict
+  programs.ssh.startAgent = false;
+
   # Remove unwanted GNOME packages
   environment.gnome.excludePackages = with pkgs; [
     geary
