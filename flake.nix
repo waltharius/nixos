@@ -27,6 +27,11 @@
     ...
   } @ inputs: let
     system = "x86_64-linux";
+
+    pkgs = import nixpkgs {
+      inherit system;
+      config.allowUnfree = true;
+    };
     # Import custom packages
     customPackages = import ./packages {inherit pkgs;};
 
