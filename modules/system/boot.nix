@@ -10,7 +10,7 @@
     efi.canTouchEfiVariables = true;
 
     # Limit number of generations in boot menu
-    systemd-boot.configurationLimit = 10;
+    systemd-boot.configurationLimit = 30;
   };
 
   # Enable kernel modules for common hardware
