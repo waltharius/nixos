@@ -43,15 +43,13 @@
     # On AC power, only suspend (no hibernate needed)
     lidSwitchExternalPower = "suspend";
 
-    # Additional power settings
-    extraConfig = ''
-      # Power button triggers suspend-then-hibernate
-      HandlePowerKey=suspend-then-hibernate
-
-      # Automatic suspend after 30 minutes of inactivity
-      IdleAction=suspend-then-hibernate
-      IdleActionSec=30min
-    '';
+    settings = {
+      Login = {
+        HandlePowerKey = "suspend-then-hibernate";
+        IdleAction = "suspend-then-hibernate";
+        IdleActionSec = "30min";
+      };
+    };
   };
 
   # Kernel parameters for better hibernate support
