@@ -37,17 +37,24 @@
 
   # Logind configuration for lid and power button
   services.logind = {
-    # Suspend-then-hibernate when lid is closed
-    lidSwitch = "suspend-then-hibernate";
-
-    # On AC power, only suspend (no hibernate needed)
-    lidSwitchExternalPower = "suspend";
-
     settings = {
       Login = {
+        # This should make suspend the laptop even when external monitors plugged in
+        HandleLidSwitchDocked = "suspend-then-hibernate";
+
         HandlePowerKey = "suspend-then-hibernate";
+
+        # On AC power, only suspend (no hibernate needed)
+        HandleLidSwitchExternalPower = "suspend";
+
+        # Suspend-then-hibernate when lid is closed
+        HandleLidSwitch = "suspend-then-hibernate";
+
         IdleAction = "suspend-then-hibernate";
         IdleActionSec = "30min";
+
+        # Ignore applications trying to block suspend (good on laptops)
+        LidSwitchIgnoreInhibited = "yes";
       };
     };
   };
