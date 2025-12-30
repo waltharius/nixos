@@ -25,8 +25,8 @@
 
   # Systemd sleep configuration
   systemd.sleep.extraConfig = ''
-    # Hibernate after 3 hours of suspend
-    HibernateDelaySec=1m
+    # Hibernate after X hours of suspend
+    HibernateDelaySec=2h
 
     # Use 'mem' suspend state (suspend-to-RAM)
     SuspendState=mem
