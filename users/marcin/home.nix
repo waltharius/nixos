@@ -52,10 +52,10 @@ in {
   # ========================================
   programs.git = {
     enable = true;
-    userName = "marcin";
 
-    # FIXED: Use programs.git.settings instead of userEmail
+    # Use programs.git.settings instead of userEmail and userName
     settings = {
+      user.name = "marcin";
       user.email = "nixosgitemail.frivolous320@passmail.net";
       init.defaultBranch = "main";
       url."git@github.com:".insteadOf = "https://github.com/";
@@ -288,6 +288,7 @@ in {
 
       # Shell utilities
       ptyxis
+      cope
       blesh
       eza
       zoxide
@@ -297,6 +298,7 @@ in {
       btop
       lsof
       procfd
+      usbutils
 
       # Nix tools
       nix-prefetch-github
