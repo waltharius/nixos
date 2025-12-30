@@ -44,6 +44,7 @@ in {
   imports = [
     ../../modules/services/syncthing.nix
     ../../modules/services/ssh.nix
+    ../../modules/services/ssh-askpass.nix
     ../../modules/utils/yazi.nix
     ../../modules/utils/neovim.nix
   ];
