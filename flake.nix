@@ -79,7 +79,7 @@
               useUserPackages = true;
               extraSpecialArgs = {
                 inherit inputs hostname;
-                custoomPkgs = customPackages;
+                customPkgs = customPackages;
               };
               users.marcin = import ./users/marcin/home.nix;
               backupFileExtension = "backup";
