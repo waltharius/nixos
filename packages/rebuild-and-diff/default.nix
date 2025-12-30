@@ -6,6 +6,7 @@ pkgs.writeShellApplication {
   runtimeInputs = with pkgs; [
     nvd
     nixos-rebuild
+    coreutils
   ];
 
   text = ''
@@ -18,16 +19,23 @@ pkgs.writeShellApplication {
     echo "Building new stuff for '$HOSTNAME'..."
     sudo nixos-rebuild switch --flake ~/nixos#"$HOSTNAME" "$@"
 
+    # Get new generation after rebuild
+    NEW_GEN=$(readlink /run/current-system)
+
     # Show what changed
     echo ""
     echo "=== System Changes ==="
-    nvd diff "$OLD_GEN" /run/current-system
+    nvd diff "$OLD_GEN" "$NEW_GEN"
 
     # Show generation information
     echo ""
     echo "=== Generation Info ==="
-    current=$(readlink /run/current-system |grep -oP '\d+' || echo "unknown")
-    size=$(nix path-info -Sh /run/current-system 2>/dev/null |awk '{print $2}' || echo "N/A")
+
+    # Extract generation number from profile link
+    current=$(readlink /nix/var/nix/profiles/system |grep -oP 'system-\K\d+(?=-link)' || echo "unknown")
+
+    # Get human-readable size with proper format from nix path-info -Sh with awk
+    size=$(nix path-info -Sh /run/current-system 2>/dev/null |awk '{print $2,$3}' || echo "N/A")
     echo "Hostname: $HOSTNAME"
     echo "Current generation: $current"
     echo "System closure size: $size"
