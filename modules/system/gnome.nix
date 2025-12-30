@@ -68,4 +68,12 @@
     alsa.support32Bit = true;
     pulse.enable = true;
   };
+
+  systemcd.user.services.gsd-power = {
+    enable = false;
+  };
+
+  systemcd.user.services."org.gnome.SettingsDaemon.Power" = {
+    enable = false;
+  };
 }
