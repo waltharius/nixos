@@ -42,16 +42,7 @@
   # SSH program configuration
   programs.ssh = {
     enable = true;
-
-    addKeysToAgent = "yes";
-
-    # FIXED: Set default values explicitly instead of relying on future defaults
-    controlMaster = "auto";
-    controlPath = "~/.ssh/sockets/%r@%h-%p";
-    controlPersist = "10m";
-    serverAliveInterval = 60;
-    forwardAgent = false;
-    compression = false;
+    enableDefaultConfig = false;
 
     matchBlocks = {
       # Global defaults for all hosts
@@ -60,6 +51,16 @@
         extraOptions = {
           Include = "~/.ssh/config.d/hosts";
         };
+
+        addKeysToAgent = "yes";
+
+        # FIXED: Set default values explicitly instead of relying on future defaults
+        controlMaster = "auto";
+        controlPath = "~/.ssh/sockets/%r@%h-%p";
+        controlPersist = "9m";
+        serverAliveInterval = 59;
+        forwardAgent = false;
+        compression = false;
       };
 
       # GitHub-specific configuration
