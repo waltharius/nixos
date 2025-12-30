@@ -123,9 +123,9 @@ in {
       gp = "git push";
 
       # NixOS shortcuts
-      nrs = "sudo nixos-rebuild switch --flake ~/nixos";
-      nrt = "sudo nixos-rebuild test --flake ~/nixos";
-      nrb = "sudo nixos-rebuild boot --flake ~/nixos";
+      nrs = "sudo nixos-rebuild switch --flake ~/nixos#$(hostname)";
+      nrt = "sudo nixos-rebuild test --flake ~/nixos#$(hostname)";
+      nrb = "sudo nixos-rebuild boot --flake ~/nixos#$(hostname)";
 
       # WiFi management (NetworkManager)
       wifi-list = "nmcli device wifi list";
