@@ -14,6 +14,7 @@
   imports = [
     ../../modules/laptop/tlp.nix
     ../../modules/laptop/hibernate.nix
+    ../../modules/laptop/acpi-suspend.nix
   ];
 
   # Allow automatic hibernation. It automaticly handles offset calcukation and setup via EFI variables
