@@ -77,7 +77,10 @@
             home-manager = {
               useGlobalPkgs = true;
               useUserPackages = true;
-              extraSpecialArgs = {inherit inputs hostname;};
+              extraSpecialArgs = {
+                inherit inputs hostname;
+                custoomPkgs = customPackages;
+              };
               users.marcin = import ./users/marcin/home.nix;
               backupFileExtension = "backup";
 
