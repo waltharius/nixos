@@ -19,6 +19,9 @@
     ../../modules/laptop/hibernate.nix
   ];
 
+  # Allow automatic hibernation. It automaticly handles offset calcukation and setup via EFI variables
+  boot.initrd.systemd.enable = true;
+
   # User configuration
   users.users.marcin = {
     isNormalUser = true;

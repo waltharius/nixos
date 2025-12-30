@@ -16,6 +16,9 @@
     ../../modules/laptop/hibernate.nix
   ];
 
+  # Allow automatic hibernation. It automaticly handles offset calcukation and setup via EFI variables
+  boot.initrd.systemd.enable = true;
+
   # User configuration
   users.users.marcin = {
     isNormalUser = true;
@@ -23,7 +26,6 @@
     extraGroups = ["networkmanager" "wheel"];
 
     # SSH authorized keys for remote access
-    # TODO: Replace with your actual public key from ~/.ssh/id_ed25519_tabby.pub
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhyNxm4pZR9CCnWGlDA+jotcnH5sc53LpSkSLs7XNx0 walth@fedora-laptop-tabby-2025"
     ];

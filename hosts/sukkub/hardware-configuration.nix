@@ -65,6 +65,12 @@
     options = ["subvol=@tmp"];
   };
 
+  fileSystems."/swap" = {
+    device = "/dev/disk/by-uuid/16e16946-d184-4e05-9a04-cfe341d110ce";
+    fsType = "btrfs";
+    options = ["subvol=@swap" "noatime"];
+  };
+
   fileSystems."/boot" = {
     device = "/dev/disk/by-uuid/0BFD-BA25";
     fsType = "vfat";

@@ -23,9 +23,6 @@
     }
   ];
 
-  # Enable resume from hibernation
-  boot.resumeDevice = "/dev/disk/by-uuid/REPLACE-WITH-ROOT-UUID";
-
   # Systemd sleep configuration
   systemd.sleep.extraConfig = ''
     # Hibernate after 3 hours of suspend
