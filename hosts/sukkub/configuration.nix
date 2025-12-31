@@ -32,6 +32,18 @@
     ];
   };
 
+  # Disable serial console services (not needed on laptops)
+  # This eliminates 16-second boot delays for non-existent hardware
+  systemd.services = {
+    "serial-getty@ttyS0".enable = false;
+    "serial-getty@ttyS1".enable = false;
+    "serial-getty@ttyS2".enable = false;
+    "serial-getty@ttyS3".enable = false;
+  };
+
+  # Or more elegantly - disable all serial gettys at once
+  systemd.services."serial-getty@".enable = false;
+
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
@@ -40,6 +52,7 @@
 
   # System packages
   environment.systemPackages = with pkgs; [
+    tlp
   ];
 
   # State version - DO NOT CHANGE after initial installation

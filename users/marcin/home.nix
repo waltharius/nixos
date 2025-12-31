@@ -148,6 +148,8 @@ in {
         source ${pkgs.blesh}/share/blesh/ble.sh --noattach
       fi
 
+      eval "$(starship init bash)"
+
       # Atuin integration
       if command -v atuin &> /dev/null; then
         eval "$(${pkgs.atuin}/bin/atuin init bash)"
