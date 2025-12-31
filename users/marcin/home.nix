@@ -55,6 +55,19 @@ in {
   ];
 
   # ========================================
+  # USER-SPECIFIC OVERRIDES
+  # ========================================
+
+  # Override Atuin server if needed (example)
+  # programs.atuin.settings.sync_address = lib.mkForce "https://different-server.lan";
+
+  # Add user-specific bash aliases
+  programs.bash.shellAliases = {
+    # Merges with default aliases from module
+    myalias = "echo 'custom for marcin'";
+  };
+
+  # ========================================
   # GIT Configuration (FIXED - new syntax)
   # ========================================
   programs.git = {
