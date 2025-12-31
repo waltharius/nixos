@@ -258,6 +258,24 @@ in {
     };
   };
 
+  systemd.user.services = {
+    atuin-daemon = {
+      Unit = {
+        Description = "Atuin Shell History Daemon";
+        After = ["grpahical-session.target"];
+      };
+
+      Service = {
+        ExecStart = "${pkgs.atuin}/bin/atuin daemon";
+        Restart = "on-failure";
+      };
+
+      Install = {
+        WantedBy = ["default.target"];
+      };
+    };
+  };
+
   # ========================================
   # HOME PACKAGES
   # ========================================
