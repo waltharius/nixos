@@ -230,8 +230,12 @@ in {
     settings = {
       # Your self-hosted server
       sync_address = "https://atuin.home.lan";
-      auto_sync = true;
-      sync_frequency = "1m";
+      auto_sync = false;
+
+      daemon = {
+        enabled = true;
+        sync_frequency = 300;
+      };
 
       # Filter by host by default
       filter_mode = "host";
