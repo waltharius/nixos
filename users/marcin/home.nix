@@ -51,6 +51,7 @@ in {
     ../../modules/home/tools/atuin.nix
     ../../modules/home/shell/bash.nix
     ../../modules/home/shell/starship.nix
+    ../../modules/home/terminal/tmux.nix
   ];
 
   # ========================================
@@ -82,31 +83,6 @@ in {
       source = create_symlink nixos-fonts;
       recursive = true;
     };
-  };
-
-  # ==:wifi======================================
-  # TMUX Configuration
-  # ========================================
-  programs.tmux = {
-    enable = true;
-    mouse = true;
-    escapeTime = 0;
-    historyLimit = 1000000;
-    baseIndex = 1;
-    terminal = "tmux-256color";
-
-    plugins = with pkgs.tmuxPlugins; [
-      sensible
-      yank
-      resurrect
-      {
-        plugin = continuum;
-        extraConfig = ''
-          set -g @continuum-restore 'on'
-          set -g @continuum-save-interval '5'
-        '';
-      }
-    ];
   };
 
   # ========================================
