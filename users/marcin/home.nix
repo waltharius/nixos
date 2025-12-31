@@ -47,6 +47,7 @@ in {
     ../../modules/services/ssh-askpass.nix
     ../../modules/utils/yazi.nix
     ../../modules/utils/neovim.nix
+    ../../modules/home/tools/zoxide.nix
   ];
 
   # ========================================
@@ -209,15 +210,6 @@ in {
         style = "bold blue";
       };
     };
-  };
-
-  # ========================================
-  # ZOXIDE - Smarter cd
-  # ========================================
-  programs.zoxide = {
-    enable = true;
-    enableBashIntegration = true;
-    options = ["--cmd cd"];
   };
 
   # ========================================
