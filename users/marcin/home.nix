@@ -144,6 +144,7 @@ in {
       lsof
       procfd
       usbutils
+      pciutils
       wget
       rclone
       rclone-ui
