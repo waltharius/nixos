@@ -94,10 +94,20 @@
       plenary-nvim
 
       # Git integration
+
       {
         plugin = gitsigns-nvim;
         type = "lua";
-        config = ''require('gitsigns').setup()'';
+        config = ''
+          require('gitsigns').setup({
+            current_line_blame = true,
+
+            current_line_blame_opts = {
+              delay = 500,
+              virt_text_pos = 'eol', -- by default 'eol' (end of line) or 'right_align'
+            },
+          })
+        '';
       }
 
       # Commenting
@@ -125,6 +135,7 @@
       neo-tree-nvim
       bufferline-nvim
       nvim-web-devicons
+      undotree
     ];
 
     extraPackages = with pkgs; [
@@ -288,6 +299,15 @@
       -- ==========================================
       vim.keymap.set('n', '<leader>w', ':w<CR>')
       vim.keymap.set('n', '<leader>q', ':q<CR>')
+
+      -- ==========================================
+      -- Undotree Keybinding
+      -- ==========================================
+      vim.keymap.set('n', '<leader>u', vim.cmd.UndotreeToggle, { desc = "Toggle UndoTree" })
+
+      -- Optionally: shortcut to disable Git Blame. Toggle between on and off.
+      vim.keymap.set('n', '<leader>gb', package.loaded.gitsigns.toggle_current_line_blame, { desc = "Toggle Git Blame" })
+
     '';
   };
 }
