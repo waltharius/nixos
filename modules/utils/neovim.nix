@@ -306,8 +306,7 @@
       vim.keymap.set('n', '<leader>u', vim.cmd.UndotreeToggle, { desc = "Toggle UndoTree" })
 
       -- Optionally: shortcut to disable Git Blame. Toggle between on and off.
-      vim.keymap.set('n', '<leader>gb', package.loaded.gitsigns.toggle_current_line_blame, { desc = "Toggle Git Blame" })
-
+      vim.keymap.set('n', '<leader>gb', function() require('gitsigns').toggle_current_line_blame() end, { desc = "Toggle Git Blame" })
     '';
   };
 }
