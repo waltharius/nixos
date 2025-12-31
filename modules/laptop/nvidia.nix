@@ -52,12 +52,12 @@
       # Uncomment these and comment out offload if you want maximum performance
 
       # Try reverse sync for Thunderbolt compatibility
-      reverseSync.enable = true;
+      # reverseSync.enable = true;
 
       # This allows Intel to manage displays while NVIDIA renders
       # Better for Thunderbolt docks than pure offload
-      sync.enable = false;
-      offload.enable = false;
+      sync.enable = true;
+      # offload.enable = false;
 
       # If on laptop other than ThinkPad do whats below:
       # Find your Bus IDs by running: lspci | grep -E "VGA|3D"
