@@ -36,9 +36,10 @@
   };
 
   # Create SSH sockets directory for connection multiplexing
-  home.file.".ssh/sockets/.keep".text = "";
-  home.file.".ssh/config.d/.keep".text = "";
-
+  home.file = {
+    ".ssh/sockets/.keep".text = "";
+    ".ssh/config.d/.keep".text = "";
+  };
   # SSH program configuration
   programs.ssh = {
     enable = true;
