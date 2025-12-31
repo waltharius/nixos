@@ -56,7 +56,7 @@
 
       # This allows Intel to manage displays while NVIDIA renders
       # Better for Thunderbolt docks than pure offload
-      sync.enable = true;
+      sync.enable = false;
       offload.enable = false;
 
       # If on laptop other than ThinkPad do whats below:
