@@ -43,10 +43,10 @@
     ".ssh/id_ed25519_github.pub".text = ''
       ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInnjB7TwOpPgsSgP1cc47JBcUyNFPm6AKhNxYXVpUoj walth@qazazel-2025
     '';
-    ".ssh.id_ed25519_gitlab.pub".text = ''
+    ".ssh/id_ed25519_gitlab.pub".text = ''
       ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKcg9kd0AkQWEQdp6QFaMQVTNXCi8HP3O68U47Zr//l9 Azazel-Fedora42 GitLab
     '';
-    ".ssh.id_ed25519_tabby.pub".text = ''
+    ".ssh/id_ed25519_tabby.pub".text = ''
       ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhyNxm4pZR9CCnWGlDA+jotcnH5sc53LpSkSLs7XNx0 walth@fedora-laptop-tabby-2025
     '';
   };
