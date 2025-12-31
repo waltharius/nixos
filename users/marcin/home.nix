@@ -230,7 +230,11 @@ in {
     settings = {
       # Your self-hosted server
       sync_address = "https://atuin.home.lan";
-      auto_sync = false;
+      auto_sync = false; # Using atuin-daemon for syncing in the bacground
+
+      sync = {
+        records = true;
+      };
 
       daemon = {
         enabled = true;
