@@ -41,19 +41,6 @@
 
     # PRIME configuration for hybrid graphics (laptop-specific)
     prime = {
-      # Offload mode: Intel for normal use, NVIDIA on demand
-      # This is the recommended mode for laptops to save battery
-      #      offload = {
-      #        enable = false;
-      #        # enableOffloadCmd = true; # Adds nvidia-offload command
-      #      };
-      #
-      # Sync mode: Always use NVIDIA (better performance, worse battery)
-      # Uncomment these and comment out offload if you want maximum performance
-
-      # Try reverse sync for Thunderbolt compatibility
-      # reverseSync.enable = true;
-
       # This allows Intel to manage displays while NVIDIA renders
       # Better for Thunderbolt docks than pure offload
       sync.enable = true;
