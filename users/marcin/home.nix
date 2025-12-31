@@ -209,4 +209,19 @@ in {
     <Super>t,ptyxis,org.gnome.Ptyxis
     <Control>p,${pkgs.signal-desktop}/bin/signal-desktop,signal
   '';
+
+  # Autostart applications after first loging to Gnome
+  xdg.configFile."autostart/signal-desktop".text = ''
+    [Desktop Entry]
+    Type=Application
+    Name=Signal
+    Exec=${pkgs.signal-desktop}/bin/signal-desktop
+    Termina=false
+  '';
+  xdg.configFile."autostart/ptyxis".text = ''
+    [Desktop Entry]
+    Type=Application
+    Name=Ptyxis
+    Exec=${pkgs.ptyxis}/bin/ptyxis
+  '';
 }
