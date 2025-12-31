@@ -15,6 +15,7 @@
     ../../modules/laptop/tlp.nix
     ../../modules/laptop/hibernate.nix
     ../../modules/laptop/acpi-suspend.nix
+    ../../modules/laptop/thunderbolt.nix
     ../../modules/laptop/nvidia.nix
     ../../modules/system/gaming.nix
   ];
