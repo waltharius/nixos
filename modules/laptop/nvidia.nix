@@ -1,0 +1,82 @@
+# NVIDIA graphics driver configuration with PRIME support for laptops
+# Specifically configured for hybrid Intel + NVIDIA graphics (tailored to M2000M)
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: {
+  # Enable OpenGL and graphics drivers
+  hardware.graphics = {
+    enable = true;
+    enable32Bit = true; # Required for 32-bit games and Steam
+  };
+
+  # Load NVIDIA driver for Xorg and Wayland
+  services.xserver.videoDrivers = ["nvidia"];
+
+  hardware.nvidia = {
+    # Use the stable production driver
+    # For Quadro M2000M (Maxwell architecture), the current stable driver works well
+    package = config.boot.kernelPackages.nvidiaPackages.stable;
+
+    # Modesetting is required for most Wayland compositors
+    modesetting.enable = true;
+
+    # NVIDIA power management (experimental but generally safe for laptops)
+    # This helps save power when NVIDIA GPU is not in use
+    powerManagement.enable = true;
+
+    # Fine-grained power management (turns off GPU when not in use)
+    # Can be unstable on some systems - test carefully
+    # TODO - test this after finish testing basic setup.
+    powerManagement.finegrained = false;
+
+    # Use the open source kernel module (not available for Maxwell architecture)
+    # Quadro M2000M requires the proprietary driver
+    open = false;
+
+    # Enable the NVIDIA settings menu accessible via `nvidia-settings`
+    nvidiaSettings = true;
+
+    # PRIME configuration for hybrid graphics (laptop-specific)
+    prime = {
+      # Offload mode: Intel for normal use, NVIDIA on demand
+      # This is the recommended mode for laptops to save battery
+      offload = {
+        enable = true;
+        enableOffloadCmd = true; # Adds nvidia-offload command
+      };
+
+      # Sync mode: Always use NVIDIA (better performance, worse battery)
+      # Uncomment these and comment out offload if you want maximum performance
+      # sync.enable = true;
+
+      # If on laptop other than ThinkPad do whats below:
+      # Find your Bus IDs by running: lspci | grep -E "VGA|3D"
+      # The format is: PCI:bus:device:function (converted to decimal)
+      # Example output: 00:02.0 VGA compatible controller: Intel
+      #                 01:00.0 3D controller: NVIDIA
+      # Convert to: "PCI:0:2:0" for Intel, "PCI:1:0:0" for NVIDIA
+
+      #=== YOU MUST UPDATE THESE VALUES based on your system's lspci output ===#
+      intelBusId = "PCI:0:2:0"; # Typical for ThinkPad P50
+      nvidiaBusId = "PCI:1:0:0"; # Typical for ThinkPad P50
+    };
+  };
+
+  # Coordinate with TLP for better power management
+  # TLP should not manage the NVIDIA GPU - let the NVIDIA driver handle it
+  # Remove if not using TLP
+  services.tlp.settings = {
+    # Exclude NVIDIA GPU from TLP runtime power management
+    # This prevents conflicts between TLP and NVIDIA's own power management
+    RUNTIME_PM_DRIVER_BLACKLIST = "nvidia nouveau";
+  };
+
+  # Add NVIDIA packages to system environment
+  environment.systemPackages = with pkgs; [
+    nvtopPackages.nvidia # GPU monitoring tool
+    nvidia-system-monitor-qt # Alternative GPU monitor with GUI
+  ];
+}

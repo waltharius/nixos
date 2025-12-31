@@ -15,6 +15,8 @@
     ../../modules/laptop/tlp.nix
     ../../modules/laptop/hibernate.nix
     ../../modules/laptop/acpi-suspend.nix
+    ../../modules/laptop/nvidia.nix
+    ../../modules/system/gaming.nix
   ];
 
   # Allow automatic hibernation. It automaticly handles offset calcukation and setup via EFI variables
@@ -24,7 +26,7 @@
   users.users.marcin = {
     isNormalUser = true;
     description = "Marcin";
-    extraGroups = ["networkmanager" "wheel"];
+    extraGroups = ["networkmanager" "wheel" "gamemode"];
 
     # SSH authorized keys for remote access
     openssh.authorizedKeys.keys = [
@@ -53,6 +55,8 @@
   # System packages
   environment.systemPackages = with pkgs; [
     tlp
+    glxinfo
+    vulkan-tools
   ];
 
   # State version - DO NOT CHANGE after initial installation
