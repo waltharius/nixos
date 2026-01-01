@@ -27,7 +27,7 @@
   users.users.marcin = {
     isNormalUser = true;
     description = "Marcin";
-    extraGroups = ["networkmanager" "wheel" "gamemode"];
+    extraGroups = ["networkmanager" "wheel" "gamemode" "input" "plugdev"];
 
     # SSH authorized keys for remote access
     openssh.authorizedKeys.keys = [

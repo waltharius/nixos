@@ -26,7 +26,7 @@
   users.users.marcin = {
     isNormalUser = true;
     description = "Marcin";
-    extraGroups = ["networkmanager" "wheel"];
+    extraGroups = ["networkmanager" "wheel" "gamemode" "input" "plugdev"];
   };
 
   # Allow unfree packages
