@@ -216,20 +216,20 @@ in {
     %YAML 1.3
     ---
     # Rule 1: Zoom In using Thumb Wheel Up
-    # Condition: Thumb wheel moved up -> Action: Ctrl + Equal
+    # Condition: Thumb wheel moved up -> Action: Ctrl + equal
     - Feature: THUMB WHEEL
     - Rule:
-      - Test: thumb_wheel_up
+      - Test: [thumb_wheel_up, 6]
       - KeyPress:
         - Control_L
         - equal
     ...
     ---
     # Rule 2: Zoom Out using Thumb Wheel Down
-    # Condition: Thumb wheel moved down -> Action: Ctrl + Minus
+    # Condition: Thumb wheel moved down -> Action: Ctrl + minus
     - Feature: THUMB WHEEL
     - Rule:
-      - Test: thumb_wheel_down
+      - Test: [thumb_wheel_down, 6]
       - KeyPress:
         - Control_L
         - minus
