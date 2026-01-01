@@ -10,10 +10,11 @@
       # Theme related
       tokyonight-nvim
 
-      # Formatting
+      # Formatting and visual aids
       conform-nvim
       rainbow-delimiters-nvim
       indent-blankline-nvim
+      mini-nvim  # For mini.indentscope
 
       # Completion framework
       nvim-cmp
@@ -89,17 +90,15 @@
       plenary-nvim
 
       # Git integration
-
       {
         plugin = gitsigns-nvim;
         type = "lua";
         config = ''
           require('gitsigns').setup({
             current_line_blame = true,
-
             current_line_blame_opts = {
               delay = 500,
-              virt_text_pos = 'eol', -- by default 'eol' (end of line) or 'right_align'
+              virt_text_pos = 'eol',
             },
           })
         '';
@@ -174,8 +173,8 @@
       -- THEME CONFIGURATION (TokyoNight)
       -- ========================================
       require("tokyonight").setup({
-        style = "storm", -- The specific style used in your nix repo
-        transparent = true, -- Matches your manual "bg=none" settings
+        style = "storm",
+        transparent = true,
         styles = {
           sidebars = "transparent",
           floats = "transparent",
@@ -192,24 +191,35 @@
       -- INDENT GUIDES WITH SCOPE HIGHLIGHTING
       -- ========================================
       require("ibl").setup {
-        -- Normal indent lines: subtle and dim
         indent = { 
           char = "│",
           highlight = { "IblIndent" },
         },
-        
-        -- Scope: highlights the current block/bracket pair you're in
         scope = {
           enabled = true,
-          show_start = true,  -- Shows opening bracket line
-          show_end = true,    -- Shows closing bracket line
+          show_start = true,
+          show_end = true,
           highlight = { "IblScope" },
         },
       }
 
-      -- Set colors: dim for normal lines, brighter for current scope
-      vim.api.nvim_set_hl(0, "IblIndent", { fg = "#3b4261" })  -- Dim blue-grey (barely visible)
-      vim.api.nvim_set_hl(0, "IblScope", { fg = "#7aa2f7" })   -- TokyoNight blue (scope)
+      vim.api.nvim_set_hl(0, "IblIndent", { fg = "#3b4261" })
+      vim.api.nvim_set_hl(0, "IblScope", { fg = "#7aa2f7" })
+
+      -- ========================================
+      -- CURRENT INDENT LEVEL HIGHLIGHTING (mini.indentscope)
+      -- ========================================
+      require('mini.indentscope').setup({
+        draw = {
+          delay = 0,
+          animation = require('mini.indentscope').gen_animation.none(),
+        },
+        symbol = "│",
+        options = { try_as_border = true },
+      })
+
+      -- Customize mini.indentscope color to match theme
+      vim.api.nvim_set_hl(0, "MiniIndentscopeSymbol", { fg = "#bb9af7" })  -- Purple from TokyoNight
 
       -- ========================================
       -- CODE FOLDING CONFIGURATION
@@ -230,13 +240,10 @@
       -- ========================================
       require("conform").setup({
         formatters_by_ft = {
-          -- Your primary languages
           python = { "black" },
           bash = { "shfmt" },
           sh = { "shfmt" },
           nix = { "alejandra" },
-
-          -- Additional languages
           lua = { "stylua" },
           javascript = { "prettier" },
           typescript = { "prettier" },
@@ -246,18 +253,11 @@
           html = { "prettier" },
           css = { "prettier" },
         },
-
-        -- ⚡ AUTOMATIC FORMAT ON SAVE ⚡
         format_on_save = {
           timeout_ms = 500,
-          lsp_fallback = true,  -- Use LSP formatting if conform doesn't have a formatter
+          lsp_fallback = true,
         },
       })
-
-      -- Optional: Manual format keybinding (in case you want to format without saving)
-      vim.keymap.set('n', '<leader>f', function()
-        require("conform").format({ async = true, lsp_fallback = true })
-      end, { desc = "Format buffer" })
 
       -- ==========================================
       -- LSP Keybindings
@@ -295,14 +295,12 @@
           ['<C-n>'] = cmp.mapping.select_next_item(),
           ['<C-p>'] = cmp.mapping.select_prev_item(),
         }),
-        -- Source priority: LSP first
         sources = cmp.config.sources({
           { name = 'nvim_lsp', priority = 1000 },
           { name = 'luasnip', priority = 750 },
           { name = 'path', priority = 500 },
           { name = 'buffer', priority = 250 },
         }),
-        -- Show source in completion menu
         formatting = {
           format = function(entry, vim_item)
             vim_item.menu = ({
@@ -317,34 +315,37 @@
       })
 
       -- ==========================================
-      -- Telescope Keybindings
+      -- Keybindings
       -- ==========================================
+      
+      -- Manual format keybinding
+      vim.keymap.set('n', '<leader>f', function()
+        require("conform").format({ async = true, lsp_fallback = true })
+      end, { desc = "Format buffer" })
+
+      -- Telescope fuzzy finder
       local builtin = require('telescope.builtin')
-      vim.keymap.set('n', '<leader>ff', builtin.find_files)
-      vim.keymap.set('n', '<leader>fg', builtin.live_grep)
-      vim.keymap.set('n', '<leader>fb', builtin.buffers)
+      vim.keymap.set('n', '<leader>ff', builtin.find_files, { desc = "Find files" })
+      vim.keymap.set('n', '<leader>fg', builtin.live_grep, { desc = "Live grep" })
+      vim.keymap.set('n', '<leader>fb', builtin.buffers, { desc = "Find buffers" })
 
-      -- ==========================================
-      -- Window Navigation
-      -- ==========================================
-      vim.keymap.set('n', '<C-h>', '<C-w>h')
-      vim.keymap.set('n', '<C-j>', '<C-w>j')
-      vim.keymap.set('n', '<C-k>', '<C-w>k')
-      vim.keymap.set('n', '<C-l>', '<C-w>l')
+      -- Window navigation
+      vim.keymap.set('n', '<C-h>', '<C-w>h', { desc = "Move to left window" })
+      vim.keymap.set('n', '<C-j>', '<C-w>j', { desc = "Move to bottom window" })
+      vim.keymap.set('n', '<C-k>', '<C-w>k', { desc = "Move to top window" })
+      vim.keymap.set('n', '<C-l>', '<C-w>l', { desc = "Move to right window" })
 
-      -- ==========================================
-      -- Save and Quit
-      -- ==========================================
-      vim.keymap.set('n', '<leader>w', ':w<CR>')
-      vim.keymap.set('n', '<leader>q', ':q<CR>')
+      -- Quick save and quit
+      vim.keymap.set('n', '<leader>w', ':w<CR>', { desc = "Save file" })
+      vim.keymap.set('n', '<leader>q', ':q<CR>', { desc = "Quit" })
 
-      -- ==========================================
-      -- Undotree Keybinding
-      -- ==========================================
+      -- Undotree
       vim.keymap.set('n', '<leader>u', vim.cmd.UndotreeToggle, { desc = "Toggle UndoTree" })
 
-      -- Optionally: shortcut to disable Git Blame. Toggle between on and off.
-      vim.keymap.set('n', '<leader>gb', function() require('gitsigns').toggle_current_line_blame() end, { desc = "Toggle Git Blame" })
+      -- Git blame toggle
+      vim.keymap.set('n', '<leader>gb', function() 
+        require('gitsigns').toggle_current_line_blame() 
+      end, { desc = "Toggle Git Blame" })
     '';
   };
 }
