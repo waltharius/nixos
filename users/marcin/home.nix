@@ -269,21 +269,11 @@ in {
       _wpid: B378
       backlight: 1
       backlight-timed: true
-      divert-keys: {10: 0, 111: 0, 199: 0, 200: 0, 226: 0, 227: 0, 228: 0, 229: 0, 230: 0, 231: 0, 232: 0, 233: 0, 234: 0, 259: 0, 264: 0, 266: 0, 284: 0}
       fn-swap: true
     - _NAME: MX Master 3S
-      _battery: 0
-      _modelId: B03400000000
-      _serial: 01777DA3
-      _unitId: 01777DA3
-      _wpid: B034
-      dpi: 1000
       smart-shift: 10
       thumb-scroll-invert: false
       thumb-scroll-mode: true
-      # To jest kluczowe! Włączamy divert dla przycisków
-      divert-keys: {82: 0, 83: 0, 86: 0, 195: 0, 196: 0}
-      reprogrammable-keys: {80: 80, 81: 81, 82: 82, 83: 83, 86: 86, 195: 195, 196: 196}
   '';
 
   # Autostart applications after first loging to Gnome
