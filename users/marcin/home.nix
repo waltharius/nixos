@@ -222,7 +222,7 @@ in {
       - Test: thumb_wheel_up
       - KeyPress:
         - Control_L
-        - Equal
+        - equal
     ...
     ---
     # Rule 2: Zoom Out using Thumb Wheel Down
@@ -232,7 +232,7 @@ in {
       - Test: thumb_wheel_down
       - KeyPress:
         - Control_L
-        - Minus
+        - minus
     ...
     ---
     # Rule 3: Mouse Gesture - Move Left (Workspace Switch)
