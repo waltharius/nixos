@@ -5,7 +5,7 @@
 }: {
   hardware.logitech.wireless.enable = false;
   services.udev.packages = [pkgs.customPkgs.solaar-stable];
-  environment.systemPackages = [pkgs.customPkgs.solar-stable];
+  environment.systemPackages = [pkgs.customPkgs.solaar-stable];
 
   users.groups.plugdev = {};
 }

@@ -19,8 +19,10 @@ python3Packages.buildPythonApplication rec {
     hash = "sha256-Ucx6d+OwrZ/iy7tKUKTEJzY7tDTjBu83ydjGqJolYSE=";
   };
 
-  # Budowanie modułów udev
   outputs = ["out" "udev"];
+
+  pyproject = true;
+  build-system = with python3Packages; [setuptools];
 
   nativeBuildInputs = [
     gdk-pixbuf
@@ -51,7 +53,6 @@ python3Packages.buildPythonApplication rec {
     install -Dm444 -t $udev/etc/udev/rules.d rules.d-uinput/*.rules
   '';
 
-  # Wyłączamy testy, żeby przyspieszyć budowanie
   doCheck = false;
 
   meta = with lib; {
