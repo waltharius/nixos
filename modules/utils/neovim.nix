@@ -184,42 +184,36 @@
       vim.cmd.colorscheme "tokyonight-night"
 
       -- ========================================
-      -- FORMATTING (Conform.nvim)
+      -- BRACKET HIGHLIGHTING
       -- ========================================
       require('rainbow-delimiters.setup').setup { }
 
-      local highlight = {
-        "RainbowRed",
-        "RainbowYellow",
-        "RainbowBlue",
-        "RainbowOrange",
-        "RainbowGreen",
-        "RainbowViolet",
-        "RainbowCyan",
-      }
-
-      local hooks = require("ibl.hooks")
-      hooks.register(hooks.type.HIGHLIGHT_SETUP, function()
-        vim.api.nvim_set_hl(0, "RainbowRed", { fg = "#E59595" })
-        vim.api.nvim_set_hl(0, "RainbowYellow", { fg = "#E5C795" })
-        vim.api.nvim_set_hl(0, "RainbowBlue", { fg = "#95B6E5" })
-        vim.api.nvim_set_hl(0, "RainbowOrange", { fg = "#E5B095" })
-        vim.api.nvim_set_hl(0, "RainbowGreen", { fg = "#A8E595" })
-        vim.api.nvim_set_hl(0, "RainbowViolet", { fg = "#C595E5" })
-        vim.api.nvim_set_hl(0, "RainbowCyan", { fg = "#95E5DE" })
-      end)
-
+      -- ========================================
+      -- INDENT GUIDES WITH SCOPE HIGHLIGHTING
+      -- ========================================
       require("ibl").setup {
-        indent = { highlight = highlight },
-
+        -- Normal indent lines: subtle and dim
+        indent = { 
+          char = "│",
+          highlight = { "IblIndent" },
+        },
+        
+        -- Scope: highlights the current block/bracket pair you're in
         scope = {
-            enabled = true,
-            show_start = true,
-            show_end = true,
-            highlight = { "Function", "Label" },
+          enabled = true,
+          show_start = true,  -- Shows opening bracket line
+          show_end = true,    -- Shows closing bracket line
+          highlight = { "IblScope" },
         },
       }
 
+      -- Set colors: dim for normal lines, brighter for current scope
+      vim.api.nvim_set_hl(0, "IblIndent", { fg = "#3b4261" })  -- Dim blue-grey (barely visible)
+      vim.api.nvim_set_hl(0, "IblScope", { fg = "#7aa2f7" })   -- TokyoNight blue (scope)
+
+      -- ========================================
+      -- CODE FOLDING CONFIGURATION
+      -- ========================================
       vim.o.foldcolumn = '1'
       vim.o.foldlevel = 99
       vim.o.foldlevelstart = 99
@@ -231,6 +225,9 @@
         end
       })
 
+      -- ========================================
+      -- FORMATTING (Conform.nvim)
+      -- ========================================
       require("conform").setup({
         formatters_by_ft = {
           -- Your primary languages
