@@ -275,10 +275,10 @@ in {
       # KEY DIVERSION
       # ID 195 (0xC3) is the Mouse Gesture Button.
       # Value 2 means "Mouse Gesture Mode" (allows movement detection while pressed)
-      divert-keys: {195: 2}
+      divert-keys: {Mouse Gesture Button: 2}
 
       # Reprogrammable keys mapping (1:1)
-      reprogrammable-keys: {195: 195}
+      # reprogrammable-keys: {195: 195}
 
     - _NAME: MX Keys S
       _modelId: B37800000000
