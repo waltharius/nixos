@@ -276,14 +276,14 @@ in {
   '';
 
   # Autostart applications after first loging to Gnome
-  xdg.configFile."autostart/signal-desktop".text = ''
+  xdg.configFile."autostart/signal-desktop.desktop".text = ''
     [Desktop Entry]
     Type=Application
     Name=Signal
     Exec=${pkgs.signal-desktop}/bin/signal-desktop
-    Termina=false
+    Terminal=false
   '';
-  xdg.configFile."autostart/ptyxis".text = ''
+  xdg.configFile."autostart/ptyxis.desktop".text = ''
     [Desktop Entry]
     Type=Application
     Name=Ptyxis
