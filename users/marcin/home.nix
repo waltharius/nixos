@@ -214,16 +214,36 @@ in {
   xdg.configFile."solaar/rules.yaml".text = ''
     %YAML 1.3
     ---
+    # 1. Thumb Wheel Zoom
     - Rule:
         - Key: Thumb Wheel Up
-        - KeyPress:
-          - Control_L
-          - Equal
+        - KeyPress: [Control_L, Equal]
     - Rule:
         - Key: Thumb Wheel Down
-        - KeyPress:
-          - Control_L
-          - Minus
+        - KeyPress: [Control_L, Minus]
+
+    # 2. Gesture Button Actions
+    - Rule:
+        - Key: Mouse Gesture Button
+        - Divert: true # Important: stops the button from just clicking immediately
+
+    # 2a. Move Left -> Workspace Left (Super + Alt + Left)
+    - Rule:
+        - Test: [Mouse Gesture Button, Pressed]
+        - Key: Mouse Left
+        - KeyPress: [Super_L, Alt_L, Left]
+
+    # 2b. Move Right -> Workspace Right (Super + Alt + Right)
+    - Rule:
+        - Test: [Mouse Gesture Button, Pressed]
+        - Key: Mouse Right
+        - KeyPress: [Super_L, Alt_L, Right]
+
+    # 2c. Simple Click -> Overview (Super)
+    # This fires if you release the button without moving
+    - Rule:
+        - Key: Mouse Gesture Button
+        - KeyPress: Super_L
     ...
   '';
 

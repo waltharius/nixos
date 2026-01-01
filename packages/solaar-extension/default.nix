@@ -23,6 +23,10 @@ stdenv.mkDerivation rec {
     runHook postInstall
   '';
 
+  passthru = {
+    extensionUuid = uuid;
+  };
+
   meta = with lib; {
     description = "Solaar GNOME Shell Extension";
     license = licenses.gpl2Plus;
