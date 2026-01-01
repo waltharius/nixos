@@ -5,16 +5,16 @@
 }:
 stdenv.mkDerivation rec {
   pname = "gnome-shell-extension-solaar";
-  version = "unstable-2024-03-03";
+  version = "4";
 
   src = fetchFromGitHub {
-    owner = "Svenum";
-    repo = "Solaar-Extension";
-    rev = "3196c8130e9227c24f6f874f67623919b48b6c45";
-    hash = "sha256-N4/RzT3n/L0t8K3zGzQWd4PzFv6aX+5Yg5o2K5z6/5o=";
+    owner = "sidevesh";
+    repo = "solaar-extension-for-gnome";
+    rev = "56377ee7cc375b4260d7713483013000b213b185";
+    hash = "sha256-n5+C/fTfQz2t1TjT3eFv+s5D/K/lE/d/S/X/o/C/h/g=";
   };
 
-  uuid = "solaar-extension@felix.struemer.de";
+  uuid = "solaar-extension@sidevesh";
 
   installPhase = ''
     runHook preInstall
