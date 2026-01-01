@@ -250,22 +250,6 @@
             css = { "prettier" },
           },
 
-      vim.o.foldcolumn = '1' -- Pokaż mały pasek z boku z trójkącikami do zwijania
-      vim.o.foldlevel = 99   -- Domyślnie wszystko otwarte
-      vim.o.foldlevelstart = 99
-      vim.o.foldenable = true
-
-      require('ufo').setup({
-          provider_selector = function(bufnr, filetype, buftype)
-              return {'treesitter', 'indent'}
-          end
-      })
-
-      -- Skróty klawiszowe do zwijania (standard Vima, ale warto znać)
-      -- za - przełącz (zwiń/rozwiń) pod kursorem
-      -- zR - rozwiń wszystko
-      -- zM - zwiń wszystko
-
           -- ⚡ AUTOMATIC FORMAT ON SAVE ⚡
           format_on_save = {
             timeout_ms = 500,
