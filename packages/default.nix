@@ -1,5 +1,6 @@
 {pkgs, ...}: {
   rebuild-and-diff = pkgs.callPackage ./rebuild-and-diff {};
+  solaar-extension = pkgs.callPackage ./solaar-extension {};
 
   # Add more custom packages (scripts) here in the future.
   # Scripts should be added to ./packages/<script_folder> folder inside this repository

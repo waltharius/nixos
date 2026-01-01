@@ -22,6 +22,7 @@
     shu-zhi
     window-is-ready-remover
     focused-window-d-bus
+    customPkgs.solaar-extension
   ];
 in {
   # ========================================
@@ -210,6 +211,22 @@ in {
     <Control>p,${pkgs.signal-desktop}/bin/signal-desktop,signal
   '';
 
+  xdg.configFile."solaar/rules.yaml".text = ''
+    %YAML 1.3
+    ---
+    - Rule:
+        - Key: Thumb Wheel Up
+        - KeyPress:
+          - Control_L
+          - Equal
+    - Rule:
+        - Key: Thumb Wheel Down
+        - KeyPress:
+          - Control_L
+          - Minus
+    ...
+  '';
+
   # Autostart applications after first loging to Gnome
   xdg.configFile."autostart/signal-desktop".text = ''
     [Desktop Entry]
@@ -223,5 +240,14 @@ in {
     Type=Application
     Name=Ptyxis
     Exec=${pkgs.ptyxis}/bin/ptyxis
+  '';
+  xdg.configFile."autostart/solaar.desktop".text = ''
+    [Desktop Entry]
+    Type=Application
+    Name=Solaar
+    Exec=${pkgs.solaar}/bin/solaar --window=hide
+    Icon=solaar
+    StartupNotify=false
+    NoDisplay=true
   '';
 }

@@ -67,6 +67,7 @@
           ./modules/system/auto-upgrade.nix # weekly upgrades with garbage collections
           ./modules/system/certificates.nix
           ./modules/system/base.nix
+          ./modules/services/solaar.nix
 
           # SOPS for system-level secrets
           sops-nix.nixosModules.sops
