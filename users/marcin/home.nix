@@ -293,7 +293,7 @@ in {
     [Desktop Entry]
     Type=Application
     Name=Solaar
-    Exec=${pkgs.solaar}/bin/solaar --window=hide
+    Exec=solaar --window=hide
     Icon=solaar
     StartupNotify=false
     NoDisplay=true
