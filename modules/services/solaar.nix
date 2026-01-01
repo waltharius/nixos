@@ -1,11 +1,12 @@
 {
   config,
   pkgs,
+  customPkgs,
   ...
 }: {
   hardware.logitech.wireless.enable = false;
-  services.udev.packages = [pkgs.customPkgs.solaar-stable];
-  environment.systemPackages = [pkgs.customPkgs.solaar-stable];
+  services.udev.packages = [customPkgs.solaar-stable];
+  environment.systemPackages = [customPkgs.solaar-stable];
 
   users.groups.plugdev = {};
 }
