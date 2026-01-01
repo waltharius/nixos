@@ -215,55 +215,78 @@ in {
   xdg.configFile."solaar/rules.yaml".text = ''
     %YAML 1.3
     ---
-    # 1. Thumb Wheel Zoom (Simple version)
+    # Rule 1: Zoom In using Thumb Wheel Up
+    # Condition: Thumb wheel moved up -> Action: Ctrl + Equal
+    - Feature: THUMB WHEEL
     - Rule:
-        - Key: Thumb Wheel Up
-        - KeyPress: [Control_L, Equal]
+      - Test: thumb_wheel_up
+      - KeyPress:
+        - Control_L
+        - Equal
+    ...
+    ---
+    # Rule 2: Zoom Out using Thumb Wheel Down
+    # Condition: Thumb wheel moved down -> Action: Ctrl + Minus
+    - Feature: THUMB WHEEL
     - Rule:
-        - Key: Thumb Wheel Down
-        - KeyPress: [Control_L, Minus]
-
-    # 2. Gesture Button
-    - Rule:
-        - Key: Mouse Gesture Button
-        - Divert: true
-
-    # 2a. Gesture + Move Left
-    - Rule:
-        - Test: [Mouse Gesture Button, pressed]
-        - Key: Mouse Left
-        - KeyPress: [Super_L, Alt_L, Left]
-
-    # 2b. Gesture + Move Right
-    - Rule:
-        - Test: [Mouse Gesture Button, pressed]
-        - Key: Mouse Right
-        - KeyPress: [Super_L, Alt_L, Right]
-
-    # 2c. Guester only pressed and released
-    - Rule:
-        - Key: Mouse Gesture Button
-        - Test: [Mouse Gesture Button, released]
-        - KeyPress: Super_L
+      - Test: thumb_wheel_down
+      - KeyPress:
+        - Control_L
+        - Minus
+    ...
+    ---
+    # Rule 3: Mouse Gesture - Move Left (Workspace Switch)
+    # Trigger: Gesture Button held + Mouse moved Left
+    - MouseGesture: Mouse Left
+    - KeyPress:
+      - Super_L
+      - Alt_L
+      - Left
+    ...
+    ---
+    # Rule 4: Mouse Gesture - Move Right (Workspace Switch)
+    # Trigger: Gesture Button held + Mouse moved Right
+    - MouseGesture: Mouse Right
+    - KeyPress:
+      - Super_L
+      - Alt_L
+      - Right
+    ...
+    ---
+    # Rule 5: Simple Click on Gesture Button -> Overview
+    # Trigger: Button pressed and released without movement
+    # We check for the 'released' action to avoid repeats
+    - Key: [Mouse Gesture Button, released]
+    - KeyPress: Super_L
     ...
   '';
 
   xdg.configFile."solaar/config.yaml".text = ''
     %YAML 1.3
     ---
+    - _NAME: MX Master 3S
+      _modelId: B03400000000
+      # Basic hardware settings
+      dpi: 1000
+      smart-shift: 10
+      thumb-scroll-mode: true
+      thumb-scroll-invert: false
+
+      # KEY DIVERSION
+      # ID 195 (0xC3) is the Mouse Gesture Button.
+      # Value 2 means "Mouse Gesture Mode" (allows movement detection while pressed)
+      divert-keys: {195: 2}
+
+      # Reprogrammable keys mapping (1:1)
+      reprogrammable-keys: {195: 195}
+
     - _NAME: MX Keys S
-      _battery: 0
       _modelId: B37800000000
-      _serial: B3177D71
-      _unitId: B3177D71
-      _wpid: B378
       backlight: 1
       backlight-timed: true
       fn-swap: true
-    - _NAME: MX Master 3S
-      smart-shift: 10
-      thumb-scroll-invert: false
-      thumb-scroll-mode: true
+      # Standard diversions for MX Keys (copied from Fedora config)
+      divert-keys: {10: 0, 111: 0, 199: 0, 200: 0, 226: 0, 227: 0, 228: 0, 229: 0, 230: 0, 231: 0, 232: 0, 233: 0, 234: 0, 259: 0, 264: 0, 266: 0, 284: 0}
   '';
 
   # Autostart applications after first loging to Gnome
