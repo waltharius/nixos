@@ -16,7 +16,6 @@
     ../../modules/laptop/hibernate.nix
     ../../modules/laptop/acpi-suspend.nix
     ../../modules/laptop/thunderbolt.nix
-    ../../modules/laptop/nvidia.nix
     ../../modules/system/gaming.nix
   ];
 
@@ -27,7 +26,7 @@
   users.users.marcin = {
     isNormalUser = true;
     description = "Marcin";
-    extraGroups = ["networkmanager" "wheel" "gamemode" "input" "plugdev"];
+    extraGroups = ["networkmanager" "wheel" "gamemode" "input" "uinput" "plugdev"];
 
     # SSH authorized keys for remote access
     openssh.authorizedKeys.keys = [
