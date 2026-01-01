@@ -12,6 +12,8 @@
 
       # Formatting
       conform-nvim
+      rainbow-delimiters-nvim
+      indent-blankline-nvim
 
       # Completion framework
       nvim-cmp
@@ -191,6 +193,10 @@
       -- ========================================
       -- FORMATTING (Conform.nvim)
       -- ========================================
+      require('rainbow-delimiters.setup').setup { }
+
+      require("ibl").setup()
+
       require("conform").setup({
         formatters_by_ft = {
           -- Your primary languages

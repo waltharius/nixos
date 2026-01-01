@@ -19,7 +19,6 @@
   };
 
   outputs = {
-    self,
     nixpkgs,
     home-manager,
     nix-flatpak,
@@ -68,7 +67,7 @@
           ./modules/system/certificates.nix
           ./modules/system/base.nix
           ./modules/services/solaar.nix
-          ./modules/system/plymouth.nix
+          #          ./modules/system/plymouth.nix
 
           # SOPS for system-level secrets
           sops-nix.nixosModules.sops
