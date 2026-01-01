@@ -230,6 +230,8 @@
       vim.o.foldenable = true
 
       require('ufo').setup({
+        -- Highlight unfolded lines for 5 seconds (5000ms) after opening a fold
+        open_fold_hl_timeout = 5000,
         provider_selector = function(bufnr, filetype, buftype)
             return {'treesitter', 'indent'}
         end
