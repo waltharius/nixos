@@ -8,7 +8,7 @@
   boot.loader = {
     systemd-boot = {
       enable = true;
-      consoleMode = "max";
+      consoleMode = "0";
       configurationLimit = 10;
     };
     efi.canTouchEfiVariables = true;
@@ -21,7 +21,7 @@
   boot.initrd.availableKernelModules = ["xhci_pci" "ahci" "nvme" "usbhid" "sd_mod"];
 
   # Silent boot
-  boot.kernelParams = ["quiet" "splash"];
+  boot.kernelParams = ["quiet" "splash" "video=efifb:3840x2160"];
 
   # Latest stable kernel
   boot.kernelPackages = pkgs.linuxPackages_latest;
