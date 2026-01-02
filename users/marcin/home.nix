@@ -123,6 +123,7 @@ in {
       spotify # Music streaming
       spotify-player # Terminal Spotify client
       gnome-mahjongg
+      gnome-podcasts
 
       # Emacs (simple installation - manages its own packages from ~/.emacs.d)
       emacs
