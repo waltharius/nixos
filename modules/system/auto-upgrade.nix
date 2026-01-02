@@ -8,6 +8,10 @@
   environment.etc."gitconfig".text = ''
     [safe]
       directory = /home/marcin/nixos
+
+    [user]
+      name = NixOS System
+      email = root@${config.networking.hostName}
   '';
 
   # Automatic system upgrades
