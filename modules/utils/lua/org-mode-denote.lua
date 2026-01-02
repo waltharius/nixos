@@ -182,8 +182,12 @@ local function add_journal_entry(filepath)
   local line_count = vim.api.nvim_buf_line_count(0)
   vim.api.nvim_buf_set_lines(0, line_count, line_count, false, entry)
 
-  -- Jump to new entry
-  vim.api.nvim_win_set_cursor(0, {line_count + 5, 0})
+  -- Jump to end of new entry and enter insert mode
+  vim.schedule(function()
+    local new_line_count = vim.api.nvim_buf_line_count(0)
+    vim.api.nvim_win_set_cursor(0, {new_line_count, 0})
+    vim.cmd('startinsert!')
+  end)
 end
 
 -- Main journal function (C-n j)
@@ -210,6 +214,14 @@ function Journal_today()
       file:write(table.concat(template, '\n'))
       file:close()
       vim.cmd('edit ' .. filepath)
+      
+      -- Jump to end and enter insert mode
+      vim.schedule(function()
+        local line_count = vim.api.nvim_buf_line_count(0)
+        vim.api.nvim_win_set_cursor(0, {line_count, 0})
+        vim.cmd('startinsert!')
+      end)
+      
       print('Created new journal: ' .. filename)
     else
       print('Error creating journal file')
@@ -256,6 +268,14 @@ function Journal_past_date()
         file:write(table.concat(template, '\n'))
         file:close()
         vim.cmd('edit ' .. filepath)
+        
+        -- Jump to end and enter insert mode
+        vim.schedule(function()
+          local line_count = vim.api.nvim_buf_line_count(0)
+          vim.api.nvim_win_set_cursor(0, {line_count, 0})
+          vim.cmd('startinsert!')
+        end)
+        
         print('Created journal for ' .. input)
       else
         print('Error creating journal file')
@@ -315,6 +335,14 @@ function Create_note()
         file:write(table.concat(template, '\n'))
         file:close()
         vim.cmd('edit ' .. filepath)
+        
+        -- Jump to end and enter insert mode
+        vim.schedule(function()
+          local line_count = vim.api.nvim_buf_line_count(0)
+          vim.api.nvim_win_set_cursor(0, {line_count, 0})
+          vim.cmd('startinsert!')
+        end)
+        
         print('Created: ' .. filename)
       else
         print('Error creating note')
