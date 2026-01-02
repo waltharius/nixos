@@ -1,16 +1,11 @@
 # Automatic system updates with meaningful generation names
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: {
+{config, ...}: {
   # Automatic system upgrades
   system.autoUpgrade = {
     enable = true;
 
     # Use your flake for upgrades
-    flake = "/home/marcin/nixos#sukkub";
+    flake = "/home/marcin/nixos#${config.networking.hostName}";
 
     # Update inputs (nixpkgs, etc.) before upgrading
     flags = [
