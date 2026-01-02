@@ -186,11 +186,12 @@ local function add_journal_entry(filepath)
   local line_count = vim.api.nvim_buf_line_count(0)
   vim.api.nvim_buf_set_lines(0, line_count, line_count, false, entry)
 
-  -- Jump to end of new entry and enter insert mode
+  -- Jump to LAST line (like 'G' command) and enter insert mode
   vim.schedule(function()
     local new_line_count = vim.api.nvim_buf_line_count(0)
     vim.api.nvim_win_set_cursor(0, {new_line_count, 0})
-    vim.cmd('startinsert!')
+    vim.cmd('normal! $')  -- Go to end of line
+    vim.cmd('startinsert!')  -- Enter insert mode at end
   end)
 end
 
@@ -219,10 +220,12 @@ function Journal_today()
       file:close()
       vim.cmd('edit ' .. filepath)
       
-      -- Jump to line after :END: (line 8) and enter insert mode
+      -- Jump to LAST line (like 'G' command) and enter insert mode
       vim.schedule(function()
-        vim.api.nvim_win_set_cursor(0, {8, 0})  -- Position right after :END:
-        vim.cmd('startinsert!')
+        local line_count = vim.api.nvim_buf_line_count(0)
+        vim.api.nvim_win_set_cursor(0, {line_count, 0})
+        vim.cmd('normal! $')  -- Go to end of line
+        vim.cmd('startinsert!')  -- Enter insert mode at end
       end)
       
       print('Created new journal: ' .. filename)
@@ -272,9 +275,11 @@ function Journal_past_date()
         file:close()
         vim.cmd('edit ' .. filepath)
         
-        -- Jump to line after :END: and enter insert mode
+        -- Jump to LAST line and enter insert mode
         vim.schedule(function()
-          vim.api.nvim_win_set_cursor(0, {8, 0})
+          local line_count = vim.api.nvim_buf_line_count(0)
+          vim.api.nvim_win_set_cursor(0, {line_count, 0})
+          vim.cmd('normal! $')
           vim.cmd('startinsert!')
         end)
         
@@ -338,9 +343,11 @@ function Create_note()
         file:close()
         vim.cmd('edit ' .. filepath)
         
-        -- Jump to line after first blank line (line 5) and enter insert mode
+        -- Jump to LAST line and enter insert mode
         vim.schedule(function()
-          vim.api.nvim_win_set_cursor(0, {5, 0})
+          local line_count = vim.api.nvim_buf_line_count(0)
+          vim.api.nvim_win_set_cursor(0, {line_count, 0})
+          vim.cmd('normal! $')
           vim.cmd('startinsert!')
         end)
         
