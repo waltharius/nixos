@@ -49,15 +49,15 @@
           -- Generate denote filename: YYYYMMDDTHHMMSS--title__tags.org
           local function denote_filename(title, tags, signature)
             local timestamp = os.date('%%Y%%m%%dT%%H%%M%%S')
-            local slug_title = title:lower():gsub('[^%%w]+', '-'):gsub('^-+', ''''):gsub('-+$', '''')
-            local tags_str = ''''
+            local slug_title = title:lower():gsub('[^%%w]+', '-'):gsub('^-+', ''''''):gsub('-+$', '''''')
+            local tags_str = ''''''
 
             if tags and #tags > 0 then
               tags_str = '__' .. table.concat(tags, '_')
             end
 
-            local sig_str = ''''
-            if signature and signature ~= '''' then
+            local sig_str = ''''''
+            if signature and signature ~= '''''' then
               sig_str = '==' .. signature
             end
 
@@ -83,8 +83,8 @@
             if handle then
               local result = handle:read('*a')
               handle:close()
-              if result and result ~= '''' then
-                return result:gsub('%%s+$', '''')
+              if result and result ~= '''''' then
+                return result:gsub('%%s+$', '''''')
               end
             end
             return nil
@@ -109,16 +109,16 @@
               '#+TITLE: ' .. formatted_date .. ' Journal',
               '#+DATE: [' .. formatted_date .. ' ' .. weekday .. ']',
               '#+FILETAGS: :journal:',
-              '''',
+              '',
               '* ' .. time_str .. ' Entry',
-              '''',
+              '',
               '** Wellbeing',
               'Mood: ',
               'Energy: ',
               'Focus: ',
-              '''',
+              '',
               '** Notes',
-              '''',
+              '',
             }
 
             return template
@@ -128,11 +128,11 @@
           local function add_journal_entry(filepath)
             local time_str = os.date('%%H:%%M')
             local entry = {
-              '''',
+              '',
               '* ' .. time_str .. ' Entry',
-              '''',
+              '',
               '** Notes',
-              '''',
+              '',
             }
 
             -- Open file and append
@@ -181,7 +181,7 @@
               prompt = 'Journal date (YYYY-MM-DD): ',
               default = os.date('%%Y-%%m-%%d')
             }, function(input)
-              if not input or input == '''' then
+              if not input or input == '''''' then
                 print('Canceled')
                 return
               end
@@ -226,14 +226,14 @@
 
           function Create_note()
             vim.ui.input({ prompt = 'Note title: ' }, function(title)
-              if not title or title == '''' then
+              if not title or title == '''''' then
                 print('Canceled')
                 return
               end
 
               vim.ui.input({ prompt = 'Tags (space-separated): ' }, function(tags_input)
                 local tags = {}
-                if tags_input and tags_input ~= '''' then
+                if tags_input and tags_input ~= '''''' then
                   for tag in tags_input:gmatch('%%S+') do
                     table.insert(tags, tag)
                   end
@@ -246,9 +246,9 @@
                   '#+TITLE: ' .. title,
                   '#+DATE: [' .. os.date('%%Y-%%m-%%d %%A') .. ']',
                   '#+FILETAGS: :' .. table.concat(tags, ':') .. ':',
-                  '''',
+                  '',
                   '* Notes',
-                  '''',
+                  '',
                 }
 
                 local file = io.open(filepath, 'w')
