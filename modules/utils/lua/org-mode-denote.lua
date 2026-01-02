@@ -90,6 +90,11 @@ local function get_date_string(date_override)
   return os.date('%Y%m%d')
 end
 
+-- Get formatted date string for titles (YYYY-MM-DD)
+local function get_formatted_date(date_str)
+  return date_str:sub(1, 4) .. '-' .. date_str:sub(5, 6) .. '-' .. date_str:sub(7, 8)
+end
+
 -- Find existing journal file for a date
 local function find_journal_file(date_str)
   local pattern = date_str .. 'T.*%-%-.*journal__.*\\.org$'
@@ -190,9 +195,10 @@ function Journal_today()
     add_journal_entry(existing)
     print('Added new entry to today journal')
   else
-    -- Create new journal file
+    -- Create new journal file with YYYY-MM-DD format in title
     local timestamp = os.date('%Y%m%dT%H%M%S')
-    local filename = timestamp .. '--' .. date_str .. '-journal__journal.org'
+    local formatted_date = get_formatted_date(date_str)
+    local filename = timestamp .. '--' .. formatted_date .. '-journal__journal.org'
     local filepath = notes_dir .. filename
 
     local time_str = os.date('%H:%M')
@@ -237,9 +243,10 @@ function Journal_past_date()
       vim.cmd('edit ' .. existing)
       print('Opened existing journal for ' .. input)
     else
-      -- Create past date journal with T000000
+      -- Create past date journal with T000000 and YYYY-MM-DD format in title
       local timestamp = date_str .. 'T000000'
-      local filename = timestamp .. '--' .. date_str .. '-journal__journal.org'
+      local formatted_date = get_formatted_date(date_str)
+      local filename = timestamp .. '--' .. formatted_date .. '-journal__journal.org'
       local filepath = notes_dir .. filename
 
       local template = create_journal_template(date_str, '00:00', timestamp)
