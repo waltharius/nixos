@@ -104,6 +104,23 @@
         '';
       }
 
+      # Neogit - Magit-like Git interface
+      diffview-nvim  # Required by Neogit for diffs
+      {
+        plugin = neogit;
+        type = "lua";
+        config = ''
+          require('neogit').setup({
+            integrations = {
+              telescope = true,
+              diffview = true,
+            },
+            -- Use Telescope for branch selection, commits, etc.
+            graph_style = "unicode",
+          })
+        '';
+      }
+
       # Commenting
       {
         plugin = comment-nvim;
@@ -330,6 +347,12 @@
       vim.keymap.set('n', '<leader>ff', builtin.find_files, { desc = "Find files" })
       vim.keymap.set('n', '<leader>fg', builtin.live_grep, { desc = "Live grep" })
       vim.keymap.set('n', '<leader>fb', builtin.buffers, { desc = "Find buffers" })
+
+      -- Git operations with Neogit
+      vim.keymap.set('n', '<leader>gs', ':Neogit<CR>', { desc = "Git status (Neogit)" })
+      vim.keymap.set('n', '<leader>gc', ':Neogit commit<CR>', { desc = "Git commit" })
+      vim.keymap.set('n', '<leader>gp', ':Neogit push<CR>', { desc = "Git push" })
+      vim.keymap.set('n', '<leader>gl', ':Neogit log<CR>', { desc = "Git log" })
 
       -- Window navigation
       vim.keymap.set('n', '<C-h>', '<C-w>h', { desc = "Move to left window" })
