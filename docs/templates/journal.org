@@ -1,0 +1,12 @@
+#+title: {{DATE}} Journal
+#+date: [{{DATE}} {{WEEKDAY}}]
+#+filetags: :journal:
+#+identifier: {{IDENTIFIER}}
+:PROPERTIES:
+:well-being:
+:END:
+
+* {{TIME}} Entry
+
+** Notes
+

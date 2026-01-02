@@ -1,0 +1,7 @@
+#+title: {{TITLE}}
+#+date: [{{DATE}}]
+#+filetags: :{{TAGS}}:
+#+identifier: {{IDENTIFIER}}
+
+* Notes
+
