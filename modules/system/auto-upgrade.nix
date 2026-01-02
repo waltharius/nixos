@@ -4,6 +4,12 @@
   pkgs,
   ...
 }: {
+  # Allow root to access user's git repository
+  environment.etc."gitconfig".text = ''
+    [safe]
+      directory = /home/marcin/nixos
+  '';
+
   # Automatic system upgrades
   system.autoUpgrade = {
     enable = true;
