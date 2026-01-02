@@ -1,10 +1,5 @@
 # Boot configuration for UEFI systems with systemd-boot
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: {
+{pkgs, ...}: {
   boot.loader = {
     systemd-boot = {
       enable = true;

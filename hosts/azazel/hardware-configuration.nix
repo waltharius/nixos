@@ -7,9 +7,7 @@
 #
 # This placeholder exists only to allow flake evaluation before installation.
 {
-  config,
   lib,
-  pkgs,
   modulesPath,
   ...
 }: {

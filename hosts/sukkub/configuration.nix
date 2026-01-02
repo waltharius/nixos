@@ -1,9 +1,7 @@
 # Sukkub - Lenovo ThinkPad P50 (test/POC host)
 # Hardware: nvme, no battery
 {
-  config,
   pkgs,
-  lib,
   hostname,
   ...
 }: {

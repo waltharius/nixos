@@ -1,9 +1,7 @@
 # Azazel - ThinkPad T16 Gen3 (production host)
 # Hardware: 128GB RAM, nvme, battery
 {
-  config,
   pkgs,
-  lib,
   hostname,
   ...
 }: {
