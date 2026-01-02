@@ -6,11 +6,15 @@
   ...
 }: {
   boot.loader = {
-    systemd-boot.enable = true;
+    systemd-boot = {
+      enable = true;
+      consoleMode = "max";
+      configurationLimit = 10;
+    };
     efi.canTouchEfiVariables = true;
+    timeout = 5;
 
     # Limit number of generations in boot menu
-    systemd-boot.configurationLimit = 30;
   };
 
   # Enable kernel modules for common hardware

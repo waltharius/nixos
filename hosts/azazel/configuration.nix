@@ -20,7 +20,6 @@
     ../../modules/laptop/acpi-suspend.nix
     ../../modules/laptop/thunderbolt.nix
     ../../modules/system/gaming.nix
-    ../../modules/system/grub.nix
   ];
 
   # Allow automatic hibernation. It automaticly handles offset calcukation and setup via EFI variables
