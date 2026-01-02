@@ -68,7 +68,7 @@
           vim.opt_local.autoindent = false
           vim.opt_local.smartindent = false
           vim.opt_local.cindent = false
-          vim.opt_local.indentexpr = ''  -- Critical: disable indent expression
+          vim.opt_local.indentexpr = ''
 
           -- Preserve whitespace
           vim.opt_local.expandtab = true
@@ -79,6 +79,6 @@
           vim.opt_local.fixendofline = false
         end
       })
-    '';
+    ''';
   };
 }
