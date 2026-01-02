@@ -27,6 +27,10 @@ require('orgmode').setup({
   -- Disable agenda (not used much)
   org_agenda_skip_scheduled_if_done = true,
   org_agenda_skip_deadline_if_done = true,
+  
+  -- Enable visual enhancements
+  org_hide_leading_stars = true,
+  org_hide_emphasis_markers = true,
 })
 
 -- ========================================
@@ -124,7 +128,7 @@ local function create_journal_template(date_str, time_str, timestamp)
     day = tonumber(date_obj.day)
   }))
 
-  -- Default template (used if no external template found)
+  -- Default template (compact, no extra blank lines)
   local default_template = {
     '#+title: ' .. formatted_date .. ' Journal',
     '#+date: [' .. formatted_date .. ' ' .. weekday .. ']',
@@ -215,10 +219,9 @@ function Journal_today()
       file:close()
       vim.cmd('edit ' .. filepath)
       
-      -- Jump to end and enter insert mode
+      -- Jump to line after :END: (line 8) and enter insert mode
       vim.schedule(function()
-        local line_count = vim.api.nvim_buf_line_count(0)
-        vim.api.nvim_win_set_cursor(0, {line_count, 0})
+        vim.api.nvim_win_set_cursor(0, {8, 0})  -- Position right after :END:
         vim.cmd('startinsert!')
       end)
       
@@ -269,10 +272,9 @@ function Journal_past_date()
         file:close()
         vim.cmd('edit ' .. filepath)
         
-        -- Jump to end and enter insert mode
+        -- Jump to line after :END: and enter insert mode
         vim.schedule(function()
-          local line_count = vim.api.nvim_buf_line_count(0)
-          vim.api.nvim_win_set_cursor(0, {line_count, 0})
+          vim.api.nvim_win_set_cursor(0, {8, 0})
           vim.cmd('startinsert!')
         end)
         
@@ -307,7 +309,7 @@ function Create_note()
       local filepath = notes_dir .. filename
       local timestamp = filename:match('^(%d%d%d%d%d%d%d%dT%d%d%d%d%d%d)')
 
-      -- Default note template
+      -- Default note template (compact)
       local default_template = {
         '#+title: ' .. title,
         '#+date: [' .. os.date('%Y-%m-%d %A') .. ']',
@@ -336,10 +338,9 @@ function Create_note()
         file:close()
         vim.cmd('edit ' .. filepath)
         
-        -- Jump to end and enter insert mode
+        -- Jump to line after first blank line (line 5) and enter insert mode
         vim.schedule(function()
-          local line_count = vim.api.nvim_buf_line_count(0)
-          vim.api.nvim_win_set_cursor(0, {line_count, 0})
+          vim.api.nvim_win_set_cursor(0, {5, 0})
           vim.cmd('startinsert!')
         end)
         
