@@ -24,21 +24,21 @@
   # Select settings based on current hostname
   currentHost = hostSettings.${hostname} or hostSettings.default;
 in {
-  boot.loader.grub = {
-    # Apply host-specific resolution
-    gfxmodeEfi = currentHost.resolution;
-    gfxmodeBios = currentHost.resolution;
+  boot.loader = {
+    grub = {
+      # Apply host-specific resolution
+      gfxmodeEfi = currentHost.resolution;
+      gfxmodeBios = currentHost.resolution;
 
-    # Apply host-specific font size
-    fontSize = currentHost.fontSize;
+      # Apply host-specific font size
+      fontSize = currentHost.fontSize;
 
-    # These are the same for all hosts
-    configurationLimit = 10;
+      # These are the same for all hosts
+      configurationLimit = 10;
+
+      # Optional: Pretty theme (same for all hosts)
+      # theme = pkgs.nixos-grub2-theme;
+    };
     timeout = 5;
-
-    # Optional: Pretty theme (same for all hosts)
-    # theme = pkgs.nixos-grub2-theme;
   };
-
-  nix.settings.auto-optimise-store = true;
 }
