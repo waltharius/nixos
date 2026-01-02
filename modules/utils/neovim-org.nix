@@ -64,10 +64,11 @@
       vim.api.nvim_create_autocmd('FileType', {
         pattern = 'org',
         callback = function()
-          -- Disable auto-indent to preserve org structure
+          -- DISABLE ALL AUTO-INDENT (prevents spaces at line start)
           vim.opt_local.autoindent = false
           vim.opt_local.smartindent = false
           vim.opt_local.cindent = false
+          vim.opt_local.indentexpr = ''  -- Critical: disable indent expression
 
           -- Preserve whitespace
           vim.opt_local.expandtab = true
