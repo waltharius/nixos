@@ -30,10 +30,35 @@ require('orgmode').setup({
 })
 
 -- ========================================
--- DENOTE-STYLE FILE NAMING
+-- TEMPLATE LOADING SYSTEM
 -- ========================================
 
 local notes_dir = vim.fn.expand('~/notes/')
+local templates_dir = vim.fn.expand('~/notes/templates/')
+
+-- Load template from file or use default
+local function load_template(template_name, default_template)
+  local template_file = templates_dir .. template_name .. '.org'
+  local file = io.open(template_file, 'r')
+  
+  if file then
+    local content = file:read('*all')
+    file:close()
+    -- Split into lines
+    local lines = {}
+    for line in content:gmatch('[^\n]*') do
+      table.insert(lines, line)
+    end
+    return lines
+  else
+    -- Return default template
+    return default_template
+  end
+end
+
+-- ========================================
+-- DENOTE-STYLE FILE NAMING
+-- ========================================
 
 -- Generate denote filename: YYYYMMDDTHHMMSS--title__tags.org
 local function denote_filename(title, tags, signature)
@@ -80,7 +105,7 @@ local function find_journal_file(date_str)
 end
 
 -- Create journal template with proper format
-local function create_journal_template(date_str, time_str)
+local function create_journal_template(date_str, time_str, timestamp)
   local date_obj = {
     year = date_str:sub(1, 4),
     month = date_str:sub(5, 6),
@@ -94,21 +119,33 @@ local function create_journal_template(date_str, time_str)
     day = tonumber(date_obj.day)
   }))
 
-  local template = {
-    '#+TITLE: ' .. formatted_date .. ' Journal',
-    '#+DATE: [' .. formatted_date .. ' ' .. weekday .. ']',
-    '#+FILETAGS: :journal:',
+  -- Default template (used if no external template found)
+  local default_template = {
+    '#+title: ' .. formatted_date .. ' Journal',
+    '#+date: [' .. formatted_date .. ' ' .. weekday .. ']',
+    '#+filetags: :journal:',
+    '#+identifier: ' .. timestamp,
+    ':PROPERTIES:',
+    ':well-being:',
+    ':END:',
     '',
     '* ' .. time_str .. ' Entry',
-    '',
-    '** Wellbeing',
-    'Mood: ',
-    'Energy: ',
-    'Focus: ',
     '',
     '** Notes',
     '',
   }
+
+  -- Try to load from external template
+  local template = load_template('journal', default_template)
+  
+  -- Replace placeholders
+  for i, line in ipairs(template) do
+    line = line:gsub('{{DATE}}', formatted_date)
+    line = line:gsub('{{WEEKDAY}}', weekday)
+    line = line:gsub('{{TIME}}', time_str)
+    line = line:gsub('{{IDENTIFIER}}', timestamp)
+    template[i] = line
+  end
 
   return template
 end
@@ -116,13 +153,24 @@ end
 -- Add new time entry to existing journal
 local function add_journal_entry(filepath)
   local time_str = os.date('%H:%M')
-  local entry = {
+  
+  -- Default entry template
+  local default_entry = {
     '',
     '* ' .. time_str .. ' Entry',
     '',
     '** Notes',
     '',
   }
+  
+  -- Try to load from external template
+  local entry = load_template('journal-entry', default_entry)
+  
+  -- Replace placeholders
+  for i, line in ipairs(entry) do
+    line = line:gsub('{{TIME}}', time_str)
+    entry[i] = line
+  end
 
   -- Open file and append
   vim.cmd('edit ' .. filepath)
@@ -148,7 +196,7 @@ function Journal_today()
     local filepath = notes_dir .. filename
 
     local time_str = os.date('%H:%M')
-    local template = create_journal_template(date_str, time_str)
+    local template = create_journal_template(date_str, time_str, timestamp)
 
     -- Write file
     local file = io.open(filepath, 'w')
@@ -194,7 +242,7 @@ function Journal_past_date()
       local filename = timestamp .. '--' .. date_str .. '-journal__journal.org'
       local filepath = notes_dir .. filename
 
-      local template = create_journal_template(date_str, '00:00')
+      local template = create_journal_template(date_str, '00:00', timestamp)
 
       local file = io.open(filepath, 'w')
       if file then
@@ -230,15 +278,30 @@ function Create_note()
 
       local filename = denote_filename(title, tags, nil)
       local filepath = notes_dir .. filename
+      local timestamp = filename:match('^(%d%d%d%d%d%d%d%dT%d%d%d%d%d%d)')
 
-      local template = {
-        '#+TITLE: ' .. title,
-        '#+DATE: [' .. os.date('%Y-%m-%d %A') .. ']',
-        '#+FILETAGS: :' .. table.concat(tags, ':') .. ':',
+      -- Default note template
+      local default_template = {
+        '#+title: ' .. title,
+        '#+date: [' .. os.date('%Y-%m-%d %A') .. ']',
+        '#+filetags: :' .. table.concat(tags, ':') .. ':',
+        '#+identifier: ' .. timestamp,
         '',
         '* Notes',
         '',
       }
+      
+      -- Try to load from external template
+      local template = load_template('note', default_template)
+      
+      -- Replace placeholders
+      for i, line in ipairs(template) do
+        line = line:gsub('{{TITLE}}', title)
+        line = line:gsub('{{DATE}}', os.date('%Y-%m-%d %A'))
+        line = line:gsub('{{TAGS}}', table.concat(tags, ':'))
+        line = line:gsub('{{IDENTIFIER}}', timestamp)
+        template[i] = line
+      end
 
       local file = io.open(filepath, 'w')
       if file then
