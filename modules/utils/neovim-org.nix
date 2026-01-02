@@ -51,20 +51,20 @@
           
           -- Generate denote filename: YYYYMMDDTHHMMSS--title__tags.org
           local function denote_filename(title, tags, signature)
-            local timestamp = os.date('%Y%m%dT%H%M%S')
-            local slug_title = title:lower():gsub('[^%w]+', '-'):gsub('^-+', ''):gsub('-+$', '')
-            local tags_str = ''
+            local timestamp = os.date('%%Y%%m%%dT%%H%%M%%S')
+            local slug_title = title:lower():gsub('[^%%w]+', '-'):gsub('^-+', ''''):gsub('-+$', '''')
+            local tags_str = ''''
             
             if tags and #tags > 0 then
               tags_str = '__' .. table.concat(tags, '_')
             end
             
-            local sig_str = ''
-            if signature and signature ~= '' then
+            local sig_str = ''''
+            if signature and signature ~= '''' then
               sig_str = '==' .. signature
             end
             
-            return string.format('%s--%s%s%s.org', timestamp, slug_title, tags_str, sig_str)
+            return string.format('%%s--%%s%%s%%s.org', timestamp, slug_title, tags_str, sig_str)
           end
           
           -- ========================================
@@ -76,7 +76,7 @@
             if date_override then
               return date_override
             end
-            return os.date('%Y%m%d')
+            return os.date('%%Y%%m%%d')
           end
           
           -- Find existing journal file for a date
@@ -86,8 +86,8 @@
             if handle then
               local result = handle:read('*a')
               handle:close()
-              if result and result ~= '' then
-                return result:gsub('%s+$', '')
+              if result and result ~= '''' then
+                return result:gsub('%%s+$', '''')
               end
             end
             return nil
@@ -101,8 +101,8 @@
               day = date_str:sub(7, 8)
             }
             
-            local formatted_date = string.format('%s-%s-%s', date_obj.year, date_obj.month, date_obj.day)
-            local weekday = os.date('%A', os.time({
+            local formatted_date = string.format('%%s-%%s-%%s', date_obj.year, date_obj.month, date_obj.day)
+            local weekday = os.date('%%A', os.time({
               year = tonumber(date_obj.year),
               month = tonumber(date_obj.month),
               day = tonumber(date_obj.day)
@@ -112,16 +112,16 @@
               '#+TITLE: ' .. formatted_date .. ' Journal',
               '#+DATE: [' .. formatted_date .. ' ' .. weekday .. ']',
               '#+FILETAGS: :journal:',
-              '',
+              '''',
               '* ' .. time_str .. ' Entry',
-              '',
+              '''',
               '** Wellbeing',
               'Mood: ',
               'Energy: ',
               'Focus: ',
-              '',
+              '''',
               '** Notes',
-              '',
+              '''',
             }
             
             return template
@@ -129,13 +129,13 @@
           
           -- Add new time entry to existing journal
           local function add_journal_entry(filepath)
-            local time_str = os.date('%H:%M')
+            local time_str = os.date('%%H:%%M')
             local entry = {
-              '',
+              '''',
               '* ' .. time_str .. ' Entry',
-              '',
+              '''',
               '** Notes',
-              '',
+              '''',
             }
             
             -- Open file and append
@@ -154,14 +154,14 @@
             
             if existing then
               add_journal_entry(existing)
-              print('📝 Added new entry to today\'s journal')
+              print('Added new entry to today journal')
             else
               -- Create new journal file
-              local timestamp = os.date('%Y%m%dT%H%M%S')
+              local timestamp = os.date('%%Y%%m%%dT%%H%%M%%S')
               local filename = timestamp .. '--' .. date_str .. '-journal__journal.org'
               local filepath = notes_dir .. filename
               
-              local time_str = os.date('%H:%M')
+              local time_str = os.date('%%H:%%M')
               local template = create_journal_template(date_str, time_str)
               
               -- Write file
@@ -170,9 +170,9 @@
                 file:write(table.concat(template, '\n'))
                 file:close()
                 vim.cmd('edit ' .. filepath)
-                print('✨ Created new journal: ' .. filename)
+                print('Created new journal: ' .. filename)
               else
-                print('❌ Error creating journal file')
+                print('Error creating journal file')
               end
             end
           end
@@ -182,17 +182,17 @@
             -- Prompt for date
             vim.ui.input({
               prompt = 'Journal date (YYYY-MM-DD): ',
-              default = os.date('%Y-%m-%d')
+              default = os.date('%%Y-%%m-%%d')
             }, function(input)
-              if not input or input == '' then
+              if not input or input == '''' then
                 print('Canceled')
                 return
               end
               
               -- Parse date
-              local year, month, day = input:match('(%d%d%d%d)%-(%d%d)%-(%d%d)')
+              local year, month, day = input:match('(%%d%%d%%d%%d)%-(%%d%%d)%-(%%d%%d)')
               if not year then
-                print('❌ Invalid date format. Use YYYY-MM-DD')
+                print('Invalid date format. Use YYYY-MM-DD')
                 return
               end
               
@@ -201,7 +201,7 @@
               
               if existing then
                 vim.cmd('edit ' .. existing)
-                print('📖 Opened existing journal for ' .. input)
+                print('Opened existing journal for ' .. input)
               else
                 -- Create past date journal with T000000
                 local timestamp = date_str .. 'T000000'
@@ -215,9 +215,9 @@
                   file:write(table.concat(template, '\n'))
                   file:close()
                   vim.cmd('edit ' .. filepath)
-                  print('✨ Created journal for ' .. input)
+                  print('Created journal for ' .. input)
                 else
-                  print('❌ Error creating journal file')
+                  print('Error creating journal file')
                 end
               end
             end)
@@ -229,15 +229,15 @@
           
           function Create_note()
             vim.ui.input({ prompt = 'Note title: ' }, function(title)
-              if not title or title == '' then
+              if not title or title == '''' then
                 print('Canceled')
                 return
               end
               
               vim.ui.input({ prompt = 'Tags (space-separated): ' }, function(tags_input)
                 local tags = {}
-                if tags_input and tags_input ~= '' then
-                  for tag in tags_input:gmatch('%S+') do
+                if tags_input and tags_input ~= '''' then
+                  for tag in tags_input:gmatch('%%S+') do
                     table.insert(tags, tag)
                   end
                 end
@@ -247,11 +247,11 @@
                 
                 local template = {
                   '#+TITLE: ' .. title,
-                  '#+DATE: [' .. os.date('%Y-%m-%d %A') .. ']',
+                  '#+DATE: [' .. os.date('%%Y-%%m-%%d %%A') .. ']',
                   '#+FILETAGS: :' .. table.concat(tags, ':') .. ':',
-                  '',
+                  '''',
                   '* Notes',
-                  '',
+                  '''',
                 }
                 
                 local file = io.open(filepath, 'w')
@@ -259,9 +259,9 @@
                   file:write(table.concat(template, '\n'))
                   file:close()
                   vim.cmd('edit ' .. filepath)
-                  print('✨ Created: ' .. filename)
+                  print('Created: ' .. filename)
                 else
-                  print('❌ Error creating note')
+                  print('Error creating note')
                 end
               end)
             end)
@@ -279,7 +279,7 @@
           vim.keymap.set('n', '<leader>na', '<cmd>lua require("orgmode").action("agenda.prompt")<CR>', { desc = 'Org agenda' })
           vim.keymap.set('n', '<leader>nc', '<cmd>lua require("orgmode").action("capture.prompt")<CR>', { desc = 'Org capture' })
           
-          print('📓 Org-mode module loaded! Use <leader>nj for journal, <leader>nn for notes')
+          print('Org-mode module loaded! Use <leader>nj for journal, <leader>nn for notes')
         '';
       }
     ];
