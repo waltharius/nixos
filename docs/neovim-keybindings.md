@@ -11,7 +11,7 @@ This Neovim configuration provides a modern, feature-rich development environmen
 - **Completion**: Context-aware with LSP, snippets, and path completion
 - **Visual Aids**: Rainbow delimiters, indent guides, scope highlighting
 - **Code Folding**: Treesitter-based with visual indicators
-- **Git Integration**: Inline blame and change indicators
+- **Git Integration**: Neogit (Magit-like), inline blame, and change indicators
 - **Fuzzy Finding**: Telescope for files, grep, and buffer search
 
 ---
@@ -52,6 +52,8 @@ This Neovim configuration provides a modern, feature-rich development environmen
 
 ### Git Integration
 - **gitsigns-nvim**: Git change indicators and inline blame
+- **neogit**: Interactive Git interface (Magit-like experience)
+- **diffview-nvim**: Advanced diff viewer (required by Neogit)
 
 ### Language Servers & Formatters
 - **nixd**: Nix language server
@@ -96,7 +98,7 @@ The leader key is set to **Space** (`<Space>`)
 These keybindings are automatically available when LSP is attached to a buffer:
 
 | Keybinding | Mode | Action | Description |
-|------------|------|--------|--------------|
+|------------|------|--------|--------------|  
 | `gd` | Normal | `definition` | Go to definition |
 | `K` | Normal | `hover` | Show hover documentation |
 | `<leader>f` | Normal | `format` | Format current buffer (async) |
@@ -143,11 +145,29 @@ These keybindings are automatically available when LSP is attached to a buffer:
 
 ---
 
-### Git
+### Git (Neogit - Magit-like Interface)
 
 | Keybinding | Mode | Action | Description |
-|------------|------|--------|--------------|
-| `<leader>gb` | Normal | Toggle Git Blame | Toggle inline Git blame for current line |
+|------------|------|--------|--------------|  
+| `<leader>gs` | Normal | `:Neogit<CR>` | Open Git status (main interface) |
+| `<leader>gc` | Normal | `:Neogit commit<CR>` | Open commit menu |
+| `<leader>gp` | Normal | `:Neogit push<CR>` | Open push menu |
+| `<leader>gl` | Normal | `:Neogit log<CR>` | View Git log |
+| `<leader>gb` | Normal | `toggle_blame` | Toggle inline Git blame for current line |
+
+#### Neogit Workflow
+
+1. **Open status**: Press `<leader>gs` to see all changes
+2. **Stage changes**: 
+   - Press `s` on a file to stage entire file
+   - Press `s` on a hunk to stage individual hunk
+   - Press `u` to unstage
+3. **Commit**:
+   - Press `c` then `c` to open commit buffer
+   - Write commit message
+   - Save (`:w`) and close (`:q`) to finalize
+4. **Push**: Press `p` then `p` to push changes
+5. **Help**: Press `?` in any view to see all commands
 
 ---
 
@@ -268,6 +288,13 @@ sudo nixos-rebuild switch --flake .
 3. Results update in real-time
 4. Navigate with `<C-j>/<C-k>`, Enter to open
 
+### Git Workflow with Neogit
+1. Make changes to your files
+2. `<leader>gs` to open status
+3. Stage hunks with `s`, unstage with `u`
+4. `c c` to commit, write message, save and quit
+5. `p p` to push to remote
+
 ---
 
 ## Troubleshooting
@@ -329,4 +356,4 @@ vim.keymap.set('n', '<leader>x', ':YourCommand<CR>', { desc = "Description" })
 
 ---
 
-*Last updated: 2026-01-01*
+*Last updated: 2026-01-02*
