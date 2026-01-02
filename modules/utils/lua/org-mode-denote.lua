@@ -128,7 +128,7 @@ local function create_journal_template(date_str, time_str, timestamp)
     day = tonumber(date_obj.day)
   }))
 
-  -- Default template (compact, no extra blank lines)
+  -- Default template (compact, no empty lines between headers)
   local default_template = {
     '#+title: ' .. formatted_date .. ' Journal',
     '#+date: [' .. formatted_date .. ' ' .. weekday .. ']',
@@ -314,7 +314,7 @@ function Create_note()
       local filepath = notes_dir .. filename
       local timestamp = filename:match('^(%d%d%d%d%d%d%d%dT%d%d%d%d%d%d)')
 
-      -- Default note template (compact)
+      -- Default note template (compact, no empty lines between headers)
       local default_template = {
         '#+title: ' .. title,
         '#+date: [' .. os.date('%Y-%m-%d %A') .. ']',
