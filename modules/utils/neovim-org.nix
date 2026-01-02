@@ -109,16 +109,16 @@
               '#+TITLE: ' .. formatted_date .. ' Journal',
               '#+DATE: [' .. formatted_date .. ' ' .. weekday .. ']',
               '#+FILETAGS: :journal:',
-              '',
+              "",
               '* ' .. time_str .. ' Entry',
-              '',
+              "",
               '** Wellbeing',
               'Mood: ',
               'Energy: ',
               'Focus: ',
-              '',
+              "",
               '** Notes',
-              '',
+              "",
             }
 
             return template
@@ -128,11 +128,11 @@
           local function add_journal_entry(filepath)
             local time_str = os.date('%%H:%%M')
             local entry = {
-              '',
+              "",
               '* ' .. time_str .. ' Entry',
-              '',
+              "",
               '** Notes',
-              '',
+              "",
             }
 
             -- Open file and append
@@ -246,9 +246,9 @@
                   '#+TITLE: ' .. title,
                   '#+DATE: [' .. os.date('%%Y-%%m-%%d %%A') .. ']',
                   '#+FILETAGS: :' .. table.concat(tags, ':') .. ':',
-                  '',
+                  "",
                   '* Notes',
-                  '',
+                  "",
                 }
 
                 local file = io.open(filepath, 'w')
