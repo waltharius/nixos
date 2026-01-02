@@ -8,13 +8,7 @@
     flake = "/home/marcin/nixos#${config.networking.hostName}";
 
     # Update inputs (nixpkgs, etc.) before upgrading
-    flags = [
-      "--update-input"
-      "nixpkgs"
-      "--update-input"
-      "home-manager"
-      "--commit-lock-file" # Commit the updated flake.lock
-    ];
+    flags = [];
 
     # When to run
     dates = "weekly"; # or "Sun *-*-* 03:00:00" for Sundays at 3 AM
@@ -37,6 +31,8 @@
   };
 
   # Optimize store after garbage collection
+  nix.settings.auto-optimise-store = true;
+
   nix.optimise = {
     automatic = true;
     dates = ["weekly"]; # Run after auto-upgrade
