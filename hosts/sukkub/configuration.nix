@@ -55,8 +55,9 @@
   # System packages
   environment.systemPackages = with pkgs; [
     tlp
-    mesa-demos
-    vulkan-tools
+    #mesa-demos
+    #vulkan-tools
+    texlive.combined.scheme-medium
   ];
 
   # State version - DO NOT CHANGE after initial installation

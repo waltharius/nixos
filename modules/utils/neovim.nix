@@ -1,4 +1,7 @@
 {pkgs, ...}: {
+  imports = [
+    ./neovim-org.nix
+  ];
   programs.neovim = {
     enable = true;
     defaultEditor = true;
@@ -14,7 +17,7 @@
       conform-nvim
       rainbow-delimiters-nvim
       indent-blankline-nvim
-      mini-nvim  # For mini.indentscope
+      mini-nvim # For mini.indentscope
 
       # Completion framework
       nvim-cmp
@@ -105,7 +108,7 @@
       }
 
       # Neogit - Magit-like Git interface
-      diffview-nvim  # Required by Neogit for diffs
+      diffview-nvim # Required by Neogit for diffs
       {
         plugin = neogit;
         type = "lua";
@@ -208,7 +211,7 @@
       -- INDENT GUIDES WITH SCOPE HIGHLIGHTING
       -- ========================================
       require("ibl").setup {
-        indent = { 
+        indent = {
           char = "│",
           highlight = { "IblIndent" },
         },
@@ -336,7 +339,7 @@
       -- ==========================================
       -- Keybindings
       -- ==========================================
-      
+
       -- Manual format keybinding
       vim.keymap.set('n', '<leader>f', function()
         require("conform").format({ async = true, lsp_fallback = true })
@@ -368,8 +371,8 @@
       vim.keymap.set('n', '<leader>u', vim.cmd.UndotreeToggle, { desc = "Toggle UndoTree" })
 
       -- Git blame toggle
-      vim.keymap.set('n', '<leader>gb', function() 
-        require('gitsigns').toggle_current_line_blame() 
+      vim.keymap.set('n', '<leader>gb', function()
+        require('gitsigns').toggle_current_line_blame()
       end, { desc = "Toggle Git Blame" })
     '';
   };
