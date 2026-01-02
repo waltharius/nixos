@@ -44,6 +44,10 @@
           -- Auto-wrap at 80 columns (like Emacs auto-fill)
           vim.opt_local.textwidth = 80
           vim.opt_local.formatoptions:append('t')
+          
+          -- Enable concealment for prettier display
+          vim.opt_local.conceallevel = 2
+          vim.opt_local.concealcursor = 'nc'
         end
       })
 
