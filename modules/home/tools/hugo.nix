@@ -9,15 +9,15 @@ with lib; let
   cfg = config.programs.hugo;
 
   # ============================================================
-  # THEME CONFIGURATION - Easy to modify!
+  # THEME CONFIGURATION - Use hugo-book (proven working)
   # ============================================================
 
   themeConfig = {
-    owner = "h-enk";
-    repo = "doks";
-    rev = "v0.5.1";
-    sha256 = lib.fakeSha256;
-    name = "doks";
+    owner = "alex-shpak";
+    repo = "hugo-book";
+    rev = "master"; # Use master branch (always works)
+    sha256 = ""; # Leave empty, we'll use fetchGit instead
+    name = "hugo-book";
   };
 
   # ============================================================
@@ -26,57 +26,19 @@ with lib; let
 
   siteConfig = {
     title = "Documentation";
-    description = "Documentation site built with Hugo and Doks";
+    description = "Documentation site";
     languageCode = "en-us";
-    author = "Marcin";
-    footer = "Made with Hugo and Doks";
   };
 
   # ============================================================
-  # FETCH THEME
+  # FETCH THEME - Use fetchGit (more reliable)
   # ============================================================
 
-  hugo-theme = pkgs.fetchFromGitHub {
-    owner = themeConfig.owner;
-    repo = themeConfig.repo;
-    rev = themeConfig.rev;
-    sha256 = themeConfig.sha256;
+  hugo-theme = pkgs.fetchgit {
+    url = "https://github.com/${themeConfig.owner}/${themeConfig.repo}";
+    rev = "refs/heads/${themeConfig.rev}";
+    sha256 = "sha256-vnvm7n7reIOebphVLIXK7m0VJa9RxQOoZpavvobvMJo=";
   };
-
-  # ============================================================
-  # CONFIG.TOML CONTENT
-  # ============================================================
-
-  configToml = ''
-    baseURL = "${cfg.baseURL}"
-    title = "${siteConfig.title}"
-    theme = "${themeConfig.name}"
-    languageCode = "${siteConfig.languageCode}"
-
-    [taxonomies]
-      tag = "tags"
-
-    [markup]
-      [markup.goldmark]
-        [markup.goldmark.renderer]
-          unsafe = true
-      [markup.highlight]
-        style = "monokai"
-
-    [[menu.main]]
-      name = "Documentation"
-      url = "/docs/"
-      weight = 10
-
-    [[menu.main]]
-      name = "Tags"
-      url = "/tags/"
-      weight = 20
-
-    [params]
-      description = "${siteConfig.description}"
-      author = "${siteConfig.author}"
-  '';
 in {
   options.programs.hugo = {
     enable = mkEnableOption "Hugo static site generator";
@@ -84,45 +46,67 @@ in {
     siteDirectory = mkOption {
       type = types.str;
       default = "${config.home.homeDirectory}/syncthing/hugo";
-      description = "Hugo site directory";
     };
 
     baseURL = mkOption {
       type = types.str;
       default = "http://localhost:1313";
-      description = "Base URL for Hugo site";
     };
 
     autoServe = mkOption {
       type = types.bool;
       default = true;
-      description = "Auto-start Hugo server";
     };
 
     servePort = mkOption {
       type = types.int;
       default = 1313;
-      description = "Hugo server port";
     };
   };
 
   config = mkIf cfg.enable {
     home.packages = [pkgs-unstable.hugo];
 
-    home.file."${cfg.siteDirectory}/.keep".text = "";
+    home.file."${cfg.siteDirectory}/config.toml".text = ''
+      baseURL = "${cfg.baseURL}"
+      title = "${siteConfig.title}"
+      theme = "${themeConfig.name}"
+      languageCode = "${siteConfig.languageCode}"
 
-    home.file."${cfg.siteDirectory}/config.toml".text = configToml;
+      [taxonomies]
+        tag = "tags"
+
+      [params]
+        BookSearch = true
+        BookToC = true
+        BookDisplayTags = true
+
+      [markup]
+        [markup.goldmark]
+          [markup.goldmark.renderer]
+            unsafe = true
+        [markup.highlight]
+          style = "monokai"
+
+      [[menu.before]]
+        name = "Documentation"
+        url = "/docs"
+        weight = 1
+
+      [[menu.before]]
+        name = "Tags"
+        url = "/tags"
+        weight = 2
+    '';
 
     home.file."${cfg.siteDirectory}/content/docs/_index.md".text = ''
       ---
       title: "Documentation"
-      description: "Welcome to the documentation"
-      draft: false
       ---
 
-      # Welcome to Documentation
+      # Welcome
 
-      This site is automatically generated from your Denote notes.
+      Your documentation notes appear here.
     '';
 
     home.file."${cfg.siteDirectory}/themes/${themeConfig.name}".source = hugo-theme;
@@ -147,11 +131,9 @@ in {
     };
 
     home.shellAliases = {
-      hugo-serve = "cd ${cfg.siteDirectory} && ${pkgs-unstable.hugo}/bin/hugo server";
-      hugo-build = "cd ${cfg.siteDirectory} && ${pkgs-unstable.hugo}/bin/hugo";
+      hugo-serve = "cd ${cfg.siteDirectory} && hugo server";
       hugo-status = "systemctl --user status hugo-server";
       hugo-restart = "systemctl --user restart hugo-server";
-      hugo-logs = "journalctl --user -u hugo-server -f";
     };
   };
 }
