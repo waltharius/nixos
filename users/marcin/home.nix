@@ -60,7 +60,7 @@ in {
     enable = true;
     baseURL = "http://localhost:1313";
     theme = "hugo-book";
-    seteDirectory = "${config.home.homeDirectory}/syncthing/hugo";
+    siteDirectory = "${config.home.homeDirectory}/syncthing/hugo";
     autoServe = true; #Might be ommited to use default from hogo.nix
   };
 
