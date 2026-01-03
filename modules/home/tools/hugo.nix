@@ -15,8 +15,8 @@ with lib; let
   themeConfig = {
     owner = "alex-shpak";
     repo = "hugo-book";
-    rev = "master"; # Use master branch (always works)
-    sha256 = ""; # Leave empty, we'll use fetchGit instead
+    rev = "main"; # Use master branch (always works)
+    sha256 = "sha256-7NihgHzoxtlDClzNZQIMj9vbN56nHeZylDi7TTnRXSo="; # Leave empty, we'll use fetchGit instead
     name = "hugo-book";
   };
 
@@ -37,7 +37,7 @@ with lib; let
   hugo-theme = pkgs.fetchgit {
     url = "https://github.com/${themeConfig.owner}/${themeConfig.repo}";
     rev = "refs/heads/${themeConfig.rev}";
-    sha256 = "sha256-vnvm7n7reIOebphVLIXK7m0VJa9RxQOoZpavvobvMJo=";
+    sha256 = themeConfig.sha256;
   };
 in {
   options.programs.hugo = {
