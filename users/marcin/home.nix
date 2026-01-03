@@ -53,7 +53,16 @@ in {
     ../../modules/home/shell/bash.nix
     ../../modules/home/shell/starship.nix
     ../../modules/home/terminal/tmux.nix
+    ../../modules/home/tools/hugo.nix
   ];
+
+  programs.hugo = {
+    enable = true;
+    baseURL = "http://localhost:1313";
+    theme = "hugo-book";
+    seteDirectory = "${config.home.homeDirectory}/syncthing/hugo";
+    autoServe = true; #Might be ommited to use default from hogo.nix
+  };
 
   # ========================================
   # USER-SPECIFIC OVERRIDES
