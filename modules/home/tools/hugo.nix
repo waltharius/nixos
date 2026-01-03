@@ -13,7 +13,7 @@ with lib; let
     owner = "alex-shpak";
     repo = "hugo-book";
     rev = "v13"; # Use specific version for reproducibility
-    sha256 = "0000000000000000000000000000000000000000000000000000"; # Placeholder - see below
+    sha256 = "sha256-r2KfmWK7BC7LjnZVvwb2Mbqnd8a6Q32fBqiQfZTpGy4=";
   };
 in {
   options.programs.hugo = {
