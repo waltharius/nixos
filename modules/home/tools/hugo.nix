@@ -133,7 +133,12 @@ in {
       THEME_DIR="${cfg.siteDirectory}/themes/${cfg.theme}"
       if [ ! -d "$THEME_DIR" ]; then
         $DRY_RUN_CMD mkdir -p "${cfg.siteDirectory}/themes"
-        $DRY_RUN_CMD ${pkgs.git}/bin/git clone https://github.com/alex-shpak/hugo-book "$THEME_DIR" --depth 1
+        # Use -c url.git@github.com:.insteadOf="" to disable HTTPS->SSH rewrite
+        $DRY_RUN_CMD ${pkgs.git}/bin/git \
+          -c url."git@github.com:".insteadOf="" \
+          clone https://github.com/alex-shpak/hugo-book "$THEME_DIR" \
+          --depth 1
+
         echo "Downloaded Hugo theme: ${cfg.theme}"
       fi
     '';
