@@ -23,6 +23,7 @@
     home-manager,
     nix-flatpak,
     sops-nix,
+    nixpkgs-unstable,
     ...
   } @ inputs: let
     system = "x86_64-linux";
@@ -31,6 +32,7 @@
       inherit system;
       config.allowUnfree = true;
     };
+
     # Import custom packages
     customPackages = import ./packages {inherit pkgs;};
 
@@ -82,6 +84,10 @@
               extraSpecialArgs = {
                 inherit inputs hostname;
                 customPkgs = customPackages;
+                pkgs-unstable = import inputs.nixpkgs-unstable {
+                  inherit system;
+                  config.allowUnfree = true;
+                };
               };
               users.marcin = import ./users/marcin/home.nix;
               backupFileExtension = "backup";
