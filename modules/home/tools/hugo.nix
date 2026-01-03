@@ -8,14 +8,201 @@
 with lib; let
   cfg = config.programs.hugo;
 
-  # Fetch Hugo Book theme from GitHub (cached in Nix store)
-  hugo-book-theme = pkgs.fetchFromGitHub {
-    owner = "alex-shpak";
-    repo = "hugo-book";
-    rev = "v13"; # Use specific version for reproducibility
-    sha256 = "sha256-r2KfmWK7BC7LjnZVvwb2Mbqnd8a6Q32fBqiQfZTpGy4=";
+  # ============================================================
+  # THEME CONFIGURATION - Easy to modify!
+  # ============================================================
+
+  themeConfig = {
+    # Change these values to switch themes
+    owner = "h-enk"; # GitHub owner
+    repo = "doks"; # Repository name
+    rev = "v0.5.1"; # Version/tag/commit
+    sha256 = "sha256-r2KfmWK7BC7LjnZVvwb2Mbqnd8a6Q32fBqiQfZTpGy4="; # Hash
+    name = "doks"; # Theme directory name
   };
+
+  # ============================================================
+  # SITE CONFIGURATION - Customize your site
+  # ============================================================
+
+  siteConfig = {
+    title = "Documentation";
+    description = "Documentation site built with Hugo and Doks";
+    languageCode = "en-us";
+    defaultContentLanguage = "en";
+
+    # Author and copyright
+    author = "Marcin";
+    footer = "Made with Hugo and Doks";
+
+    # Features
+    enableGitInfo = false;
+    enableRobotsTXT = true;
+    canonifyURLs = true;
+
+    # Display options
+    displayTags = true;
+    darkMode = true;
+    searchEnabled = true;
+    tocEnabled = true;
+  };
+
+  # ============================================================
+  # MARKUP CONFIGURATION
+  # ============================================================
+
+  markupConfig = {
+    # Syntax highlighting
+    highlightStyle = "monokai"; # Options: monokai, dracula, github, etc.
+    lineNumbers = true;
+    lineNumbersInTable = true;
+
+    # Markdown rendering
+    unsafeHTML = true; # Allow HTML in markdown
+  };
+
+  # ============================================================
+  # MENU CONFIGURATION
+  # ============================================================
+
+  menuItems = [
+    {
+      name = "Documentation";
+      url = "/docs/";
+      weight = 10;
+    }
+    {
+      name = "Tags";
+      url = "/tags/";
+      weight = 20;
+    }
+  ];
+
+  # ============================================================
+  # FETCH THEME FROM GITHUB
+  # ============================================================
+
+  hugo-theme = pkgs.fetchFromGitHub {
+    owner = themeConfig.owner;
+    repo = themeConfig.repo;
+    rev = themeConfig.rev;
+    sha256 = themeConfig.sha256;
+  };
+
+  # ============================================================
+  # GENERATE CONFIG.TOML CONTENT
+  # ============================================================
+
+  configToml = ''
+    baseURL = "${cfg.baseURL}"
+    title = "${siteConfig.title}"
+    theme = "${themeConfig.name}"
+
+    # Language settings
+    languageCode = "${siteConfig.languageCode}"
+    defaultContentLanguage = "${siteConfig.defaultContentLanguage}"
+
+    # Hugo settings
+    enableGitInfo = ${boolToString siteConfig.enableGitInfo}
+    enableRobotsTXT = ${boolToString siteConfig.enableRobotsTXT}
+    canonifyURLs = ${boolToString siteConfig.canonifyURLs}
+    disableAliases = true
+    disableHugoGeneratorInject = true
+
+    # Taxonomies (for tags and categories)
+    [taxonomies]
+      tag = "tags"
+      category = "categories"
+
+    # Markup settings
+    [markup]
+      [markup.goldmark]
+        [markup.goldmark.renderer]
+          unsafe = ${boolToString markupConfig.unsafeHTML}
+      [markup.highlight]
+        style = "${markupConfig.highlightStyle}"
+        lineNos = ${boolToString markupConfig.lineNumbers}
+        lineNumbersInTable = ${boolToString markupConfig.lineNumbersInTable}
+
+    # Output formats
+    [outputs]
+      home = ["HTML", "RSS"]
+      section = ["HTML", "RSS"]
+      taxonomy = ["HTML"]
+      term = ["HTML"]
+
+    ${concatMapStrings (item: ''
+        [[menu.main]]
+          name = "${item.name}"
+          url = "${item.url}"
+          weight = ${toString item.weight}
+
+      '')
+      menuItems}
+
+    # Theme-specific parameters
+    [params]
+      description = "${siteConfig.description}"
+      author = "${siteConfig.author}"
+      footer = "${siteConfig.footer}"
+
+      # Display options
+      displayTags = ${boolToString siteConfig.displayTags}
+
+      # Doks-specific options
+      ${optionalString (themeConfig.name == "doks") ''
+      options.lazySizes = true
+      options.clipBoard = true
+      options.instantPage = true
+      options.flexSearch = ${boolToString siteConfig.searchEnabled}
+      options.darkMode = ${boolToString siteConfig.darkMode}
+    ''}
+
+      # Hugo-book-specific options
+      ${optionalString (themeConfig.name == "hugo-book") ''
+      BookSearch = ${boolToString siteConfig.searchEnabled}
+      BookToC = ${boolToString siteConfig.tocEnabled}
+      BookTagCloud = ${boolToString siteConfig.displayTags}
+      BookDisplayTags = ${boolToString siteConfig.displayTags}
+      BookMenuBundle = "menu"
+      BookRepo = ""
+      BookEditPath = ""
+    ''}
+  '';
+
+  # ============================================================
+  # WELCOME PAGE CONTENT
+  # ============================================================
+
+  welcomePageContent = ''
+    ---
+    title: "${siteConfig.title}"
+    description: "${siteConfig.description}"
+    lead: "All pages tagged with :hugosync: appear here"
+    date: 2026-01-03T00:00:00+00:00
+    lastmod: 2026-01-03T00:00:00+00:00
+    draft: false
+    weight: 50
+    toc: false
+    ---
+
+    # Welcome to ${siteConfig.title}
+
+    This site is automatically generated from your Denote notes.
+
+    ## Features
+
+    - 📝 Automatic sync from Emacs Denote notes
+    - 🏷️ Tag-based organization
+    - 🔍 Full-text search
+    ${optionalString siteConfig.darkMode "- 🌙 Dark mode support"}
+    - ⚡ Fast static site generation
+  '';
 in {
+  # ============================================================
+  # MODULE OPTIONS
+  # ============================================================
+
   options.programs.hugo = {
     enable = mkEnableOption "Hugo static site generator for documentation";
 
@@ -23,12 +210,6 @@ in {
       type = types.str;
       default = "${config.home.homeDirectory}/syncthing/hugo";
       description = "Directory where Hugo site is stored";
-    };
-
-    theme = mkOption {
-      type = types.str;
-      default = "hugo-book";
-      description = "Hugo theme to use";
     };
 
     baseURL = mkOption {
@@ -43,7 +224,7 @@ in {
       default = true;
       description = ''
         Automatically start Hugo server as systemd user service.
-        Hugo server runs on localhost:1313, consumes ~100MB RAM.
+        Hugo server runs on localhost, consumes ~100MB RAM.
       '';
     };
 
@@ -54,8 +235,12 @@ in {
     };
   };
 
+  # ============================================================
+  # MODULE CONFIGURATION
+  # ============================================================
+
   config = mkIf cfg.enable {
-    # Install Hugo from unstable channel
+    # Install Hugo from unstable channel (latest version)
     home.packages = [
       pkgs-unstable.hugo
     ];
@@ -63,59 +248,19 @@ in {
     # Create Hugo site directory structure
     home.file."${cfg.siteDirectory}/.keep".text = "";
 
-    # Hugo configuration file
-    home.file."${cfg.siteDirectory}/config.toml".text = ''
-      baseURL = "${cfg.baseURL}"
-      title = "Documentation"
-      languageCode = "en-us"
-      theme = "${cfg.theme}"
-
-      [params]
-        BookSearch = true
-        BookToC = true
-        BookMenuBundle = "menu"
-        BookRepo = ""
-        BookEditPath = ""
-
-      [outputs]
-        home = ["HTML", "RSS"]
-
-      [markup]
-        [markup.goldmark]
-          [markup.goldmark.renderer]
-            unsafe = true
-        [markup.highlight]
-          style = "monokai"
-          lineNos = false
-
-      [[menu.before]]
-        name = "Documentation"
-        url = "/docs"
-        weight = 1
-    '';
+    # Generate Hugo configuration file
+    home.file."${cfg.siteDirectory}/config.toml".text = configToml;
 
     # Create content directory with welcome page
-    home.file."${cfg.siteDirectory}/content/docs/_index.md".text = ''
-      ---
-      title: "Documentation"
-      type: docs
-      bookToc: false
-      ---
+    home.file."${cfg.siteDirectory}/content/docs/_index.md".text = welcomePageContent;
 
-      # Welcome to Documentation
-
-      All pages tagged with `:hugosync:` in your notes will appear here.
-
-      This site is automatically generated from your Denote notes.
-    '';
-
-    # Symlink theme from Nix store (no download, no Git needed!)
-    home.file."${cfg.siteDirectory}/themes/${cfg.theme}".source = hugo-book-theme;
+    # Symlink theme from Nix store (immutable, cached)
+    home.file."${cfg.siteDirectory}/themes/${themeConfig.name}".source = hugo-theme;
 
     # Systemd user service for Hugo development server
     systemd.user.services.hugo-server = mkIf cfg.autoServe {
       Unit = {
-        Description = "Hugo development server";
+        Description = "Hugo development server for ${siteConfig.title}";
         After = ["graphical-session.target"];
       };
 
@@ -138,7 +283,10 @@ in {
       hugo-build = "cd ${cfg.siteDirectory} && ${pkgs-unstable.hugo}/bin/hugo";
       hugo-status = "systemctl --user status hugo-server";
       hugo-restart = "systemctl --user restart hugo-server";
+      hugo-stop = "systemctl --user stop hugo-server";
+      hugo-start = "systemctl --user start hugo-server";
       hugo-logs = "journalctl --user -u hugo-server -f";
+      hugo-clean = "cd ${cfg.siteDirectory} && rm -rf public resources";
     };
   };
 }
