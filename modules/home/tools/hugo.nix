@@ -16,7 +16,7 @@ with lib; let
     owner = "h-enk";
     repo = "doks";
     rev = "v0.5.1";
-    sha256 = "sha256-r2KfmWK7BC7LjnZVvwb2Mbqnd8a6Q32fBqiQfZTpGy4=";
+    sha256 = lib.fakeSha256;
     name = "doks";
   };
 
