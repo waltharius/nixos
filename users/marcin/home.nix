@@ -59,11 +59,11 @@ in {
   programs.hugo = {
     enable = true;
     baseURL = "http://localhost:1313";
-    theme = "hugo-book";
     siteDirectory = "${config.home.homeDirectory}/syncthing/hugo";
+    theme = "doku";
     autoServe = true; #Might be ommited to use default from hogo.nix
   };
-
+  #
   # ========================================
   # USER-SPECIFIC OVERRIDES
   # ========================================
