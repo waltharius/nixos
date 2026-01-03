@@ -7,6 +7,14 @@
 }:
 with lib; let
   cfg = config.programs.hugo;
+
+  # Fetch Hugo Book theme from GitHub (cached in Nix store)
+  hugo-book-theme = pkgs.fetchFromGitHub {
+    owner = "alex-shpak";
+    repo = "hugo-book";
+    rev = "v13"; # Use specific version for reproducibility
+    sha256 = "0000000000000000000000000000000000000000000000000000"; # Placeholder - see below
+  };
 in {
   options.programs.hugo = {
     enable = mkEnableOption "Hugo static site generator for documentation";
@@ -35,8 +43,7 @@ in {
       default = true;
       description = ''
         Automatically start Hugo server as systemd user service.
-        Hugo server runs on localhost only, consumes ~100MBAM.
-        With 128GB RAM, this is negligible for convenience.
+        Hugo server runs on localhost:1313, consumes ~100MB RAM.
       '';
     };
 
@@ -48,7 +55,7 @@ in {
   };
 
   config = mkIf cfg.enable {
-    # Install Hugo package
+    # Install Hugo from unstable channel
     home.packages = [
       pkgs-unstable.hugo
     ];
@@ -67,8 +74,8 @@ in {
         BookSearch = true
         BookToC = true
         BookMenuBundle = "menu"
-        BookRepo = ""  # No public repo
-        BookEditPath = ""  # No edit links
+        BookRepo = ""
+        BookEditPath = ""
 
       [outputs]
         home = ["HTML", "RSS"]
@@ -76,7 +83,7 @@ in {
       [markup]
         [markup.goldmark]
           [markup.goldmark.renderer]
-            unsafe = true  # Allow HTML in markdown
+            unsafe = true
         [markup.highlight]
           style = "monokai"
           lineNos = false
@@ -87,7 +94,7 @@ in {
         weight = 1
     '';
 
-    # Create content directory structure with example page
+    # Create content directory with welcome page
     home.file."${cfg.siteDirectory}/content/docs/_index.md".text = ''
       ---
       title: "Documentation"
@@ -102,7 +109,10 @@ in {
       This site is automatically generated from your Denote notes.
     '';
 
-    # Systemd user service for Hugo development server (optional)
+    # Symlink theme from Nix store (no download, no Git needed!)
+    home.file."${cfg.siteDirectory}/themes/${cfg.theme}".source = hugo-book-theme;
+
+    # Systemd user service for Hugo development server
     systemd.user.services.hugo-server = mkIf cfg.autoServe {
       Unit = {
         Description = "Hugo development server";
@@ -126,21 +136,9 @@ in {
     home.shellAliases = {
       hugo-serve = "cd ${cfg.siteDirectory} && ${pkgs-unstable.hugo}/bin/hugo server";
       hugo-build = "cd ${cfg.siteDirectory} && ${pkgs-unstable.hugo}/bin/hugo";
+      hugo-status = "systemctl --user status hugo-server";
+      hugo-restart = "systemctl --user restart hugo-server";
+      hugo-logs = "journalctl --user -u hugo-server -f";
     };
-
-    # Download theme on first activation (safer than in config)
-    home.activation.hugoTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
-      THEME_DIR="${cfg.siteDirectory}/themes/${cfg.theme}"
-      if [ ! -d "$THEME_DIR" ]; then
-        $DRY_RUN_CMD mkdir -p "${cfg.siteDirectory}/themes"
-        # Use -c url.git@github.com:.insteadOf="" to disable HTTPS->SSH rewrite
-        $DRY_RUN_CMD ${pkgs.git}/bin/git \
-          -c url."git@github.com:".insteadOf="" \
-          clone https://github.com/alex-shpak/hugo-book "$THEME_DIR" \
-          --depth 1
-
-        echo "Downloaded Hugo theme: ${cfg.theme}"
-      fi
-    '';
   };
 }
