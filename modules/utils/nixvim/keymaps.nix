@@ -1,14 +1,82 @@
 {...}: {
   keymaps = [
+    # File operations
     {
       mode = "n";
-      key = "<leader>f";
-      action = "<cmd>lua require('conform').format({ async = true, lsp_fallback = true })<CR>";
+      key = "<leader>w";
+      action = "<cmd>w<CR>";
       options = {
-        desc = "Format buffer";
+        desc = "Save";
         silent = true;
       };
     }
+    {
+      mode = "n";
+      key = "<leader>q";
+      action = "<cmd>q<CR>";
+      options = {
+        desc = "Quit";
+        silent = true;
+      };
+    }
+
+    # Buffer navigation (like Emacs buffer switching!)
+    {
+      mode = "n";
+      key = "<Tab>";
+      action = "<cmd>bnext<CR>";
+      options = {
+        desc = "Next buffer";
+        silent = true;
+      };
+    }
+    {
+      mode = "n";
+      key = "<S-Tab>";
+      action = "<cmd>bprevious<CR>";
+      options = {
+        desc = "Previous buffer";
+        silent = true;
+      };
+    }
+    {
+      mode = "n";
+      key = "<leader>bd";
+      action = "<cmd>bdelete<CR>";
+      options = {
+        desc = "Close buffer";
+        silent = true;
+      };
+    }
+    {
+      mode = "n";
+      key = "<leader>bq";
+      action = "<cmd>bdelete!<CR>";
+      options = {
+        desc = "Force close buffer";
+        silent = true;
+      };
+    }
+    {
+      mode = "n";
+      key = "<leader>bn";
+      action = "<cmd>bnext<CR>";
+      options = {
+        desc = "Next buffer";
+        silent = true;
+      };
+    }
+    {
+      mode = "n";
+      key = "<leader>bp";
+      action = "<cmd>bprevious<CR>";
+      options = {
+        desc = "Previous buffer";
+        silent = true;
+      };
+    }
+
+    # Fuzzy finding (Telescope)
     {
       mode = "n";
       key = "<leader>ff";
@@ -36,6 +104,19 @@
         silent = true;
       };
     }
+
+    # Code formatting
+    {
+      mode = "n";
+      key = "<leader>f";
+      action = "<cmd>lua require('conform').format({ async = true, lsp_fallback = true })<CR>";
+      options = {
+        desc = "Format buffer";
+        silent = true;
+      };
+    }
+
+    # Git operations (Neogit)
     {
       mode = "n";
       key = "<leader>gs";
@@ -81,6 +162,8 @@
         silent = true;
       };
     }
+
+    # Window navigation
     {
       mode = "n";
       key = "<C-h>";
@@ -105,24 +188,8 @@
       action = "<C-w>l";
       options.desc = "Right window";
     }
-    {
-      mode = "n";
-      key = "<leader>w";
-      action = "<cmd>w<CR>";
-      options = {
-        desc = "Save";
-        silent = true;
-      };
-    }
-    {
-      mode = "n";
-      key = "<leader>q";
-      action = "<cmd>q<CR>";
-      options = {
-        desc = "Quit";
-        silent = true;
-      };
-    }
+
+    # Utilities
     {
       mode = "n";
       key = "<leader>u";
