@@ -38,22 +38,28 @@ in
       set -euo pipefail
 
       SYNC_DIR="$HOME/syncthing/buku"
-      EXPORT_FILE="$SYNC_DIR/bookmarks-$(hostname).db"
       JSON_FILE="$SYNC_DIR/bookmarks-$(hostname).json"
+      MARKDOWN_FILE="$SYNC_DIR/bookmarks-$(hostname).md"
+      HTML_FILE="$SYNC_DIR/bookmarks-$(hostname).html"
 
       mkdir -p "$SYNC_DIR"
 
       echo "Exporting bookmarks from $(hostname)..."
 
-      # Export to portable formats
-      ${bukuServer}/bin/buku --export "$JSON_FILE"
-
-      # Also backup the raw database
-      cp -f "$HOME/.local/share/buku/bookmarks.db" "$EXPORT_FILE"
+      # Export to multiple formats for reliability
+      # JSON format (buku's native format)
+      ${bukuServer}/bin/buku --export "$JSON_FILE" --format 4
+      
+      # Also export as Markdown (human readable)
+      ${bukuServer}/bin/buku --export "$MARKDOWN_FILE" --format 3
+      
+      # HTML format (browser import compatible)
+      ${bukuServer}/bin/buku --export "$HTML_FILE" --format 2
 
       echo "✓ Exported to $SYNC_DIR"
       echo "  - JSON: bookmarks-$(hostname).json"
-      echo "  - Database: bookmarks-$(hostname).db"
+      echo "  - Markdown: bookmarks-$(hostname).md" 
+      echo "  - HTML: bookmarks-$(hostname).html"
     '')
 
     # Helper script: Import bookmarks from another machine
@@ -68,20 +74,38 @@ in
         echo "Usage: buku-import <hostname>"
         echo ""
         echo "Available exports:"
-        ls -1 "$SYNC_DIR"/*.json 2>/dev/null | xargs -n1 basename | sed 's/bookmarks-//;s/.json//' || echo "  (none)"
+        for file in "$SYNC_DIR"/bookmarks-*.json; do
+          if [ -f "$file" ]; then
+            basename "$file" | sed 's/bookmarks-//;s/.json//'
+          fi
+        done
         exit 1
       fi
 
       SOURCE_HOST="$1"
       JSON_FILE="$SYNC_DIR/bookmarks-$SOURCE_HOST.json"
+      HTML_FILE="$SYNC_DIR/bookmarks-$SOURCE_HOST.html"
 
-      if [ ! -f "$JSON_FILE" ]; then
+      # Try JSON first, fall back to HTML if JSON fails
+      if [ -f "$JSON_FILE" ]; then
+        echo "Importing bookmarks from $SOURCE_HOST (JSON format)..."
+        ${bukuServer}/bin/buku --import "$JSON_FILE" --format 4 || {
+          echo "JSON import failed, trying HTML format..."
+          if [ -f "$HTML_FILE" ]; then
+            ${bukuServer}/bin/buku --import "$HTML_FILE"
+          else
+            echo "Error: No valid export found for $SOURCE_HOST"
+            exit 1
+          fi
+        }
+      elif [ -f "$HTML_FILE" ]; then
+        echo "Importing bookmarks from $SOURCE_HOST (HTML format)..."
+        ${bukuServer}/bin/buku --import "$HTML_FILE"
+      else
         echo "Error: No export found for $SOURCE_HOST"
         exit 1
       fi
 
-      echo "Importing bookmarks from $SOURCE_HOST..."
-      ${bukuServer}/bin/buku --import "$JSON_FILE"
       echo "✓ Import complete"
     '')
 
@@ -102,7 +126,14 @@ in
 
           if [ "$source_host" != "$CURRENT_HOST" ]; then
             echo "  Importing from $source_host..."
-            ${bukuServer}/bin/buku --import "$json_file" --tacit
+            ${bukuServer}/bin/buku --import "$json_file" --format 4 --tacit || {
+              # Fall back to HTML if JSON fails
+              html_file="$SYNC_DIR/bookmarks-$source_host.html"
+              if [ -f "$html_file" ]; then
+                echo "    (using HTML format)"
+                ${bukuServer}/bin/buku --import "$html_file" --tacit
+              fi
+            }
           fi
         fi
       done
