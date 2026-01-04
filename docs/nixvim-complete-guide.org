@@ -1,0 +1,686 @@
+#+TITLE: NixVim Configuration Guide
+#+AUTHOR: Marcin
+#+DATE: 2026-01-05
+#+DESCRIPTION: Complete guide to my NixVim configuration with keybindings, plugins, and usage tips
+#+HUGO_BASE_DIR: ~/
+#+HUGO_SECTION: docs
+#+HUGO_WEIGHT: 100
+#+HUGO_AUTO_SET_LASTMOD: t
+
+* Overview
+
+This is my complete NixVim configuration - a declarative, type-safe Neovim setup managed through Nix flakes. It provides a modern development environment with LSP, completion, Git integration, and powerful editing features.
+
+** Key Features
+
+- 🎨 Tokyo Night colorscheme with transparency
+- 🔍 Telescope fuzzy finder for files and text
+- 🌳 Treesitter for advanced syntax highlighting
+- 📝 LSP support for Nix and Lua
+- 🔄 Git integration with Neogit and Gitsigns
+- 📦 Smart autocompletion with nvim-cmp
+- 🎯 File tree navigation with Neo-tree
+- 📑 Buffer tabs with Bufferline
+- ↩️ Undo history with visual tree
+- 📐 Indent guides and scope highlighting
+
+* Installation Location
+
+#+begin_src nix
+# Repository structure
+~/nixos/modules/utils/nixvim/
+├── default.nix      # Main entry point
+├── core.nix         # Editor settings & colorscheme
+├── plugins.nix      # All plugin configurations
+├── lsp.nix          # LSP servers (nixd, lua_ls)
+├── completion.nix   # nvim-cmp setup
+├── formatting.nix   # Code formatters
+├── keymaps.nix      # Keybindings
+└── org-mode.nix     # Org-mode & spell checking
+#+end_src
+
+* Core Settings
+
+** Leader Key
+
+#+begin_example
+Leader key: <Space>
+#+end_example
+
+All custom keybindings start with the Space key.
+
+** Editor Options
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| ~number~ | true | Show line numbers |
+| ~relativenumber~ | true | Relative line numbers for easy jumping |
+| ~expandtab~ | true | Convert tabs to spaces |
+| ~tabstop~ | 2 | Tab width = 2 spaces |
+| ~shiftwidth~ | 2 | Indentation width = 2 spaces |
+| ~cursorline~ | true | Highlight current line |
+| ~signcolumn~ | yes | Always show sign column (git, diagnostics) |
+| ~scrolloff~ | 8 | Keep 8 lines visible above/below cursor |
+| ~undofile~ | true | Persistent undo history |
+| ~termguicolors~ | true | Enable 24-bit RGB colors |
+
+** Folding
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| ~foldcolumn~ | 1 | Show fold column (1 char wide) |
+| ~foldlevel~ | 99 | Open all folds by default |
+| ~foldenable~ | true | Enable code folding |
+
+Folding providers: Treesitter + Indent (via nvim-ufo)
+
+* Keybindings Reference
+
+** Leader Key: ~<Space>~
+
+*** File Operations
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| ~<leader>w~ | ~:w~ | Save current file |
+| ~<leader>q~ | ~:q~ | Quit current window |
+
+*** Fuzzy Finding (Telescope)
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| ~<leader>ff~ | Find files | Search files by name |
+| ~<leader>fg~ | Live grep | Search text in all files |
+| ~<leader>fb~ | Find buffers | List and switch between open buffers |
+
+*** Git Operations (Neogit)
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| ~<leader>gs~ | Git status | Open Neogit status window |
+| ~<leader>gc~ | Git commit | Commit staged changes |
+| ~<leader>gp~ | Git push | Push commits to remote |
+| ~<leader>gl~ | Git log | View commit history |
+| ~<leader>gb~ | Toggle blame | Show/hide git blame for current line |
+
+*** Code Actions
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| ~<leader>f~ | Format | Format current buffer with configured formatter |
+| ~<leader>u~ | Undo tree | Open visual undo history tree |
+| ~<leader>ns~ | Toggle spell | Enable/disable spell checking |
+
+*** Window Navigation
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| ~<C-h>~ | Left window | Move focus to left split |
+| ~<C-j>~ | Bottom window | Move focus to bottom split |
+| ~<C-k>~ | Top window | Move focus to top split |
+| ~<C-l>~ | Right window | Move focus to right split |
+
+*** LSP Keybindings
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| ~gd~ | Go to definition | Jump to symbol definition |
+| ~K~ | Hover | Show documentation for symbol under cursor |
+| ~[d~ | Previous diagnostic | Jump to previous error/warning |
+| ~]d~ | Next diagnostic | Jump to next error/warning |
+
+*** Completion (Insert Mode)
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| ~<C-Space>~ | Trigger completion | Manually trigger completion menu |
+| ~<CR>~ | Confirm | Accept selected completion |
+| ~<Tab>~ | Next item | Move to next completion item |
+| ~<S-Tab>~ | Previous item | Move to previous completion item |
+| ~<C-n>~ | Next | Alternative: next completion |
+| ~<C-p>~ | Previous | Alternative: previous completion |
+
+*** Commenting
+
+| Key | Mode | Action | Description |
+|-----|------|--------|-------------|
+| ~gc~ | Normal/Visual | Toggle comment | Comment/uncomment lines |
+| ~gcc~ | Normal | Comment line | Comment current line |
+
+* Buffer Tabs (Bufferline)
+
+** What Are Buffer Tabs?
+
+The tabs you see at the top are *buffers* - open files in Neovim. Bufferline displays them as tabs for easy navigation.
+
+** Built-in Buffer Navigation
+
+| Command | Action |
+|---------|--------|
+| ~:bnext~ or ~:bn~ | Go to next buffer |
+| ~:bprevious~ or ~:bp~ | Go to previous buffer |
+| ~:buffer N~ | Go to buffer number N |
+| ~:bdelete~ or ~:bd~ | Close current buffer |
+| ~:ls~ | List all buffers |
+
+** Using Telescope for Buffers
+
+#+begin_example
+<leader>fb
+#+end_example
+
+This opens Telescope buffer picker - the easiest way to switch between open files.
+
+** Recommended: Add Buffer Navigation Keys
+
+To make buffer navigation easier, you can add these keybindings to ~keymaps.nix~:
+
+#+begin_src nix
+# Add to modules/utils/nixvim/keymaps.nix
+{
+  mode = "n";
+  key = "<Tab>";
+  action = "<cmd>bnext<CR>";
+  options = { desc = "Next buffer"; silent = true; };
+}
+{
+  mode = "n";
+  key = "<S-Tab>";
+  action = "<cmd>bprevious<CR>";
+  options = { desc = "Previous buffer"; silent = true; };
+}
+{
+  mode = "n";
+  key = "<leader>bd";
+  action = "<cmd>bdelete<CR>";
+  options = { desc = "Close buffer"; silent = true; };
+}
+#+end_src
+
+* Plugins Overview
+
+** Syntax & Highlighting
+
+*** Treesitter
+- Advanced syntax highlighting for all languages
+- Smart code understanding for better indentation
+- Supports folding based on code structure
+
+*** Rainbow Delimiters
+- Colors matching brackets/parentheses differently
+- Makes nested code easier to read
+
+** Code Navigation
+
+*** Telescope
+- Fuzzy finder for files (~<leader>ff~)
+- Live text search across project (~<leader>fg~)
+- Buffer switcher (~<leader>fb~)
+- Ignores: ~node_modules~, ~.git/~
+
+*** Neo-tree
+- File explorer sidebar
+- Project tree navigation
+
+** Code Editing
+
+*** nvim-cmp (Completion)
+- Auto-completion from LSP
+- Snippet support with LuaSnip
+- Path completion
+- Buffer word completion
+
+Sources priority:
+1. LSP (1000) - language server completions
+2. LuaSnip (750) - snippets
+3. Path (500) - file paths
+4. Buffer (250) - words from open files
+
+*** Auto Pairs
+- Automatically closes brackets, quotes, parentheses
+- Smart pair management
+
+*** Comment.nvim
+- Toggle comments with ~gc~
+- Language-aware commenting
+
+*** nvim-ufo (Folding)
+- Better code folding using Treesitter
+- Visual fold indicators
+- Persistent fold states
+
+** Visual Enhancements
+
+*** Indent Guides
+- *indent-blankline*: Shows indent levels with lines
+- *mini.indentscope*: Highlights current scope
+- Custom colors:
+  - Normal indent: ~#3b4261~
+  - Scope indent: ~#7aa2f7~
+  - Mini scope: ~#bb9af7~
+
+*** Bufferline
+- Tab-like interface for buffers at top
+- Shows all open files
+- Visual buffer management
+
+*** Lualine
+- Status line at bottom
+- Shows: mode, file, git branch, diagnostics
+- Auto theme matching
+
+** Git Integration
+
+*** Gitsigns
+- Git blame on current line (toggle with ~<leader>gb~)
+- Shows changes in sign column:
+  - ~+~ added lines
+  - ~~~ modified lines
+  - ~-~ deleted lines
+- Inline blame appears after 500ms delay
+
+*** Neogit
+- Magit-like Git interface for Neovim
+- Keybindings:
+  - ~<leader>gs~ - status
+  - ~<leader>gc~ - commit
+  - ~<leader>gp~ - push
+  - ~<leader>gl~ - log
+- Integration with Telescope and Diffview
+
+*** Diffview
+- View git diffs in split windows
+- Compare branches and commits
+- Works with Neogit
+
+** Utilities
+
+*** Undotree
+- Visual undo history tree
+- Navigate through undo/redo history
+- See all changes over time
+- Open with ~<leader>u~
+
+*** Web Devicons
+- File type icons throughout UI
+- Colored icons for different file types
+
+* LSP Configuration
+
+** Supported Languages
+
+*** Nix (nixd)
+- Language server for Nix expressions
+- Features:
+  - Code completion from your flake
+  - Go to definition for packages
+  - NixOS options documentation
+  - Formatting with Alejandra
+
+**** Configuration
+- Auto-detects flake at ~$HOME/nixos~
+- Uses current hostname for NixOS options
+- Dynamic configuration at runtime
+
+*** Lua (lua_ls)
+- Language server for Lua
+- Neovim API completion
+- Configured for Neovim development
+
+** LSP Features
+
+| Feature | Keybinding | Description |
+|---------|------------|-------------|
+| Go to definition | ~gd~ | Jump to where symbol is defined |
+| Hover documentation | ~K~ | Show docs for symbol under cursor |
+| Diagnostics | ~[d~ / ~]d~ | Navigate errors and warnings |
+| Formatting | ~<leader>f~ | Format with LSP or configured formatter |
+
+* Code Formatting
+
+** Formatters by Language
+
+| Language | Formatter | Trigger |
+|----------|-----------|---------||
+| Nix | alejandra | ~<leader>f~ or save |
+| Lua | stylua | ~<leader>f~ or save |
+| Python | black | ~<leader>f~ or save |
+| Shell/Bash | shfmt | ~<leader>f~ or save |
+| JavaScript/TypeScript | prettier | ~<leader>f~ or save |
+| JSON/YAML/Markdown | prettier | ~<leader>f~ or save |
+| HTML/CSS | prettier | ~<leader>f~ or save |
+
+** Format on Save
+
+All files are automatically formatted when saved:
+- Timeout: 500ms
+- Falls back to LSP formatting if formatter not available
+
+* Org-mode Support
+
+** Features
+
+- Full org-mode syntax support
+- Agenda files: ~~/org/**/*~
+- Default notes: ~~/org/refile.org~
+
+** Spell Checking
+
+*** Languages
+- English (en_us)
+- Polish (pl)
+
+*** Controls
+- Toggle spell: ~<leader>ns~
+- Suggestions: automatically shown for misspelled words
+
+*** Org-specific Settings
+
+When editing .org files:
+- Spell checking: enabled by default
+- Text width: 80 characters
+- Auto-wrap: enabled
+- Concealment: level 2 (hide markup, show formatting)
+- Smart indentation: disabled (preserves org structure)
+
+* Colorscheme
+
+** Tokyo Night (Night variant)
+
+- Style: storm base with night variant applied
+- Background: transparent
+- Sidebars: transparent
+- Floats: transparent
+
+** Theme Integration
+
+All plugins respect the colorscheme:
+- Lualine matches automatically
+- Custom indent guide colors
+- Bufferline adapts to theme
+
+* Tips & Tricks
+
+** Quick File Navigation
+
+1. Use ~<leader>ff~ to find files by name
+2. Use ~<leader>fg~ to search text content
+3. Use ~<leader>fb~ to switch between open buffers
+
+** Git Workflow
+
+1. ~<leader>gs~ - Check status
+2. Stage changes in Neogit (press ~s~ on file)
+3. ~<leader>gc~ - Write commit message
+4. ~<leader>gp~ - Push to remote
+
+** Code Editing
+
+1. Type to trigger completion automatically
+2. Use ~K~ on any function to see documentation
+3. Use ~gd~ to jump to definition
+4. Use ~<leader>f~ to format before saving
+
+** Window Management
+
+#+begin_example
+:vsplit   - Vertical split
+:split    - Horizontal split
+<C-h/j/k/l> - Navigate between splits
+:close    - Close current split
+#+end_example
+
+** Undo History
+
+1. ~<leader>u~ to open undo tree
+2. Navigate with ~j/k~
+3. Press ~<CR>~ to jump to that state
+4. See all changes over time
+
+* Common Tasks
+
+** Opening Files
+
+#+begin_example
+# From Telescope
+<leader>ff
+
+# From Neo-tree
+:Neotree
+
+# Direct
+:e path/to/file
+#+end_example
+
+** Searching Text
+
+#+begin_example
+# Project-wide
+<leader>fg
+
+# Current file
+/search-term
+n (next match)
+N (previous match)
+#+end_example
+
+** Managing Buffers
+
+#+begin_example
+# List buffers
+<leader>fb
+
+# Close current buffer
+:bd
+
+# Close without saving
+:bd!
+
+# Switch to buffer number
+:b 2
+#+end_example
+
+** Git Operations
+
+#+begin_example
+# Status
+<leader>gs
+
+# In Neogit status window:
+s - stage/unstage file
+c - commit
+P - push menu
+p - pull
+l - log
+
+# Quick blame
+<leader>gb
+#+end_example
+
+* Configuration Files
+
+** Module Structure
+
+#+begin_src text
+modules/utils/nixvim/
+├── default.nix       # Entry point, imports all modules
+├── core.nix          # Editor options, colorscheme
+├── plugins.nix       # Plugin declarations
+├── lsp.nix           # Language servers
+├── completion.nix    # nvim-cmp setup
+├── formatting.nix    # conform.nvim formatters
+├── keymaps.nix       # All keybindings
+└── org-mode.nix      # Org-mode & spell check
+#+end_src
+
+** Modifying Configuration
+
+*** Add a Plugin
+
+Edit ~modules/utils/nixvim/plugins.nix~:
+
+#+begin_src nix
+plugins.your-plugin = {
+  enable = true;
+  settings = {
+    option = "value";
+  };
+};
+#+end_src
+
+*** Add a Keybinding
+
+Edit ~modules/utils/nixvim/keymaps.nix~:
+
+#+begin_src nix
+{
+  mode = "n";              # normal mode
+  key = "<leader>x";
+  action = "<cmd>YourCommand<CR>";
+  options = {
+    desc = "Description";
+    silent = true;
+  };
+}
+#+end_src
+
+*** Change Colorscheme
+
+Edit ~modules/utils/nixvim/core.nix~:
+
+#+begin_src nix
+colorschemes.your-theme = {
+  enable = true;
+  settings = { ... };
+};
+#+end_src
+
+*** Add LSP Server
+
+Edit ~modules/utils/nixvim/lsp.nix~:
+
+#+begin_src nix
+servers = {
+  your-language-server = {
+    enable = true;
+    settings = { ... };
+  };
+};
+
+# Add package
+extraPackages = with pkgs; [
+  your-language-server
+];
+#+end_src
+
+** Rebuild After Changes
+
+#+begin_src bash
+cd ~/nixos
+sudo nixos-rebuild switch --flake ~/nixos#$(hostname)
+#+end_src
+
+* Troubleshooting
+
+** Check Health
+
+#+begin_example
+:checkhealth
+#+end_example
+
+Run this in Neovim to check for issues.
+
+** LSP Not Working
+
+#+begin_example
+:LspInfo
+#+end_example
+
+Shows attached language servers and their status.
+
+** Plugin Errors
+
+#+begin_example
+:messages
+#+end_example
+
+Displays recent error messages.
+
+** Check Logs
+
+#+begin_src bash
+# LSP logs
+tail -f ~/.local/state/nvim/lsp.log
+
+# Neovim logs
+nvim --startuptime startup.log
+#+end_src
+
+* Resources
+
+** Documentation
+
+- [[https://nix-community.github.io/nixvim/][NixVim Official Docs]]
+- [[https://github.com/nix-community/nixvim][NixVim GitHub Repository]]
+- [[https://neovim.io/doc/][Neovim Documentation]]
+- [[https://github.com/folke/tokyonight.nvim][Tokyo Night Colorscheme]]
+
+** Plugin Documentation
+
+- [[https://github.com/nvim-telescope/telescope.nvim][Telescope]]
+- [[https://github.com/NeogitOrg/neogit][Neogit]]
+- [[https://github.com/nvim-treesitter/nvim-treesitter][Treesitter]]
+- [[https://github.com/hrsh7th/nvim-cmp][nvim-cmp]]
+- [[https://github.com/kevinhwang91/nvim-ufo][nvim-ufo]]
+
+* Appendix: Quick Reference Card
+
+** Essential Keybindings
+
+#+begin_example
+LEADER KEY: <Space>
+
+FILES:
+  <leader>ff  - Find files
+  <leader>fg  - Search text
+  <leader>fb  - List buffers
+  <leader>w   - Save
+  <leader>q   - Quit
+
+GIT:
+  <leader>gs  - Status
+  <leader>gc  - Commit
+  <leader>gp  - Push
+  <leader>gl  - Log
+  <leader>gb  - Toggle blame
+
+CODE:
+  <leader>f   - Format
+  gd          - Go to definition
+  K           - Documentation
+  [d / ]d     - Prev/Next diagnostic
+  <leader>u   - Undo tree
+
+WINDOWS:
+  <C-h/j/k/l> - Navigate splits
+
+BUFFERS:
+  :bn / :bp   - Next/Previous
+  :bd         - Close buffer
+  <leader>fb  - Buffer picker
+#+end_example
+
+** Mode Indicators
+
+#+begin_example
+n   - Normal mode
+i   - Insert mode
+v   - Visual mode
+x   - Visual block mode
+c   - Command mode
+#+end_example
+
+---
+
+*Last updated:* {{{time(%Y-%m-%d)}}}
+*Configuration:* ~/nixos/modules/utils/nixvim/
