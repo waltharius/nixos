@@ -1,12 +1,29 @@
 # LSP Configuration
-{ pkgs, ... }:
+{ pkgs, config, ... }:
 
+let
+  # Get home directory path for flake location
+  homeDir = config.home.homeDirectory or "$HOME";
+  flakePath = "${homeDir}/nixos";
+in
 {
   plugins.lsp = {
     enable = true;
 
     servers = {
-      nixd.enable = true;
+      # Nix language server with dynamic configuration
+      nixd = {
+        enable = true;
+        settings = {
+          nixd = {
+            formatting = {
+              command = [ "alejandra" ];
+            };
+          };
+        };
+      };
+
+      # Lua language server
       lua_ls = {
         enable = true;
         settings.Lua.diagnostics.globals = [ "vim" ];
@@ -30,29 +47,31 @@
     lua-language-server
   ];
 
-  # Configure nixd dynamically with Lua
+  # Configure nixd options dynamically at runtime
   extraConfigLua = ''
-    -- Get home directory and construct flake path
+    -- Configure nixd options dynamically based on hostname
     local home = vim.fn.expand('$HOME')
     local flakeDir = home .. '/nixos'
+    local hostname = vim.fn.hostname()
     
-    require('lspconfig').nixd.setup({
-      cmd = { "nixd" },
-      settings = {
-        nixd = {
-          formatting = {
-            command = { "alejandra" },
-          },
-          nixpkgs = {
-            expr = 'import (builtins.getFlake "' .. flakeDir .. '").inputs.nixpkgs { }',
-          },
-          options = {
+    -- Update nixd settings after LSP starts
+    vim.api.nvim_create_autocmd('LspAttach', {
+      callback = function(args)
+        local client = vim.lsp.get_client_by_id(args.data.client_id)
+        if client and client.name == 'nixd' then
+          -- Update nixd settings with dynamic values
+          client.config.settings.nixd.nixpkgs = {
+            expr = string.format('import (builtins.getFlake "%s").inputs.nixpkgs { }', flakeDir)
+          }
+          client.config.settings.nixd.options = {
             nixos = {
-              expr = '(builtins.getFlake "' .. flakeDir .. '").nixosConfigurations.' .. vim.fn.hostname() .. '.options',
-            },
-          },
-        },
-      },
+              expr = string.format('(builtins.getFlake "%s").nixosConfigurations.%s.options', flakeDir, hostname)
+            }
+          }
+          -- Notify the server of config changes
+          client.notify('workspace/didChangeConfiguration', { settings = client.config.settings })
+        end
+      end,
     })
   '';
 }
