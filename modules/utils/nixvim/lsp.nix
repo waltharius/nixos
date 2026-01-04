@@ -1,30 +1,25 @@
-# LSP Configuration - Fully Dynamic (Working Version)
 {
   pkgs,
   config,
   ...
 }: let
-  # Get the flake path from config option
-  flakePath = config.programs.nixvim.flakePath;
+  # If flakePath is empty, default to ~/nixos
+  flakePath =
+    if config.programs.nixvim.flakePath == ""
+    then "${config.home.homeDirectory}/nixos"
+    else config.programs.nixvim.flakePath;
 in {
   plugins.lsp = {
     enable = true;
 
     servers = {
-      # Nix language server - configured via extraConfigLua below
-      nixd = {
-        enable = true;
-        # Don't set settings here - we'll do it in extraConfigLua
-      };
-
-      # Lua language server
+      nixd.enable = true;
       lua_ls = {
         enable = true;
         settings.Lua.diagnostics.globals = ["vim"];
       };
     };
 
-    # LSP keybindings
     keymaps = {
       diagnostic = {
         "[d" = "goto_prev";
@@ -42,9 +37,9 @@ in {
     lua-language-server
   ];
 
-  # Configure nixd dynamically with Lua
   extraConfigLua = ''
-    -- Configure nixd LSP with dynamic hostname
+    local flakeDir = vim.fn.expand('${flakePath}')
+
     require('lspconfig').nixd.setup({
       cmd = { "nixd" },
       settings = {
@@ -53,11 +48,11 @@ in {
             command = { "alejandra" },
           },
           nixpkgs = {
-            expr = 'import (builtins.getFlake "${flakePath}").inputs.nixpkgs { }',
+            expr = 'import (builtins.getFlake "' .. flakeDir .. '").inputs.nixpkgs { }',
           },
           options = {
             nixos = {
-              expr = '(builtins.getFlake "${flakePath}").nixosConfigurations.' .. vim.fn.hostname() .. '.options',
+              expr = '(builtins.getFlake "' .. flakeDir .. '").nixosConfigurations.' .. vim.fn.hostname() .. '.options',
             },
           },
         },
