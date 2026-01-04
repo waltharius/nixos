@@ -47,7 +47,6 @@ in {
     ../../modules/services/ssh.nix
     ../../modules/services/ssh-askpass.nix
     ../../modules/utils/yazi.nix
-    #    ../../modules/utils/neovim.nix
     ../../modules/utils/nixvim
     ../../modules/home/tools/zoxide.nix
     ../../modules/home/tools/atuin.nix
