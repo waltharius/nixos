@@ -98,7 +98,7 @@
               backupFileExtension = "backup";
 
               sharedModules = [
-                nixvim.homeModules.nixvim  # FIXED: homeModules instead of homeManagerModules
+                nixvim.homeModules.nixvim
                 nix-flatpak.homeManagerModules.nix-flatpak
                 sops-nix.homeManagerModules.sops
               ];
