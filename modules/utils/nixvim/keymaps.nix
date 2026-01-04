@@ -1,7 +1,5 @@
-# Keymaps Configuration
 {...}: {
-  programs.nixvim.keymaps = [
-    # Format
+  keymaps = [
     {
       mode = "n";
       key = "<leader>f";
@@ -11,8 +9,6 @@
         silent = true;
       };
     }
-
-    # Telescope
     {
       mode = "n";
       key = "<leader>ff";
@@ -40,8 +36,6 @@
         silent = true;
       };
     }
-
-    # Git operations
     {
       mode = "n";
       key = "<leader>gs";
@@ -87,8 +81,6 @@
         silent = true;
       };
     }
-
-    # Window navigation
     {
       mode = "n";
       key = "<C-h>";
@@ -113,8 +105,6 @@
       action = "<C-w>l";
       options.desc = "Right window";
     }
-
-    # Quick save/quit
     {
       mode = "n";
       key = "<leader>w";
@@ -133,8 +123,6 @@
         silent = true;
       };
     }
-
-    # Undotree
     {
       mode = "n";
       key = "<leader>u";
@@ -144,8 +132,6 @@
         silent = true;
       };
     }
-
-    # Spell check
     {
       mode = "n";
       key = "<leader>ns";
