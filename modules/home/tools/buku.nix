@@ -1,14 +1,15 @@
 # Buku bookmark manager with Syncthing synchronization
 # Safe sync strategy: export/import workflow to prevent database corruption
+# Includes bukuserver web GUI on localhost:5001
 {
   config,
   lib,
   pkgs,
   ...
 }: {
-  # All packages in one definition - helper scripts + main packages
+  # Buku with server support + helper scripts
   home.packages = with pkgs; [
-    buku
+    (buku.override {withServer = true;}) # Enable web GUI
     bukubrow # Browser extension host
 
     # Helper script: Export bookmarks to Syncthing folder
@@ -26,7 +27,7 @@
       echo "Exporting bookmarks from $(hostname)..."
 
       # Export to portable formats
-      ${buku}/bin/buku --export "$JSON_FILE"
+      buku --export "$JSON_FILE"
 
       # Also backup the raw database
       cp -f "$HOME/.local/share/buku/bookmarks.db" "$EXPORT_FILE"
@@ -61,7 +62,7 @@
       fi
 
       echo "Importing bookmarks from $SOURCE_HOST..."
-      ${buku}/bin/buku --import "$JSON_FILE"
+      buku --import "$JSON_FILE"
       echo "✓ Import complete"
     '')
 
@@ -82,7 +83,7 @@
 
           if [ "$source_host" != "$CURRENT_HOST" ]; then
             echo "  Importing from $source_host..."
-            ${buku}/bin/buku --import "$json_file" --tacit
+            buku --import "$json_file" --tacit
           fi
         fi
       done
@@ -94,9 +95,37 @@
 
   # Create buku sync directory structure
   home.file.".local/share/buku/.keep".text = "";
-  home.file."syncthing/buku/.keep".text = "";
+  home.file."Sync/buku/.keep".text = "";
 
-  # Automatic export via systemd timer (optional)
+  # Bukuserver systemd service - Web GUI on localhost:5001
+  systemd.user.services.bukuserver = {
+    Unit = {
+      Description = "Buku bookmark manager web server";
+      Documentation = "https://github.com/jarun/buku";
+      After = ["network-online.target"];
+    };
+    Service = {
+      Type = "simple";
+      ExecStart = "${pkgs.buku.override {withServer = true;}}/bin/bukuserver run --host 127.0.0.1 --port 5001";
+      Restart = "on-failure";
+      RestartSec = "10s";
+
+      # Security hardening
+      PrivateTmp = true;
+      NoNewPrivileges = true;
+
+      # Environment variables for Flask
+      Environment = [
+        "FLASK_ENV=production"
+        "BUKUSERVER_OPEN_IN_NEW_TAB=1"
+      ];
+    };
+    Install = {
+      WantedBy = ["default.target"];
+    };
+  };
+
+  # Automatic export via systemd timer
   systemd.user.services.buku-auto-export = {
     Unit = {
       Description = "Auto-export buku bookmarks for Syncthing";
