@@ -54,6 +54,7 @@ in {
     ../../modules/home/shell/starship.nix
     ../../modules/home/terminal/tmux.nix
     ../../modules/home/tools/hugo.nix
+    ../../modules/home/tools/buku.nix
   ];
 
   programs.hugo = {
