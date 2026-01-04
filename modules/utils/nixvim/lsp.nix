@@ -1,14 +1,7 @@
+# LSP Configuration
+{ pkgs, ... }:
+
 {
-  pkgs,
-  config,
-  ...
-}: let
-  # If flakePath is empty, default to ~/nixos
-  flakePath =
-    if config.programs.nixvim.flakePath == ""
-    then "${config.home.homeDirectory}/nixos"
-    else config.programs.nixvim.flakePath;
-in {
   plugins.lsp = {
     enable = true;
 
@@ -16,7 +9,7 @@ in {
       nixd.enable = true;
       lua_ls = {
         enable = true;
-        settings.Lua.diagnostics.globals = ["vim"];
+        settings.Lua.diagnostics.globals = [ "vim" ];
       };
     };
 
@@ -37,9 +30,12 @@ in {
     lua-language-server
   ];
 
+  # Configure nixd dynamically with Lua
   extraConfigLua = ''
-    local flakeDir = vim.fn.expand('${flakePath}')
-
+    -- Get home directory and construct flake path
+    local home = vim.fn.expand('$HOME')
+    local flakeDir = home .. '/nixos'
+    
     require('lspconfig').nixd.setup({
       cmd = { "nixd" },
       settings = {
