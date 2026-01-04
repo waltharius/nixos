@@ -16,11 +16,13 @@
       enable = true;
       settings = {
         open_fold_hl_timeout = 5000;
-        provider_selector = ''
-          function(bufnr, filetype, buftype)
-            return {'treesitter', 'indent'}
-          end
-        '';
+        provider_selector = {
+          __raw = ''
+            function(bufnr, filetype, buftype)
+              return {'treesitter', 'indent'}
+            end
+          '';
+        };
       };
     };
 
@@ -47,7 +49,7 @@
         indentscope = {
           draw = {
             delay = 0;
-            animation = ''require('mini.indentscope').gen_animation.none()'';
+            animation.__raw = "require('mini.indentscope').gen_animation.none()";
           };
           symbol = "│";
           options = {
