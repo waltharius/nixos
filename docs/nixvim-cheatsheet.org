@@ -1,0 +1,121 @@
+#+TITLE: NixVim Quick Reference Cheat Sheet
+#+AUTHOR: Marcin
+#+DATE: 2026-01-05
+#+DESCRIPTION: Quick reference card for my NixVim keybindings
+#+HUGO_BASE_DIR: ~/
+#+HUGO_SECTION: docs
+#+HUGO_WEIGHT: 101
+#+HUGO_AUTO_SET_LASTMOD: t
+
+* NixVim Quick Reference
+
+** Leader Key
+
+#+begin_example
+<Space> = Leader
+#+end_example
+
+** File Operations
+
+| Key | Action |
+|-----|--------|
+| ~<leader>w~ | Save file |
+| ~<leader>q~ | Quit |
+| ~<leader>ff~ | Find files (Telescope) |
+| ~<leader>fg~ | Grep text (Telescope) |
+| ~<leader>fb~ | List buffers (Telescope) |
+
+** Git (Neogit)
+
+| Key | Action |
+|-----|--------|
+| ~<leader>gs~ | Git status |
+| ~<leader>gc~ | Git commit |
+| ~<leader>gp~ | Git push |
+| ~<leader>gl~ | Git log |
+| ~<leader>gb~ | Toggle git blame |
+
+** Code
+
+| Key | Action |
+|-----|--------|
+| ~<leader>f~ | Format buffer |
+| ~gd~ | Go to definition |
+| ~K~ | Show documentation |
+| ~[d~ | Previous diagnostic |
+| ~]d~ | Next diagnostic |
+
+** Windows
+
+| Key | Action |
+|-----|--------|
+| ~<C-h>~ | Focus left |
+| ~<C-j>~ | Focus down |
+| ~<C-k>~ | Focus up |
+| ~<C-l>~ | Focus right |
+
+** Utilities
+
+| Key | Action |
+|-----|--------|
+| ~<leader>u~ | Undo tree |
+| ~<leader>ns~ | Toggle spell check |
+| ~gc~ | Toggle comment |
+| ~gcc~ | Comment line |
+
+** Buffer Tabs
+
+| Command | Action |
+|---------|--------|
+| ~:bn~ | Next buffer |
+| ~:bp~ | Previous buffer |
+| ~:bd~ | Close buffer |
+| ~:ls~ | List buffers |
+| ~<leader>fb~ | Buffer picker |
+
+** Completion (Insert Mode)
+
+| Key | Action |
+|-----|--------|
+| ~<C-Space>~ | Trigger completion |
+| ~<CR>~ | Accept |
+| ~<Tab>~ | Next item |
+| ~<S-Tab>~ | Previous item |
+
+** Common Commands
+
+#+begin_example
+:Neotree          - File explorer
+:Telescope        - Fuzzy finder
+:Neogit           - Git interface
+:UndotreeToggle   - Undo history
+:checkhealth      - System check
+:LspInfo          - LSP status
+:messages         - Error log
+#+end_example
+
+** Modes
+
+#+begin_example
+n   Normal    - Navigation and commands
+i   Insert    - Text editing
+v   Visual    - Text selection
+ESC           - Return to Normal mode
+#+end_example
+
+** Tips
+
+*** Quick File Navigation
+1. ~<leader>ff~ → Type filename → Enter
+2. ~<leader>fg~ → Type text → Enter
+
+*** Git Workflow
+1. ~<leader>gs~ → Stage with ~s~ → ~<leader>gc~ → Write message → ~<leader>gp~
+
+*** Buffer Navigation
+- Use ~<leader>fb~ for fuzzy buffer search
+- Or ~:bn~ / ~:bp~ to cycle through
+
+---
+
+*Full documentation:* [[file:nixvim-complete-guide.org][NixVim Complete Guide]]
