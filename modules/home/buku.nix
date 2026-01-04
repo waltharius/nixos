@@ -6,18 +6,13 @@
   pkgs,
   ...
 }: {
+  # All packages in one definition - helper scripts + main packages
   home.packages = with pkgs; [
     buku
     bukubrow  # Browser extension host
-  ];
-
-  # Create buku sync directory structure
-  home.file.".local/share/buku/.keep".text = "";
-  home.file."Sync/buku/.keep".text = "";
-
-  # Helper scripts for safe synchronization
-  home.packages = [
-    (pkgs.writeShellScriptBin "buku-export" ''
+    
+    # Helper script: Export bookmarks to Syncthing folder
+    (writeShellScriptBin "buku-export" ''
       #!/usr/bin/env bash
       # Export buku bookmarks to Syncthing folder
       set -euo pipefail
@@ -31,7 +26,7 @@
       echo "Exporting bookmarks from $(hostname)..."
       
       # Export to portable formats
-      ${pkgs.buku}/bin/buku --export "$JSON_FILE"
+      ${buku}/bin/buku --export "$JSON_FILE"
       
       # Also backup the raw database
       cp -f "$HOME/.local/share/buku/bookmarks.db" "$EXPORT_FILE"
@@ -41,7 +36,8 @@
       echo "  - Database: bookmarks-$(hostname).db"
     '')
     
-    (pkgs.writeShellScriptBin "buku-import" ''
+    # Helper script: Import bookmarks from another machine
+    (writeShellScriptBin "buku-import" ''
       #!/usr/bin/env bash
       # Import bookmarks from another machine
       set -euo pipefail
@@ -65,11 +61,12 @@
       fi
       
       echo "Importing bookmarks from $SOURCE_HOST..."
-      ${pkgs.buku}/bin/buku --import "$JSON_FILE"
+      ${buku}/bin/buku --import "$JSON_FILE"
       echo "✓ Import complete"
     '')
     
-    (pkgs.writeShellScriptBin "buku-merge" ''
+    # Helper script: Merge all exported bookmarks from Syncthing
+    (writeShellScriptBin "buku-merge" ''
       #!/usr/bin/env bash
       # Merge all exported bookmarks from Syncthing
       set -euo pipefail
@@ -85,7 +82,7 @@
           
           if [ "$source_host" != "$CURRENT_HOST" ]; then
             echo "  Importing from $source_host..."
-            ${pkgs.buku}/bin/buku --import "$json_file" --tacit
+            ${buku}/bin/buku --import "$json_file" --tacit
           fi
         fi
       done
@@ -94,6 +91,10 @@
       echo "Tip: Run 'buku-export' to share your updated bookmarks"
     '')
   ];
+
+  # Create buku sync directory structure
+  home.file.".local/share/buku/.keep".text = "";
+  home.file."Sync/buku/.keep".text = "";
 
   # Automatic export via systemd timer (optional)
   systemd.user.services.buku-auto-export = {
