@@ -16,6 +16,11 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    nixvim = {
+      url = "github:nix-community/nixvim/nixos-25.11";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = {
@@ -23,7 +28,7 @@
     home-manager,
     nix-flatpak,
     sops-nix,
-    nixpkgs-unstable,
+    nixvim,
     ...
   } @ inputs: let
     system = "x86_64-linux";
@@ -93,6 +98,7 @@
               backupFileExtension = "backup";
 
               sharedModules = [
+                nixvim.homeManagerModules.nixvim
                 nix-flatpak.homeManagerModules.nix-flatpak
                 sops-nix.homeManagerModules.sops
               ];
