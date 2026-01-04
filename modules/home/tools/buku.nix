@@ -1,5 +1,6 @@
 # Buku bookmark manager with Syncthing synchronization
 # Safe sync strategy: export/import workflow to prevent database corruption
+# Uses HTML format - the most reliable and portable bookmark format
 # Includes bukuserver web GUI on localhost:5001
 {
   config,
@@ -38,28 +39,29 @@ in
       set -euo pipefail
 
       SYNC_DIR="$HOME/syncthing/buku"
-      JSON_FILE="$SYNC_DIR/bookmarks-$(hostname).json"
-      MARKDOWN_FILE="$SYNC_DIR/bookmarks-$(hostname).md"
       HTML_FILE="$SYNC_DIR/bookmarks-$(hostname).html"
+      MARKDOWN_FILE="$SYNC_DIR/bookmarks-$(hostname).md"
+      DB_FILE="$SYNC_DIR/bookmarks-$(hostname).db"
 
       mkdir -p "$SYNC_DIR"
 
       echo "Exporting bookmarks from $(hostname)..."
 
-      # Export to multiple formats for reliability
-      # JSON format (buku's native format)
-      ${bukuServer}/bin/buku --export "$JSON_FILE" --format 4
+      # Export to HTML (most reliable format for bookmark interchange)
+      ${bukuServer}/bin/buku --export "$HTML_FILE"
       
       # Also export as Markdown (human readable)
-      ${bukuServer}/bin/buku --export "$MARKDOWN_FILE" --format 3
+      ${bukuServer}/bin/buku --export "$MARKDOWN_FILE"
       
-      # HTML format (browser import compatible)
-      ${bukuServer}/bin/buku --export "$HTML_FILE" --format 2
+      # Backup the raw database too
+      if [ -f "$HOME/.local/share/buku/bookmarks.db" ]; then
+        cp -f "$HOME/.local/share/buku/bookmarks.db" "$DB_FILE"
+      fi
 
       echo "✓ Exported to $SYNC_DIR"
-      echo "  - JSON: bookmarks-$(hostname).json"
-      echo "  - Markdown: bookmarks-$(hostname).md" 
-      echo "  - HTML: bookmarks-$(hostname).html"
+      echo "  - HTML: bookmarks-$(hostname).html ($(wc -l < "$HTML_FILE") lines)"
+      echo "  - Markdown: bookmarks-$(hostname).md"
+      echo "  - Database: bookmarks-$(hostname).db"
     '')
 
     # Helper script: Import bookmarks from another machine
@@ -74,38 +76,32 @@ in
         echo "Usage: buku-import <hostname>"
         echo ""
         echo "Available exports:"
-        for file in "$SYNC_DIR"/bookmarks-*.json; do
+        for file in "$SYNC_DIR"/bookmarks-*.html; do
           if [ -f "$file" ]; then
-            basename "$file" | sed 's/bookmarks-//;s/.json//'
+            hostname=$(basename "$file" | sed 's/bookmarks-//;s/.html//')
+            count=$(grep -c "<DT>" "$file" || echo "0")
+            echo "  $hostname ($count bookmarks)"
           fi
         done
         exit 1
       fi
 
       SOURCE_HOST="$1"
-      JSON_FILE="$SYNC_DIR/bookmarks-$SOURCE_HOST.json"
       HTML_FILE="$SYNC_DIR/bookmarks-$SOURCE_HOST.html"
 
-      # Try JSON first, fall back to HTML if JSON fails
-      if [ -f "$JSON_FILE" ]; then
-        echo "Importing bookmarks from $SOURCE_HOST (JSON format)..."
-        ${bukuServer}/bin/buku --import "$JSON_FILE" --format 4 || {
-          echo "JSON import failed, trying HTML format..."
-          if [ -f "$HTML_FILE" ]; then
-            ${bukuServer}/bin/buku --import "$HTML_FILE"
-          else
-            echo "Error: No valid export found for $SOURCE_HOST"
-            exit 1
-          fi
-        }
-      elif [ -f "$HTML_FILE" ]; then
-        echo "Importing bookmarks from $SOURCE_HOST (HTML format)..."
-        ${bukuServer}/bin/buku --import "$HTML_FILE"
-      else
+      if [ ! -f "$HTML_FILE" ]; then
         echo "Error: No export found for $SOURCE_HOST"
+        echo "Expected file: $HTML_FILE"
         exit 1
       fi
 
+      # Count bookmarks in the export
+      bookmark_count=$(grep -c "<DT>" "$HTML_FILE" || echo "0")
+      echo "Found $bookmark_count bookmarks from $SOURCE_HOST"
+      echo "Importing..."
+      
+      ${bukuServer}/bin/buku --import "$HTML_FILE"
+      
       echo "✓ Import complete"
     '')
 
@@ -120,20 +116,14 @@ in
 
       echo "Merging bookmarks from all machines..."
 
-      for json_file in "$SYNC_DIR"/bookmarks-*.json; do
-        if [ -f "$json_file" ]; then
-          source_host=$(basename "$json_file" | sed 's/bookmarks-//;s/.json//')
+      for html_file in "$SYNC_DIR"/bookmarks-*.html; do
+        if [ -f "$html_file" ]; then
+          source_host=$(basename "$html_file" | sed 's/bookmarks-//;s/.html//')
 
           if [ "$source_host" != "$CURRENT_HOST" ]; then
-            echo "  Importing from $source_host..."
-            ${bukuServer}/bin/buku --import "$json_file" --format 4 --tacit || {
-              # Fall back to HTML if JSON fails
-              html_file="$SYNC_DIR/bookmarks-$source_host.html"
-              if [ -f "$html_file" ]; then
-                echo "    (using HTML format)"
-                ${bukuServer}/bin/buku --import "$html_file" --tacit
-              fi
-            }
+            bookmark_count=$(grep -c "<DT>" "$html_file" || echo "0")
+            echo "  Importing from $source_host ($bookmark_count bookmarks)..."
+            ${bukuServer}/bin/buku --import "$html_file" --tacit
           fi
         fi
       done
@@ -143,7 +133,7 @@ in
     '')
   ];
 
-  # Create buku sync directory structure (updated to syncthing)
+  # Create buku sync directory structure
   home.file.".local/share/buku/.keep".text = "";
   home.file."syncthing/buku/.keep".text = "";
 
