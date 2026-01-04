@@ -1,11 +1,6 @@
 # NixVim Configuration Module
 # Drop-in replacement for modules/utils/neovim.nix
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: {
+{...}: {
   programs.nixvim = {
     enable = true;
     defaultEditor = true;
