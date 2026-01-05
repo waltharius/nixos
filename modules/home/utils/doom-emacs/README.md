@@ -1,6 +1,6 @@
-# Doom Emacs Testing Module
+# Doom Emacs Module
 
-> **Purpose**: Test Doom Emacs **alongside** your regular Emacs setup without conflicts.
+> **Purpose**: Install Doom Emacs **alongside** your regular Emacs setup without conflicts.
 >
 > **Use case**: Port journal features from your main Emacs config to evaluate Doom's workflow.
 
@@ -18,9 +18,9 @@ Your current Emacs setup:
 
 **This module**: Installs Doom in **completely isolated directories**:
 ```
-~/.emacs.d/               # Your regular Emacs (UNTOUCHED)
-~/.config/doom-test/      # Doom config (init.el, config.el, packages.el)
-~/.config/emacs-doom-test/# Doom installation (packages, cache)
+~/.emacs.d/            # Your regular Emacs (UNTOUCHED)
+~/.config/doom/        # Doom config (init.el, config.el, packages.el)
+~/.config/emacs-doom/  # Doom installation (packages, cache)
 ```
 
 ## Directory Structure Explained
@@ -29,14 +29,14 @@ Your current Emacs setup:
 
 Doom Emacs uses **two separate directories**:
 
-1. **DOOMDIR** (`~/.config/doom-test/`)
+1. **DOOMDIR** (`~/.config/doom/`)
    - Your configuration files:
      - `init.el` - Which Doom modules to enable
      - `config.el` - Your personal settings
      - `packages.el` - Additional packages
      - `+journal.el` - Ported journal functions
 
-2. **EMACSDIR** (`~/.config/emacs-doom-test/`)
+2. **EMACSDIR** (`~/.config/emacs-doom/`)
    - Doom's installation:
      - Downloaded packages
      - Compiled bytecode
@@ -136,12 +136,13 @@ Edit `users/marcin/home.nix`:
     ../../modules/home/utils/doom-emacs  # ADD
   ];
 
-  # Enable Doom Emacs testing
-  programs.doom-emacs-test.enable = true;
-
-  # Optional: Customize directories
-  # programs.doom-emacs-test.doomConfigDir = "${config.home.homeDirectory}/.config/doom-test";
-  # programs.doom-emacs-test.doomInstallDir = "${config.home.homeDirectory}/.config/emacs-doom-test";
+  # Enable Doom Emacs
+  programs.doom-emacs = {
+    enable = true;
+    # Optional: Customize directories
+    # doomConfigDir = "${config.home.homeDirectory}/.config/doom";
+    # doomInstallDir = "${config.home.homeDirectory}/.config/emacs-doom";
+  };
 
   # Your regular Emacs stays unchanged!
   home.packages = with pkgs; [
@@ -159,14 +160,14 @@ sudo nixos-rebuild switch --flake ~/nixos#azazel  # or #sukkub
 
 After rebuild, you'll see:
 ```
-🎨 Doom Emacs (test) installed!
-   Config dir:  /home/marcin/.config/doom-test
-   Install dir: /home/marcin/.config/emacs-doom-test
+🎨 Doom Emacs installed!
+   Config dir:  /home/marcin/.config/doom
+   Install dir: /home/marcin/.config/emacs-doom
 
 📝 Usage:
-   doom-emacs       → Launch Doom Emacs
-   doom-test sync   → Sync packages (run after config changes)
-   doom-test doctor → Check installation health
+   doom-emacs     → Launch Doom Emacs
+   doom sync      → Sync packages (run after config changes)
+   doom doctor    → Check installation health
 
 🗒️  Journal keybindings (in Doom):
    SPC n j  → Create/open today's journal
@@ -187,7 +188,7 @@ doom-emacs
 # Wait for it to complete (~2-3 minutes)
 
 # If needed, manually sync packages:
-doom-test sync
+doom sync
 ```
 
 ### Daily Workflow
@@ -222,16 +223,16 @@ File should look identical to your regular journal format!
 
 ```bash
 # Sync packages after editing config
-doom-test sync
+doom sync
 
 # Check for issues
-doom-test doctor
+doom doctor
 
 # Upgrade Doom packages
-doom-test upgrade
+doom upgrade
 
 # Clean cache
-doom-test clean
+doom clean
 ```
 
 ## Keybindings Reference
@@ -264,17 +265,17 @@ doom-test clean
 
 ### Editing Config
 
-All config files are in `~/.config/doom-test/`:
+All config files are in `~/.config/doom/`:
 
 ```bash
 # Edit Doom config
-vim ~/.config/doom-test/config.el
+vim ~/.config/doom/config.el
 
 # Edit journal functions
-vim ~/.config/doom-test/+journal.el
+vim ~/.config/doom/+journal.el
 
 # After changes, sync packages:
-doom-test sync
+doom sync
 ```
 
 ### Adding More Features
@@ -282,16 +283,16 @@ doom-test sync
 To port additional features from your main Emacs:
 
 1. **Find function in** [`github.com/waltharius/emacs/modules/`](https://github.com/waltharius/emacs/tree/main/modules)
-2. **Copy to** `~/.config/doom-test/+journal.el`
+2. **Copy to** `~/.config/doom/+journal.el`
 3. **Adjust keybindings** for Doom's leader key (`SPC`)
-4. **Run** `doom-test sync`
+4. **Run** `doom sync`
 
 ### Example: Port Well-being Statistics
 
 From your main Emacs `05d-denote-wellbeing.el`:
 
 ```elisp
-;; Add to ~/.config/doom-test/+journal.el
+;; Add to ~/.config/doom/+journal.el
 
 (defun my/doom-wellbeing-stats ()
   "Show well-being statistics (7/30 days average)."
@@ -309,7 +310,7 @@ From your main Emacs `05d-denote-wellbeing.el`:
 
 ### Doom Not Finding Notes
 
-**Check**: Org directory setting in `~/.config/doom-test/config.el`:
+**Check**: Org directory setting in `~/.config/doom/config.el`:
 
 ```elisp
 (setq org-directory "~/notes/")
@@ -320,18 +321,18 @@ From your main Emacs `05d-denote-wellbeing.el`:
 
 ```bash
 # Run Doom doctor
-doom-test doctor
+doom doctor
 
 # Force clean and reinstall
-doom-test clean
-doom-test sync -u
+doom clean
+doom sync -u
 ```
 
 ### Conflicts with Regular Emacs
 
 **Should never happen** - directories are isolated:
 - Regular Emacs: `~/.emacs.d/`
-- Doom Emacs: `~/.config/emacs-doom-test/`
+- Doom Emacs: `~/.config/emacs-doom/`
 
 If you see conflicts, check:
 ```bash
@@ -388,21 +389,21 @@ Once you're comfortable with Doom:
 
 ### Phase 3: Decision
 If Doom wins:
-- Move config to `~/.config/doom/` (permanent location)
+- Keep config in `~/.config/doom/` (current location)
 - Keep `~/.emacs.d/` as backup for 3 months
 - Update Syncthing to sync `~/.config/doom/`
 
 If regular Emacs wins:
 - Keep using it!
-- Delete Doom test directories
-- Remove from `home.nix`
+- Delete Doom directories
+- Set `programs.doom-emacs.enable = false;` in home.nix
 
 ## Advantages of This Approach
 
 1. **Zero Risk**: Regular Emacs completely untouched
 2. **Same Data**: Both use `~/notes/` - journals work in both
 3. **Gradual Learning**: Test Doom without pressure
-4. **Easy Rollback**: Just `programs.doom-emacs-test.enable = false;`
+4. **Easy Rollback**: Just `programs.doom-emacs.enable = false;`
 5. **Declarative**: All config in Git, reproducible
 
 ## Files in This Module
