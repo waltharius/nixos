@@ -24,11 +24,15 @@ let
       # Clone Doom Emacs
       ${pkgs.git}/bin/git clone --depth 1 https://github.com/doomemacs/doomemacs "$EMACSDIR"
       
-      # Install Doom
+      # Install Doom (without --no-fonts flag)
       export DOOMDIR="$DOOMDIR"
-      "$EMACSDIR/bin/doom" install --no-env --no-fonts
+      "$EMACSDIR/bin/doom" install --no-env
       
       echo "✅ Doom Emacs installed!"
+      echo ""
+      echo "Next steps:"
+      echo "  1. Run: doom sync"
+      echo "  2. Run: doom-emacs"
     else
       echo "✅ Doom Emacs already installed at $EMACSDIR"
     fi
