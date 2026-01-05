@@ -6,11 +6,78 @@ with lib;
 let
   cfg = config.programs.doom-emacs;
   
-  # Build Doom Emacs from the flake input
-  doom-emacs-pkg = inputs.nix-doom-emacs-unstraightened.packages.${pkgs.system}.default.override {
-    doomDir = cfg.doomConfigDir;
-    emacsPackage = cfg.emacsPackage;
-  };
+  doomDir = cfg.doomConfigDir;
+  doomInstallDir = "${config.home.homeDirectory}/.config/emacs-doom";
+  
+  # Doom Emacs installation script
+  installDoom = pkgs.writeShellScript "install-doom" ''
+    #!/usr/bin/env bash
+    set -e
+    
+    DOOMDIR="${doomDir}"
+    EMACSDIR="${doomInstallDir}"
+    
+    # Check if Doom is already installed
+    if [ ! -d "$EMACSDIR" ]; then
+      echo "📥 Installing Doom Emacs to $EMACSDIR..."
+      
+      # Clone Doom Emacs
+      ${pkgs.git}/bin/git clone --depth 1 https://github.com/doomemacs/doomemacs "$EMACSDIR"
+      
+      # Install Doom
+      export DOOMDIR="$DOOMDIR"
+      "$EMACSDIR/bin/doom" install --no-env --no-fonts
+      
+      echo "✅ Doom Emacs installed!"
+    else
+      echo "✅ Doom Emacs already installed at $EMACSDIR"
+    fi
+  '';
+  
+  # Wrapper to launch Doom Emacs
+  doomEmacsWrapper = pkgs.writeShellScriptBin "doom-emacs" ''
+    #!/usr/bin/env bash
+    
+    DOOMDIR="${doomDir}"
+    EMACSDIR="${doomInstallDir}"
+    
+    # Check if Doom is installed
+    if [ ! -d "$EMACSDIR" ]; then
+      echo "❌ Doom Emacs not installed yet!"
+      echo "Run: doom-install"
+      exit 1
+    fi
+    
+    export DOOMDIR="$DOOMDIR"
+    export EMACSDIR="$EMACSDIR"
+    
+    exec "$EMACSDIR/bin/doom" run "$@"
+  '';
+  
+  # Doom CLI wrapper
+  doomCliWrapper = pkgs.writeShellScriptBin "doom" ''
+    #!/usr/bin/env bash
+    
+    DOOMDIR="${doomDir}"
+    EMACSDIR="${doomInstallDir}"
+    
+    if [ ! -d "$EMACSDIR" ]; then
+      echo "❌ Doom Emacs not installed yet!"
+      echo "Run: doom-install"
+      exit 1
+    fi
+    
+    export DOOMDIR="$DOOMDIR"
+    export EMACSDIR="$EMACSDIR"
+    
+    exec "$EMACSDIR/bin/doom" "$@"
+  '';
+  
+  # Installation helper
+  doomInstallWrapper = pkgs.writeShellScriptBin "doom-install" ''
+    #!/usr/bin/env bash
+    exec ${installDoom}
+  '';
 in
 {
   options.programs.doom-emacs = {
@@ -21,102 +88,80 @@ in
       default = "${config.home.homeDirectory}/.config/doom";
       description = "Doom configuration directory (init.el, config.el, packages.el)";
     };
-
-    emacsPackage = mkOption {
-      type = types.package;
-      default = pkgs.emacs;
-      description = "Emacs package to use for Doom";
-    };
   };
 
   config = mkIf cfg.enable {
-    # Install the actual Doom Emacs package
+    # Install wrapper scripts
     home.packages = [
-      doom-emacs-pkg
+      doomEmacsWrapper
+      doomCliWrapper
+      doomInstallWrapper
+      # Dependencies for Doom
+      pkgs.git
+      pkgs.ripgrep
+      pkgs.fd
+      pkgs.emacs
     ];
-
-    # Create wrapper for easier invocation
-    home.file.".local/bin/doom-emacs" = {
-      executable = true;
-      text = ''
-        #!/usr/bin/env bash
-        # Launch Doom Emacs with proper DOOMDIR
-        export DOOMDIR="${cfg.doomConfigDir}"
-        exec ${doom-emacs-pkg}/bin/emacs "$@"
-      '';
-    };
 
     # Doom configuration files
     home.file."${cfg.doomConfigDir}/init.el".text = ''
       ;;; init.el --- Doom Emacs minimal config for journal -*- lexical-binding: t; -*-
-      ;;
-      ;; This is a MINIMAL Doom config for testing journal features
-      ;; Isolated from your main Emacs setup in ~/.emacs.d
-      ;;
-      ;; Author: marcin
 
       (doom! :completion
-             company           ; text completion
-             vertico           ; search/filtering
+             company
+             vertico
 
              :ui
-             doom              ; doom theme
-             doom-dashboard    ; startup screen
-             modeline          ; status bar
-             ophints           ; highlight region
-             (popup +defaults) ; popup rules
-             vc-gutter         ; git diff in gutter
-             vi-tilde-fringe   ; fringe tildes for empty lines
-             workspaces        ; tab-like workspaces
+             doom
+             doom-dashboard
+             modeline
+             ophints
+             (popup +defaults)
+             vc-gutter
+             vi-tilde-fringe
+             workspaces
 
              :editor
-             (evil +everywhere) ; vim emulation
-             file-templates     ; auto-templates
-             fold               ; code folding
-             snippets           ; yasnippet
+             (evil +everywhere)
+             file-templates
+             fold
+             snippets
 
              :emacs
-             dired             ; file manager
-             electric          ; smart indentation
-             undo              ; undo/redo
-             vc                ; version control
+             dired
+             electric
+             undo
+             vc
 
              :term
-             vterm             ; terminal emulator
+             vterm
 
              :checkers
-             syntax            ; syntax checking
+             syntax
 
              :tools
-             magit             ; git interface
-             lookup            ; navigate code/docs
+             magit
+             lookup
              
              :lang
-             emacs-lisp        ; elisp support
-             markdown          ; markdown support
-             org               ; org-mode (CRITICAL for journal!)
+             emacs-lisp
+             markdown
+             org
 
              :config
              (default +bindings +smartparens))
     '';
 
     home.file."${cfg.doomConfigDir}/config.el".text = ''
-      ;;; config.el --- Doom Emacs configuration for journal -*- lexical-binding: t; -*-
+      ;;; config.el --- Doom Emacs configuration -*- lexical-binding: t; -*-
 
-      ;; User info (from your main Emacs config)
       (setq user-full-name "marcin"
             user-mail-address "nixosgitemail.frivolous320@passmail.net")
 
-      ;; Theme
       (setq doom-theme 'doom-one)
-
-      ;; Font (same as your main Emacs - Hack Nerd Font)
       (setq doom-font (font-spec :family "Hack Nerd Font" :size 14))
-
-      ;; Org directory (SAME as your regular Emacs)
       (setq org-directory "~/notes/")
 
-      ;; Denote configuration (ported from your main Emacs)
       (use-package! denote
         :config
         (setq denote-directory (expand-file-name "~/notes/"))
@@ -127,22 +172,17 @@ in
         (setq denote-prompts '(title keywords))
         (setq denote-excluded-directories-regexp nil)
         (setq denote-excluded-keywords-regexp nil)
-        
-        ;; Date format (same as your main config)
         (setq denote-date-prompt-use-org-read-date t)
         (setq denote-date-format "%Y-%m-%d"))
 
-      ;; Load journal functions (ported from your main Emacs)
       (load! "+journal")
 
-      ;; Org-mode settings (basic, matching your main config)
       (after! org
         (setq org-startup-folded 'overview)
         (setq org-hide-emphasis-markers t)
         (setq org-ellipsis " ▾")
         (setq org-log-done 'time))
 
-      ;; Dashboard customization
       (setq doom-dashboard-banner-file 'official
             +doom-dashboard-functions
             '(doom-dashboard-widget-banner
@@ -152,34 +192,31 @@ in
     home.file."${cfg.doomConfigDir}/packages.el".text = ''
       ;;; packages.el --- Doom Emacs packages -*- lexical-binding: t; -*-
 
-      ;; Denote - for journal/note management (CRITICAL)
       (package! denote)
     '';
 
-    # Journal functions ported from main Emacs
+    # Journal functions
     home.file."${cfg.doomConfigDir}/+journal.el".source = ./journal-functions.el;
 
-    # Create notes directory if it doesn't exist
+    # Create notes directory
     home.activation.createNotesDir = lib.hm.dag.entryAfter ["writeBoundary"] ''
       $DRY_RUN_CMD mkdir -p ~/notes
     '';
 
-    # Inform user about setup
+    # Info message
     home.activation.doomEmacInfo = lib.hm.dag.entryAfter ["writeBoundary"] ''
       echo ""
-      echo "🎨 Doom Emacs installed!"
-      echo "   Config dir:  ${cfg.doomConfigDir}"
-      echo "   Package:     ${doom-emacs-pkg}"
+      echo "🎨 Doom Emacs module enabled!"
+      echo "   Config dir: ${cfg.doomConfigDir}"
+      echo "   Install dir: ${doomInstallDir}"
       echo ""
-      echo "📝 Usage:"
-      echo "   doom-emacs     → Launch Doom Emacs"
-      echo "   doom sync      → Sync packages (use from \$DOOMDIR)"
+      echo "📦 First-time setup:"
+      echo "   1. Run: doom-install        (installs Doom to ${doomInstallDir})"
+      echo "   2. Run: doom sync           (syncs packages)"
+      echo "   3. Run: doom-emacs          (launch Doom)"
       echo ""
-      echo "🗂️  Journal keybindings (in Doom):"
-      echo "   SPC n j  → Create/open today's journal"
-      echo "   SPC n J  → Create journal with custom date"
-      echo "   SPC n R  → Rename based on frontmatter"
-      echo "   SPC n t  → Manage tags"
+      echo "⚠️  Note: Your regular 'emacs' command still uses ~/.emacs.d"
+      echo "   Doom uses: ${doomInstallDir}"
       echo ""
     '';
   };
