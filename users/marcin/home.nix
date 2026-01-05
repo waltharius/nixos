@@ -55,13 +55,26 @@ in {
     ../../modules/home/terminal/tmux.nix
     ../../modules/home/tools/hugo.nix
     ../../modules/home/tools/buku.nix
+    # Doom Emacs (testing alongside regular Emacs)
+    ../../modules/home/utils/doom-emacs
   ];
 
   programs.hugo = {
     enable = true;
     baseURL = "http://localhost:1313";
   };
-  #
+
+  # ========================================
+  # DOOM EMACS - Testing Configuration
+  # ========================================
+  programs.doom-emacs-test = {
+    enable = true;
+    # Optional: Customize directories
+    # doomConfigDir = "${config.home.homeDirectory}/.config/doom-test";
+    # doomInstallDir = "${config.home.homeDirectory}/.config/emacs-doom-test";
+    # emacsPackage = pkgs.emacs29-pgtk;  # or pkgs.emacs-unstable
+  };
+
   # ========================================
   # USER-SPECIFIC OVERRIDES
   # ========================================
@@ -133,6 +146,7 @@ in {
       gnome-podcasts
 
       # Emacs (simple installation - manages its own packages from ~/.emacs.d)
+      # NOTE: doom-emacs is installed separately via programs.doom-emacs-test
       emacs
 
       # Development tools
