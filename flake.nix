@@ -21,12 +21,6 @@
       url = "github:nix-community/nixvim/nixos-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    # Doom Emacs for testing alongside regular Emacs
-    nix-doom-emacs-unstraightened = {
-      url = "github:marienz/nix-doom-emacs-unstraightened";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs = {
@@ -35,7 +29,6 @@
     nix-flatpak,
     sops-nix,
     nixvim,
-    nix-doom-emacs-unstraightened,
     ...
   } @ inputs: let
     system = "x86_64-linux";
