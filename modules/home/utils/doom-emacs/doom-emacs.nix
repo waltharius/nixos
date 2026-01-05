@@ -5,6 +5,12 @@ with lib;
 
 let
   cfg = config.programs.doom-emacs;
+  
+  # Build Doom Emacs from the flake input
+  doom-emacs-pkg = inputs.nix-doom-emacs-unstraightened.packages.${pkgs.system}.default.override {
+    doomDir = cfg.doomConfigDir;
+    emacsPackage = cfg.emacsPackage;
+  };
 in
 {
   options.programs.doom-emacs = {
@@ -16,62 +22,33 @@ in
       description = "Doom configuration directory (init.el, config.el, packages.el)";
     };
 
-    doomInstallDir = mkOption {
-      type = types.str;
-      default = "${config.home.homeDirectory}/.config/emacs-doom";
-      description = "Doom installation directory (where Doom installs packages/cache)";
-    };
-
     emacsPackage = mkOption {
       type = types.package;
-      default = pkgs.emacs;  # Use standard emacs package
+      default = pkgs.emacs;
       description = "Emacs package to use for Doom";
     };
   };
 
   config = mkIf cfg.enable {
-    # Install Doom Emacs wrapper scripts
+    # Install the actual Doom Emacs package
     home.packages = [
-      # Doom Emacs launcher
-      (pkgs.writeShellScriptBin "doom-emacs" ''
-        #!/usr/bin/env bash
-        # Launch Doom Emacs with isolated directories
-        # DOOMDIR = config files (init.el, config.el, packages.el)
-        # EMACSDIR = installation dir (packages, cache, state)
-        export DOOMDIR="${cfg.doomConfigDir}"
-        export EMACSDIR="${cfg.doomInstallDir}"
-        
-        # First run setup check
-        if [ ! -d "$EMACSDIR" ]; then
-          echo "🚀 First run detected - Doom needs to sync packages..."
-          echo "After Emacs starts, run: M-x doom/reload"
-          echo ""
-        fi
-        
-        exec ${cfg.emacsPackage}/bin/emacs "$@"
-      '')
-
-      # Doom CLI wrapper (for doom sync, doom doctor, etc.)
-      (pkgs.writeShellScriptBin "doom" ''
-        #!/usr/bin/env bash
-        # Doom CLI wrapper for isolated installation
-        export DOOMDIR="${cfg.doomConfigDir}"
-        export EMACSDIR="${cfg.doomInstallDir}"
-        
-        # Run Doom CLI (if Doom is installed)
-        if [ -f "$EMACSDIR/bin/doom" ]; then
-          exec "$EMACSDIR/bin/doom" "$@"
-        else
-          echo "❌ Doom not installed yet in $EMACSDIR"
-          echo "Launch 'doom-emacs' first to initialize Doom"
-          exit 1
-        fi
-      '')
+      doom-emacs-pkg
     ];
+
+    # Create wrapper for easier invocation
+    home.file.".local/bin/doom-emacs" = {
+      executable = true;
+      text = ''
+        #!/usr/bin/env bash
+        # Launch Doom Emacs with proper DOOMDIR
+        export DOOMDIR="${cfg.doomConfigDir}"
+        exec ${doom-emacs-pkg}/bin/emacs "$@"
+      '';
+    };
 
     # Doom configuration files
     home.file."${cfg.doomConfigDir}/init.el".text = ''
-      ;;; init.el --- Doom Emacs minimal config for journal testing -*- lexical-binding: t; -*-
+      ;;; init.el --- Doom Emacs minimal config for journal -*- lexical-binding: t; -*-
       ;;
       ;; This is a MINIMAL Doom config for testing journal features
       ;; Isolated from your main Emacs setup in ~/.emacs.d
@@ -124,7 +101,7 @@ in
     '';
 
     home.file."${cfg.doomConfigDir}/config.el".text = ''
-      ;;; config.el --- Doom Emacs configuration for journal testing -*- lexical-binding: t; -*-
+      ;;; config.el --- Doom Emacs configuration for journal -*- lexical-binding: t; -*-
 
       ;; User info (from your main Emacs config)
       (setq user-full-name "marcin"
@@ -192,14 +169,13 @@ in
       echo ""
       echo "🎨 Doom Emacs installed!"
       echo "   Config dir:  ${cfg.doomConfigDir}"
-      echo "   Install dir: ${cfg.doomInstallDir}"
+      echo "   Package:     ${doom-emacs-pkg}"
       echo ""
       echo "📝 Usage:"
       echo "   doom-emacs     → Launch Doom Emacs"
-      echo "   doom sync      → Sync packages (run after config changes)"
-      echo "   doom doctor    → Check installation health"
+      echo "   doom sync      → Sync packages (use from \$DOOMDIR)"
       echo ""
-      echo "🗒️  Journal keybindings (in Doom):"
+      echo "🗂️  Journal keybindings (in Doom):"
       echo "   SPC n j  → Create/open today's journal"
       echo "   SPC n J  → Create journal with custom date"
       echo "   SPC n R  → Rename based on frontmatter"
