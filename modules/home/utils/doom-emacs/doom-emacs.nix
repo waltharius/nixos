@@ -4,21 +4,21 @@
 with lib;
 
 let
-  cfg = config.programs.doom-emacs-test;
+  cfg = config.programs.doom-emacs;
 in
 {
-  options.programs.doom-emacs-test = {
-    enable = mkEnableOption "Doom Emacs (testing alongside regular Emacs)";
+  options.programs.doom-emacs = {
+    enable = mkEnableOption "Doom Emacs (alongside regular Emacs)";
     
     doomConfigDir = mkOption {
       type = types.str;
-      default = "${config.home.homeDirectory}/.config/doom-test";
+      default = "${config.home.homeDirectory}/.config/doom";
       description = "Doom configuration directory (init.el, config.el, packages.el)";
     };
 
     doomInstallDir = mkOption {
       type = types.str;
-      default = "${config.home.homeDirectory}/.config/emacs-doom-test";
+      default = "${config.home.homeDirectory}/.config/emacs-doom";
       description = "Doom installation directory (where Doom installs packages/cache)";
     };
 
@@ -30,8 +30,9 @@ in
   };
 
   config = mkIf cfg.enable {
-    # Install Doom Emacs wrapper script
+    # Install Doom Emacs wrapper scripts
     home.packages = [
+      # Doom Emacs launcher
       (pkgs.writeShellScriptBin "doom-emacs" ''
         #!/usr/bin/env bash
         # Launch Doom Emacs with isolated directories
@@ -49,11 +50,9 @@ in
         
         exec ${cfg.emacsPackage}/bin/emacs "$@"
       '')
-    ];
 
-    # Doom CLI wrapper (for doom sync, doom doctor, etc.)
-    home.packages = [
-      (pkgs.writeShellScriptBin "doom-test" ''
+      # Doom CLI wrapper (for doom sync, doom doctor, etc.)
+      (pkgs.writeShellScriptBin "doom" ''
         #!/usr/bin/env bash
         # Doom CLI wrapper for isolated installation
         export DOOMDIR="${cfg.doomConfigDir}"
@@ -78,7 +77,6 @@ in
       ;; Isolated from your main Emacs setup in ~/.emacs.d
       ;;
       ;; Author: marcin
-      ;; Created: ${builtins.readFile /etc/nixos-version}
 
       (doom! :completion
              company           ; text completion
@@ -192,14 +190,14 @@ in
     # Inform user about setup
     home.activation.doomEmacInfo = lib.hm.dag.entryAfter ["writeBoundary"] ''
       echo ""
-      echo "🎨 Doom Emacs (test) installed!"
+      echo "🎨 Doom Emacs installed!"
       echo "   Config dir:  ${cfg.doomConfigDir}"
       echo "   Install dir: ${cfg.doomInstallDir}"
       echo ""
       echo "📝 Usage:"
-      echo "   doom-emacs       → Launch Doom Emacs"
-      echo "   doom-test sync   → Sync packages (run after config changes)"
-      echo "   doom-test doctor → Check installation health"
+      echo "   doom-emacs     → Launch Doom Emacs"
+      echo "   doom sync      → Sync packages (run after config changes)"
+      echo "   doom doctor    → Check installation health"
       echo ""
       echo "🗒️  Journal keybindings (in Doom):"
       echo "   SPC n j  → Create/open today's journal"
