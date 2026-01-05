@@ -24,7 +24,7 @@ in
 
     emacsPackage = mkOption {
       type = types.package;
-      default = pkgs.emacs29-pgtk;
+      default = pkgs.emacs;  # Use standard emacs package
       description = "Emacs package to use for Doom";
     };
   };
