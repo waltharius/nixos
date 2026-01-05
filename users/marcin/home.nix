@@ -55,24 +55,11 @@ in {
     ../../modules/home/terminal/tmux.nix
     ../../modules/home/tools/hugo.nix
     ../../modules/home/tools/buku.nix
-    # Doom Emacs (alongside regular Emacs)
-    ../../modules/home/utils/doom-emacs
   ];
 
   programs.hugo = {
     enable = true;
     baseURL = "http://localhost:1313";
-  };
-
-  # ========================================
-  # DOOM EMACS Configuration
-  # ========================================
-  programs.doom-emacs = {
-    enable = true;
-    # Optional: Customize directories
-    # doomConfigDir = "${config.home.homeDirectory}/.config/doom";
-    # doomInstallDir = "${config.home.homeDirectory}/.config/emacs-doom";
-    # emacsPackage = pkgs.emacs29-pgtk;  # or pkgs.emacs-unstable
   };
 
   # ========================================
