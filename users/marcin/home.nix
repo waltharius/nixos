@@ -55,7 +55,7 @@ in {
     ../../modules/home/terminal/tmux.nix
     ../../modules/home/tools/hugo.nix
     ../../modules/home/tools/buku.nix
-    # Doom Emacs (testing alongside regular Emacs)
+    # Doom Emacs (alongside regular Emacs)
     ../../modules/home/utils/doom-emacs
   ];
 
@@ -65,13 +65,13 @@ in {
   };
 
   # ========================================
-  # DOOM EMACS - Testing Configuration
+  # DOOM EMACS Configuration
   # ========================================
-  programs.doom-emacs-test = {
+  programs.doom-emacs = {
     enable = true;
     # Optional: Customize directories
-    # doomConfigDir = "${config.home.homeDirectory}/.config/doom-test";
-    # doomInstallDir = "${config.home.homeDirectory}/.config/emacs-doom-test";
+    # doomConfigDir = "${config.home.homeDirectory}/.config/doom";
+    # doomInstallDir = "${config.home.homeDirectory}/.config/emacs-doom";
     # emacsPackage = pkgs.emacs29-pgtk;  # or pkgs.emacs-unstable
   };
 
@@ -146,7 +146,7 @@ in {
       gnome-podcasts
 
       # Emacs (simple installation - manages its own packages from ~/.emacs.d)
-      # NOTE: doom-emacs is installed separately via programs.doom-emacs-test
+      # NOTE: doom-emacs is installed via programs.doom-emacs module
       emacs
 
       # Development tools
