@@ -117,6 +117,7 @@ in {
       customPkgs.track-package
       customPkgs.track-package-deps
       customPkgs.track-package-py
+      customPkgs.track-package-simple
 
       # GUI Applications
       blanket
