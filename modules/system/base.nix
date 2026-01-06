@@ -1,4 +1,8 @@
-{self, ...}: {
+{
+  self,
+  config,
+  ...
+}: {
   # Enable new python-based nixos-rebuild-ng command
   system.rebuild.enableNg = true;
   users.groups.uinput = {};
