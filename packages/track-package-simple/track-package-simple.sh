@@ -19,16 +19,16 @@ prev_version=""
 found=false
 
 # Use nixos-rebuild to get generations in REVERSE chronological order (newest first)
-nixos-rebuild list-generations | tac | while read -r gen_num date time config_id kernel rest; do
+nixos-rebuild list-generations | tac | while read -r gen_num date time _config_id _kernel _rest; do
   # Skip header line
   if [[ "$gen_num" == "Generation" ]]; then
     continue
   fi
   
   # Search for package in this generation
-  pkg_path=$(nix-store -qR /nix/var/nix/profiles/system-${gen_num}-link 2>/dev/null | \
+  pkg_path=$(nix-store -qR "/nix/var/nix/profiles/system-${gen_num}-link" 2>/dev/null | \
     grep -E "[-/]$PACKAGE-[0-9]" | \
-    grep -v "\.drv$" | \
+    grep -v "\\.drv$" | \
     head -1 || echo "")
   
   if [ -n "$pkg_path" ]; then
