@@ -1,4 +1,167 @@
 #!/usr/bin/env bash
+# =============================================================================
+# track-package - NixOS Package History Tracker
+# =============================================================================
+#
+# PURPOSE:
+#   Track package version changes across NixOS system and home-manager
+#   generations. Helps debug when a package broke by showing version history
+#   and linking changes to git commits.
+#
+# DATABASE:
+#   All data is stored in SQLite database at:
+#   ~/.local/share/nixos-track-package/history.db
+#
+#   The database preserves history even after garbage collection!
+#   Old generation data is marked as "GC'd" but never deleted.
+#
+# USAGE:
+#   track-package <package-name> [profile] [flags]
+#
+# PROFILES:
+#   system   - Only search system packages (/run/current-system)
+#   home     - Only search home-manager packages (~/.local/state/nix/profiles)
+#   both     - Search both (default)
+#
+# FLAGS:
+#   -v, --verbose   Show detailed output with full store paths
+#   -r, --rescan    Force rescan of generations (updates database)
+#   --scan-all      Scan ALL packages across all generations (very slow!)
+#
+# EXAMPLES:
+#
+#   1. Quick check - show firefox version history
+#      $ track-package firefox
+#
+#   2. Detailed view with store paths
+#      $ track-package firefox -v
+#
+#   3. After system update - rescan to add new generations
+#      $ track-package firefox -r
+#
+#   4. Search only home-manager packages
+#      $ track-package emacs home
+#
+#   5. Search only system packages
+#      $ track-package linux system
+#
+#   6. Build complete system history (takes 10-30 minutes!)
+#      $ track-package --scan-all
+#
+# COMMON WORKFLOWS:
+#
+#   Scenario 1: Package stopped working after update
+#   ─────────────────────────────────────────────────
+#   $ track-package firefox
+#   # Look at the table - which generation changed version?
+#   # Check git commit hash
+#   $ cd ~/nixos && git show abc123de
+#   # Found the problematic commit!
+#
+#   Scenario 2: When did I add this package?
+#   ────────────────────────────────────────
+#   $ track-package vscode
+#   # Look for "ADDED" event in output
+#
+#   Scenario 3: Track package that was removed
+#   ──────────────────────────────────────────
+#   $ track-package old-package
+#   # Shows history including "REMOVED" event
+#   # Even if package no longer exists, history is preserved!
+#
+#   Scenario 4: After garbage collection
+#   ────────────────────────────────────
+#   $ sudo nix-collect-garbage --delete-older-than 30d
+#   $ track-package firefox
+#   # Old generations show as "(GC'd)" but history remains
+#   # You still see what versions existed when!
+#
+#   Scenario 5: Full system audit
+#   ─────────────────────────────
+#   $ track-package --scan-all
+#   # Scans all 4,000+ packages, takes ~20 minutes
+#   # Then any package lookup is instant from database
+#
+# OUTPUT EXPLANATION:
+#
+#   Generation: NixOS generation number (#1, #2, etc.)
+#   Date:       When that generation was created
+#   Version:    Package version in that generation
+#   Event:      What happened?
+#               - ADDED: Package appeared for first time
+#               - UPGRADED: Version changed (increased)
+#               - REMOVED: Package no longer in system
+#               - DOWNGRADED: Version went backwards (rare)
+#   Git:        First 12 chars of git commit hash
+#               - "(no commit)" means rebuild without committing
+#               - "(GC'd)" means generation was garbage collected
+#
+# DATABASE QUERIES:
+#
+#   You can query the database directly with sqlite3:
+#
+#   # Show all packages upgraded in December
+#   $ sqlite3 ~/.local/share/nixos-track-package/history.db \
+#     "SELECT DISTINCT package_name FROM package_history
+#      WHERE event='UPGRADED' AND date LIKE '2025-12%';"
+#
+#   # Find most frequently updated packages
+#   $ sqlite3 ~/.local/share/nixos-track-package/history.db \
+#     "SELECT package_name, COUNT(*) as changes
+#      FROM package_history WHERE event='UPGRADED'
+#      GROUP BY package_name ORDER BY changes DESC LIMIT 10;"
+#
+#   # Show packages removed by GC
+#   $ sqlite3 ~/.local/share/nixos-track-package/history.db \
+#     "SELECT package_name, COUNT(*) as gc_count
+#      FROM package_history WHERE generation_exists=0
+#      GROUP BY package_name;"
+#
+# PERFORMANCE:
+#
+#   First scan:  ~60-90 seconds for single package (scans all generations)
+#   Cached:      Instant (reads from database)
+#   Rescan:      ~10-30 seconds (only new generations)
+#   --scan-all:  ~10-30 minutes (scans every package)
+#
+# SAFETY:
+#
+#   - Read-only operations (except database writes)
+#   - Never modifies your NixOS configuration
+#   - Database is stored in your home directory
+#   - Safe to run on production systems
+#
+# TIPS:
+#
+#   1. Run with -r after each system rebuild to keep DB current
+#   2. Add to your shell aliases:
+#      alias tp='track-package'
+#      alias tpv='track-package -v'
+#   3. Backup database periodically:
+#      cp ~/.local/share/nixos-track-package/history.db ~/backups/
+#   4. History survives garbage collection - this is a feature!
+#   5. Use --scan-all once to build full history, then quick lookups forever
+#
+# TROUBLESHOOTING:
+#
+#   Q: Package not found but I know it's installed?
+#   A: The package might have a different name in the store.
+#      Try: nix-store -qR /run/current-system | grep -i <partial-name>
+#
+#   Q: Scan is very slow?
+#   A: This is normal for first scan. Subsequent runs are fast.
+#      You're scanning 177+ generations × package closure (~10GB data)
+#
+#   Q: Database file getting large?
+#   A: This is expected. Full system scan creates ~50-100MB database.
+#      This is tiny compared to the value of having full history!
+#
+#   Q: Want to reset everything?
+#   A: rm -rf ~/.local/share/nixos-track-package/
+#      Next run will rebuild from scratch.
+#
+# =============================================================================
+
 set -euo pipefail
 
 # Source library functions
@@ -38,20 +201,42 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "$PROGRAM" ] && [ "$SCAN_ALL" = false ]; then
-  echo "Usage: track-package <program-name> [system|home|both] [-v|--verbose] [-r|--rescan]"
-  echo "       track-package --scan-all                           # Scan entire system"
-  echo ""
-  echo "Options:"
-  echo "  system|home|both    Which profiles to search (default: both)"
-  echo "  -v, --verbose       Show detailed list with full store paths"
-  echo "  -r, --rescan        Rescan and update database (preserves old data)"
-  echo "  --scan-all          Scan all packages across all generations (slow)"
-  echo ""
-  echo "Examples:"
-  echo "  track-package firefox              # Show firefox history"
-  echo "  track-package firefox -v           # Detailed view"
-  echo "  track-package firefox -r           # Update database"
-  echo "  track-package --scan-all           # Build complete system history"
+  cat <<'USAGE'
+Usage: track-package <program-name> [system|home|both] [-v|--verbose] [-r|--rescan]
+       track-package --scan-all                           # Scan entire system
+
+Track package version changes across NixOS generations
+
+Options:
+  system|home|both    Which profiles to search (default: both)
+  -v, --verbose       Show detailed list with full store paths
+  -r, --rescan        Rescan and update database (preserves old data)
+  --scan-all          Scan all packages across all generations (slow)
+
+Examples:
+  track-package firefox              # Show firefox history
+  track-package firefox -v           # Detailed view with store paths
+  track-package firefox -r           # Update database with new generations
+  track-package emacs home           # Search only home-manager packages
+  track-package linux system         # Search only system packages
+  track-package --scan-all           # Build complete system history
+
+Database: ~/.local/share/nixos-track-package/history.db
+
+Common Workflow:
+  1. Package broke? → track-package <name>
+  2. Check which generation changed the version
+  3. Look at git commit: cd ~/nixos && git show <hash>
+  4. Found the problem!
+
+Tips:
+  - First scan takes ~60s, subsequent lookups are instant
+  - History survives garbage collection (marked as "GC'd")
+  - Use -r after system rebuild to stay current
+  - Use --scan-all once for full system history
+
+For more help: vim $(which track-package)  # Read the header comments
+USAGE
   exit 1
 fi
 
