@@ -47,6 +47,7 @@
         inherit system;
         specialArgs = {
           inherit inputs hostname;
+          inherit (inputs) self; # This should allow access to git metadata
           # Unstable packages overlay for specific packages
           pkgs-unstable = import inputs.nixpkgs-unstable {
             inherit system;
