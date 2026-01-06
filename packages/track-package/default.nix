@@ -41,88 +41,133 @@ pkgs.writeShellApplication {
   name = "track-package";
 
   runtimeInputs = with pkgs; [
-    nix # For nix-store commands
-    coreutils # For basename, readlink, stat
-    gnugrep # For grep pattern matching
-    gawk # For text processing
+    nix
+    coreutils
+    gnugrep
+    gawk
   ];
 
   text = ''
     PROGRAM="''${1:-}"
+    PROFILE_TYPE="''${2:-both}"  # system, home, or both
 
     if [ -z "$PROGRAM" ]; then
-        echo "Usage: track-package <program-name>"
-        echo "Example: track-package firefox"
+        echo "Usage: track-package <program-name> [system|home|both]"
+        echo ""
+        echo "Examples:"
+        echo "  track-package firefox          # Search both profiles"
+        echo "  track-package firefox system   # Only system packages"
+        echo "  track-package emacs home       # Only home-manager packages"
         exit 1
     fi
 
-    echo "Tracking '$PROGRAM' across all generations..."
-    echo ""
+    search_profile() {
+        local profile_pattern="$1"
+        local profile_name="$2"
 
-    prev_version=""
-    total_gens=0
+        echo "Searching in $profile_name generations..."
+        echo ""
 
-    for gen_link in /nix/var/nix/profiles/system-*-link; do
-        [ -L "$gen_link" ] || continue
+        local prev_version=""
+        local total_gens=0
+        local found_any=false
 
-        # Count total generations
-        total_gens=$((total_gens + 1))
+        for gen_link in $profile_pattern; do
+            [ -L "$gen_link" ] || continue
 
-        gen_num=$(basename "$gen_link" | grep -oP 'system-\K\d+(?=-link)')
-        gen_date=$(stat -c "%y" "$gen_link" 2>/dev/null | cut -d'.' -f1)
+            total_gens=$((total_gens + 1))
 
-        git_rev=""
-        if [ -f "$gen_link/etc/nixos-git-revision" ]; then
-            git_rev=$(cat "$gen_link/etc/nixos-git-revision" 2>/dev/null)
-        fi
+            # Extract generation number from link name
+            local gen_num
+            gen_num=$(basename "$gen_link" | grep -oP '\d+(?=-link)')
 
-        # Fast path: check sw/bin first
-        program_path=""
-        if [ -x "$gen_link/sw/bin/$PROGRAM" ]; then
-            program_path=$(readlink -f "$gen_link/sw/bin/$PROGRAM")
-        fi
+            local gen_date
+            gen_date=$(stat -c "%y" "$gen_link" 2>/dev/null | cut -d'.' -f1)
 
-        # Slow path: search full closure
-        if [ -z "$program_path" ]; then
-            program_path=$(nix-store -qR "$gen_link" 2>/dev/null | \
-                          grep -E "/$PROGRAM-[0-9]" | head -1 || echo "")
-        fi
-
-        if [ -n "$program_path" ]; then
-            version=$(basename "$program_path" | sed "s/^$PROGRAM-//")
-
-            # Only show version changes
-            if [ "$version" != "$prev_version" ]; then
-                if [ -n "$prev_version" ]; then
-                    echo "=================================================="
-                fi
-
-                echo "Generation:     #$gen_num"
-                echo "Date:           $gen_date"
-                if [ -n "$prev_version" ]; then
-                    echo "Version change: $prev_version -> $version"
-                else
-                    echo "Version:        $version"
-                fi
-                [ -n "$git_rev" ] && echo "Git commit:     ''${git_rev:0:12}"
-                echo "Store path:     $program_path"
-                echo ""
-
-                prev_version="$version"
+            # Try to get git revision
+            local git_rev=""
+            if [ -f "$gen_link/etc/nixos-git-revision" ]; then
+                git_rev=$(cat "$gen_link/etc/nixos-git-revision" 2>/dev/null)
             fi
-        fi
-    done
 
-    if [ -z "$prev_version" ]; then
-        echo "[X] Package '$PROGRAM' not found in any generation"
+            # Fast path: check bin directory first
+            local program_path=""
+            if [ -x "$gen_link/bin/$PROGRAM" ]; then
+                program_path=$(readlink -f "$gen_link/bin/$PROGRAM")
+            elif [ -x "$gen_link/sw/bin/$PROGRAM" ]; then
+                program_path=$(readlink -f "$gen_link/sw/bin/$PROGRAM")
+            fi
+
+            # Slow path: search full closure
+            if [ -z "$program_path" ]; then
+                program_path=$(nix-store -qR "$gen_link" 2>/dev/null | \
+                              grep -E "/$PROGRAM-[0-9]" | head -1 || echo "")
+            fi
+
+            if [ -n "$program_path" ]; then
+                found_any=true
+                local version
+                version=$(basename "$program_path" | sed "s/^$PROGRAM-//")
+
+                # Only show version changes
+                if [ "$version" != "$prev_version" ]; then
+                    if [ -n "$prev_version" ]; then
+                        echo "=================================================="
+                    fi
+
+                    echo "Generation:     #$gen_num"
+                    echo "Date:           $gen_date"
+                    if [ -n "$prev_version" ]; then
+                        echo "Version change: $prev_version -> $version"
+                    else
+                        echo "Version:        $version"
+                    fi
+                    [ -n "$git_rev" ] && echo "Git commit:     ''${git_rev:0:12}"
+                    echo "Store path:     $program_path"
+                    echo ""
+
+                    prev_version="$version"
+                fi
+            fi
+        done
+
+        if [ "$found_any" = true ]; then
+            echo "[OK] Found $PROGRAM in $total_gens $profile_name generations"
+            echo ""
+            return 0
+        else
+            echo "[X] Package '$PROGRAM' not found in $profile_name"
+            echo ""
+            return 1
+        fi
+    }
+
+    # Determine which profiles to search
+    found_anywhere=false
+
+    if [ "$PROFILE_TYPE" = "system" ] || [ "$PROFILE_TYPE" = "both" ]; then
+        echo "=== SYSTEM PACKAGES ==="
+        if search_profile "/nix/var/nix/profiles/system-*-link" "system"; then
+            found_anywhere=true
+        fi
+    fi
+
+    if [ "$PROFILE_TYPE" = "home" ] || [ "$PROFILE_TYPE" = "both" ]; then
+        echo "=== HOME-MANAGER PACKAGES ==="
+        home_profile="$HOME/.local/state/nix/profiles/home-manager-*-link"
+        if search_profile "$home_profile" "home-manager"; then
+            found_anywhere=true
+        fi
+    fi
+
+    if [ "$found_anywhere" = false ]; then
+        echo "Package '$PROGRAM' not found in any searched profile"
         exit 1
-    else
-        echo "[OK] Found $PROGRAM in $total_gens total generations"
     fi
   '';
 
   meta = with pkgs.lib; {
-    description = "Track package version changes across NixOS generations";
+    description = "Track package version changes across NixOS generations (system and home-manager)";
     license = licenses.mit;
   };
 }
