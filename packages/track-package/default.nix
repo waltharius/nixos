@@ -7,6 +7,7 @@ pkgs.stdenv.mkDerivation {
 
   nativeBuildInputs = [pkgs.makeWrapper];
 
+  # These need to be available at build time
   buildInputs = with pkgs; [
     bash
     sqlite
@@ -35,16 +36,16 @@ pkgs.stdenv.mkDerivation {
 
     chmod +x $out/bin/track-package
 
-    # Wrap with runtime dependencies
+    # Wrap with runtime dependencies - FIXED PATH
     wrapProgram $out/bin/track-package \
-      --prefix PATH : ${pkgs.lib.makeBinPath (with pkgs; [
-      nix
-      coreutils
-      gnugrep
-      gawk
-      findutils
-      sqlite
-    ])}
+      --prefix PATH : "${pkgs.lib.makeBinPath [
+      pkgs.nix
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gawk
+      pkgs.findutils
+      pkgs.sqlite
+    ]}"
   '';
 
   meta = with pkgs.lib; {
