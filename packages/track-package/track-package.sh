@@ -165,7 +165,7 @@
 set -euo pipefail
 
 # Source library functions
-# shellcheck source=lib.sh
+# shellcheck disable=SC1091
 source "@LIB_PATH@"
 
 PROGRAM="${1:-}"
