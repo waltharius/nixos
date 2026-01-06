@@ -19,6 +19,10 @@
       ga = "git add";
       gc = "git commit";
       gp = "git push";
+      # Add alias for "git alias"
+      # (git config alias.pushall '!git push origin main && git push gitlab main')
+      # This way I can push to many repositories at once.
+      gpa = "git pushall";
 
       # NixOS shortcuts
       nrs = "rebuild-and-diff";
