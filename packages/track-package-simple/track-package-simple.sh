@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Simple package tracker - no database, just scans generations
+# Simple package tracker - uses nixos-rebuild for proper generation order
 # Usage: track-package-simple <package-name>
 
 set -euo pipefail
@@ -18,35 +18,37 @@ echo ""
 prev_version=""
 found=false
 
-# Scan system generations
-for gen_link in /nix/var/nix/profiles/system-*-link; do
-  [ -L "$gen_link" ] || continue
+# Use nixos-rebuild to get generations in REVERSE chronological order (newest first)
+nixos-rebuild list-generations | tac | while read -r gen_num date time config_id kernel rest; do
+  # Skip header line
+  if [[ "$gen_num" == "Generation" ]]; then
+    continue
+  fi
   
-  gen_num=$(basename "$gen_link" | grep -oP '\d+(?=-link)')
-  
-  # Search for package
-  package_path=$(nix-store -qR "$gen_link" 2>/dev/null | \
+  # Search for package in this generation
+  pkg_path=$(nix-store -qR /nix/var/nix/profiles/system-${gen_num}-link 2>/dev/null | \
     grep -E "[-/]$PACKAGE-[0-9]" | \
     grep -v "\.drv$" | \
     head -1 || echo "")
   
-  if [ -n "$package_path" ]; then
+  if [ -n "$pkg_path" ]; then
     found=true
-    version=$(basename "$package_path" | sed -E "s/^$PACKAGE-//")
+    version=$(basename "$pkg_path" | sed -E "s/^$PACKAGE-//")
     
-    # Only show if version changed
+    # Only show if version changed or first occurrence
     if [ "$version" != "$prev_version" ]; then
-      gen_date=$(stat -c "%Y" "$gen_link" 2>/dev/null)
-      gen_date=$(date -d "@$gen_date" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "unknown")
-      
       if [ -z "$prev_version" ]; then
-        echo "Gen #$gen_num ($gen_date): $version [ADDED]"
+        echo "Gen #$gen_num ($date $time): $version [ADDED]"
       else
-        echo "Gen #$gen_num ($gen_date): $version [CHANGED from $prev_version]"
+        echo "Gen #$gen_num ($date $time): $version [CHANGED from $prev_version]"
       fi
       
       prev_version="$version"
     fi
+  elif [ -n "$prev_version" ]; then
+    # Package was removed
+    echo "Gen #$gen_num ($date $time): [REMOVED]"
+    prev_version=""
   fi
 done
 
