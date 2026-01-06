@@ -1,56 +1,23 @@
-{pkgs, ...}:
-pkgs.stdenv.mkDerivation {
-  pname = "track-package";
-  version = "1.0.0";
+{pkgs, ...}: let
+  lib-sh = pkgs.writeText "lib.sh" (builtins.readFile ./lib.sh);
+  schema-sql = pkgs.writeText "schema.sql" (builtins.readFile ./schema.sql);
+in
+  pkgs.writeShellApplication {
+    name = "track-package";
+    vwrsion = "1.0.0";
 
-  src = ./.;
+    runtimeInputs = with pkgs; [
+      nix
+      sqlite
+      coreutils
+      gnugrep
+      gawk
+      findutils
+    ];
 
-  nativeBuildInputs = [pkgs.makeWrapper];
-
-  # These need to be available at build time
-  buildInputs = with pkgs; [
-    bash
-    sqlite
-    nix
-    coreutils
-    gnugrep
-    gawk
-    findutils
-  ];
-
-  installPhase = ''
-    mkdir -p $out/bin $out/share/track-package
-
-    # Install SQL schema
-    cp schema.sql $out/share/track-package/
-
-    # Install library with substitutions
-    substitute lib.sh $out/share/track-package/lib.sh \
-      --replace "#!/usr/bin/env bash" "#!${pkgs.bash}/bin/bash"
-
-    # Install main script with path substitutions
-    substitute track-package.sh $out/bin/track-package \
-      --replace "@LIB_PATH@" "$out/share/track-package/lib.sh" \
-      --replace "@SCHEMA_PATH@" "$out/share/track-package/schema.sql" \
-      --replace "#!/usr/bin/env bash" "#!${pkgs.bash}/bin/bash"
-
-    chmod +x $out/bin/track-package
-
-    # Wrap with runtime dependencies - FIXED PATH
-    wrapProgram $out/bin/track-package \
-      --prefix PATH : "${pkgs.lib.makeBinPath [
-      pkgs.nix
-      pkgs.coreutils
-      pkgs.gnugrep
-      pkgs.gawk
-      pkgs.findutils
-      pkgs.sqlite
-    ]}"
-  '';
-
-  meta = with pkgs.lib; {
-    description = "Track package version history across NixOS generations";
-    license = licenses.mit;
-    platforms = platforms.linux;
-  };
-}
+    text =
+      builtins.replaceStrings
+      ["@LIB_PATH@" "@SCHEMA_PATH@"]
+      ["${lib-sh}" "${schema-sql}"]
+      (builtins.readFile ./track-package.sh);
+  }
