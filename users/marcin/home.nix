@@ -114,6 +114,9 @@ in {
       # My custom packages
       customPkgs.rebuild-and-diff
       customPkgs.solaar-stable
+      customPkgs.track-package
+      customPkgs.track-package-deps
+      customPkgs.track-package-py
 
       # GUI Applications
       blanket
