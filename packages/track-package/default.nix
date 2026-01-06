@@ -4,7 +4,6 @@
 in
   pkgs.writeShellApplication {
     name = "track-package";
-    vwrsion = "1.0.0";
 
     runtimeInputs = with pkgs; [
       nix
