@@ -7,13 +7,14 @@
 #
 {pkgs, ...}:
 pkgs.writers.writePython3Bin "track-package-py" {
-  libraries = []; # No extra Python libraries needed
+  libraries = [];
+  flakeIgnore = ["E501"]; # Allow long lines in comments
 } ''
   import subprocess
   import sys
   import os
   from pathlib import Path
-  from datetime import datetime
+
 
   def run_cmd(cmd, check=True):
       """Run command and return stdout, handling errors gracefully."""
@@ -25,43 +26,40 @@ pkgs.writers.writePython3Bin "track-package-py" {
               check=check
           )
           return result.stdout
-      except subprocess.CalledProcessError as e:
+      except subprocess.CalledProcessError:
           if not check:
               return ""
           print(f"Error running command: {' '.join(cmd)}", file=sys.stderr)
-          print(f"Error: {e.stderr}", file=sys.stderr)
           return ""
+
 
   def get_generation_info(gen_link):
       """Extract generation metadata."""
       gen_num = gen_link.stem.split('-')[1]
 
-      # Get creation date
       stat_result = run_cmd(["stat", "-c", "%y", str(gen_link)])
       gen_date = stat_result.split('.')[0] if stat_result else "unknown"
 
-      # Get git revision if available
       git_rev_file = gen_link / "etc" / "nixos-git-revision"
       git_rev = ""
       if git_rev_file.exists():
           try:
               git_rev = git_rev_file.read_text().strip()
-          except:
+          except IOError:
               pass
 
       return gen_num, gen_date, git_rev
 
+
   def find_program_in_generation(gen_link, program):
       """Find program in generation using fast and slow path."""
-      # Fast path: check sw/bin
       bin_path = gen_link / "sw" / "bin" / program
       if bin_path.exists() and os.access(bin_path, os.X_OK):
           try:
               return Path(os.readlink(bin_path)).resolve()
-          except:
+          except OSError:
               pass
 
-      # Slow path: search full closure
       closure = run_cmd(
           ["nix-store", "-qR", str(gen_link)],
           check=False
@@ -73,12 +71,15 @@ pkgs.writers.writePython3Bin "track-package-py" {
 
       return None
 
+
   def extract_version(path, program):
       """Extract version from store path."""
       name = path.name
       return name.replace(f"{program}-", "", 1)
 
+
   def main():
+      """Main entry point."""
       if len(sys.argv) < 2:
           print("Usage: track-package-py <program-name>")
           print("Example: track-package-py firefox")
@@ -94,7 +95,7 @@ pkgs.writers.writePython3Bin "track-package-py" {
               profile_dir.glob("system-*-link"),
               key=lambda p: int(p.stem.split('-')[1])
           )
-      except Exception as e:
+      except (ValueError, IndexError) as e:
           print(f"Error reading generations: {e}", file=sys.stderr)
           sys.exit(1)
 
@@ -111,16 +112,15 @@ pkgs.writers.writePython3Bin "track-package-py" {
           if program_path:
               version = extract_version(program_path, program)
 
-              # Only show if version changed
               if version != prev_version:
                   if prev_version is not None:
-                      print("━" * 60)
+                      print("=" * 60)
 
                   print(f"Generation:     #{gen_num}")
                   print(f"Date:           {gen_date}")
 
                   if prev_version:
-                      print(f"Version change: {prev_version} → {version}")
+                      print(f"Version change: {prev_version} -> {version}")
                   else:
                       print(f"Version:        {version}")
 
@@ -134,11 +134,12 @@ pkgs.writers.writePython3Bin "track-package-py" {
                   found_count += 1
 
       if found_count == 0:
-          print(f"❌ Package '{program}' not found in any generation")
+          print(f"[X] Package '{program}' not found in any generation")
           sys.exit(1)
       else:
           total_gens = len(generations)
-          print(f"✓ Found {program} in {total_gens} total generations")
+          print(f"[OK] Found {program} in {total_gens} total generations")
+
 
   if __name__ == "__main__":
       main()

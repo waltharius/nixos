@@ -27,7 +27,7 @@
 # OUTPUT EXAMPLE:
 #   Generation:     #115
 #   Date:           2025-12-26 14:30:22
-#   Version:        120.0.1 → 121.0.0
+#   Version:        120.0.1 -> 121.0.0
 #   Git commit:     abc123def456
 #   Store path:     /nix/store/...-firefox-121.0.0
 #
@@ -60,10 +60,13 @@ pkgs.writeShellApplication {
     echo ""
 
     prev_version=""
-    prev_gen=""
+    total_gens=0
 
     for gen_link in /nix/var/nix/profiles/system-*-link; do
         [ -L "$gen_link" ] || continue
+
+        # Count total generations
+        total_gens=$((total_gens + 1))
 
         gen_num=$(basename "$gen_link" | grep -oP 'system-\K\d+(?=-link)')
         gen_date=$(stat -c "%y" "$gen_link" 2>/dev/null | cut -d'.' -f1)
@@ -91,13 +94,13 @@ pkgs.writeShellApplication {
             # Only show version changes
             if [ "$version" != "$prev_version" ]; then
                 if [ -n "$prev_version" ]; then
-                    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                    echo "=================================================="
                 fi
 
                 echo "Generation:     #$gen_num"
                 echo "Date:           $gen_date"
                 if [ -n "$prev_version" ]; then
-                    echo "Version change: $prev_version → $version"
+                    echo "Version change: $prev_version -> $version"
                 else
                     echo "Version:        $version"
                 fi
@@ -106,16 +109,15 @@ pkgs.writeShellApplication {
                 echo ""
 
                 prev_version="$version"
-                prev_gen="$gen_num"
             fi
         fi
     done
 
     if [ -z "$prev_version" ]; then
-        echo "❌ Package '$PROGRAM' not found in any generation"
+        echo "[X] Package '$PROGRAM' not found in any generation"
         exit 1
     else
-        echo "✓ Found $PROGRAM in $(ls -1 /nix/var/nix/profiles/system-*-link 2>/dev/null | wc -l) total generations"
+        echo "[OK] Found $PROGRAM in $total_gens total generations"
     fi
   '';
 
