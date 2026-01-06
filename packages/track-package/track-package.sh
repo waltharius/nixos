@@ -51,7 +51,7 @@
 # COMMON WORKFLOWS:
 #
 #   Scenario 1: Package stopped working after update
-#   ─────────────────────────────────────────────────
+#   ─────────────────────────────────────────────
 #   $ track-package firefox
 #   # Look at the table - which generation changed version?
 #   # Check git commit hash
@@ -59,12 +59,12 @@
 #   # Found the problematic commit!
 #
 #   Scenario 2: When did I add this package?
-#   ────────────────────────────────────────
+#   ────────────────────────────────────
 #   $ track-package vscode
 #   # Look for "ADDED" event in output
 #
 #   Scenario 3: Track package that was removed
-#   ──────────────────────────────────────────
+#   ──────────────────────────────────────
 #   $ track-package old-package
 #   # Shows history including "REMOVED" event
 #   # Even if package no longer exists, history is preserved!
@@ -77,7 +77,7 @@
 #   # You still see what versions existed when!
 #
 #   Scenario 5: Full system audit
-#   ─────────────────────────────
+#   ─────────────────────────────────
 #   $ track-package --scan-all
 #   # Scans all 4,000+ packages, takes ~20 minutes
 #   # Then any package lookup is instant from database
@@ -288,7 +288,7 @@ scan_package() {
       local full_commit
       full_commit=$(cat "$gen_link/etc/nixos-git-revision" 2>/dev/null)
       if [ "$full_commit" != "uncommitted-changes" ] && [ -n "$full_commit" ]; then
-        git_commit="'$(sql_escape "${full_commit:0:12}")'"
+        git_commit="'$(sql_escape "${full_commit:0:12}")'" 
       fi
     fi
 
@@ -357,7 +357,7 @@ display_package_history() {
   total_records=$(get_package_count "$DB_FILE" "$program" "$profile_type")
 
   if [ "$total_records" -eq 0 ]; then
-    echo -e "${YELLOW}No history found for '$program' in $profile_type${NC}"
+    echo -e "${YELLOW}No history found for '$program' in $profile_type profile${NC}"
     return 1
   fi
 
@@ -388,7 +388,7 @@ EOSQL
     print_table_row "$gen" "$date" "$version" "$event" "$git_commit" "$exists"
   done
 
-  echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+  echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   echo ""
 
   # Summary
@@ -425,6 +425,8 @@ EOSQL
       echo "  Store: $store"
     done
   fi
+  
+  return 0
 }
 
 # Main execution
@@ -446,7 +448,8 @@ else
   update_gc_status "$DB_FILE" "home"
 fi
 
-# Display results
+# Display results - disable exit on error temporarily to collect all results
+set +e
 found=false
 
 if [ "$PROFILE_TYPE" = "system" ] || [ "$PROFILE_TYPE" = "both" ]; then
@@ -460,9 +463,17 @@ if [ "$PROFILE_TYPE" = "home" ] || [ "$PROFILE_TYPE" = "both" ]; then
     found=true
   fi
 fi
+set -e
 
 if [ "$found" = false ]; then
   echo ""
   echo -e "${RED}Package '$PROGRAM' not found in any profile${NC}"
+  echo ""
+  echo -e "${YELLOW}Suggestions:${NC}"
+  echo "  1. Check package name is correct"
+  echo "  2. Try searching with: nix-store -qR /run/current-system | grep -i $PROGRAM"
+  echo "  3. For home-manager: nix-store -qR ~/.local/state/nix/profiles/home-manager | grep -i $PROGRAM"
+  echo "  4. Package might use different name in store (e.g., 'emacs' vs 'emacs-gtk')"
+  echo ""
   exit 1
 fi
