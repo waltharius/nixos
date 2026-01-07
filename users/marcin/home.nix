@@ -125,6 +125,7 @@ in {
       brave
       gnome-secrets
       vivaldi
+      shotwell
 
       # Productivity & Office
       libreoffice-fresh # Office suite
