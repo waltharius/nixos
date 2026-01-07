@@ -16,6 +16,22 @@
       sensible
       yank
       resurrect
+      catppuccin
+      tmux-which-key
+      tmux-fzf
+      tmux-powerline
+      sensible
+      sidebar
+      sysstat
+      battery
+      cpu
+      copy-toolkit
+      harpoon
+      jump
+      kanagawa
+      net-speed
+      power-theme
+      prefix-highlight
       {
         plugin = continuum;
         extraConfig = ''
