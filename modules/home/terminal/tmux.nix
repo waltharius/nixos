@@ -15,16 +15,11 @@
     plugins = with pkgs.tmuxPlugins; [
       sensible
       yank
-      resurrect
       catppuccin
       tmux-which-key
       tmux-fzf
       tmux-powerline
-      sensible
       sidebar
-      sysstat
-      battery
-      cpu
       copy-toolkit
       harpoon
       jump
@@ -32,6 +27,7 @@
       net-speed
       power-theme
       prefix-highlight
+      resurrect
       {
         plugin = continuum;
         extraConfig = ''
