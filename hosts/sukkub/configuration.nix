@@ -58,9 +58,6 @@
     texlive.combined.scheme-medium
   ];
 
-  # Enable proper sandboxing for Chromium-based browsers
-  security.chromiumSuidSandbox.enable = true;
-
   # State version - DO NOT CHANGE after initial installation
   system.stateVersion = "25.11";
 }
