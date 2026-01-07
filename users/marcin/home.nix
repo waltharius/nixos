@@ -131,6 +131,7 @@ in {
       libreoffice-fresh # Office suite
       zotero # Reference manager
       obsidian # Knowledge management
+      thunderbird-latest
 
       # Media & Entertainment
       spotify # Music streaming
