@@ -124,6 +124,7 @@ in {
       signal-desktop
       brave
       gnome-secrets
+      vivaldi
 
       # Productivity & Office
       libreoffice-fresh # Office suite
