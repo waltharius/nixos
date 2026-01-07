@@ -174,6 +174,7 @@ in {
       nil
       nixpkgs-fmt
       nvd
+      nh
 
       # File managers
       yazi
