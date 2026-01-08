@@ -11,7 +11,6 @@
       sensible
       yank
       vim-tmux-navigator
-      catppuccin
 
       # Keep your tmux-powerline with custom config
       {
