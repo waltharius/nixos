@@ -118,6 +118,35 @@
 
       # Test VM host for quick config testing
       testvm = mkHost "testvm" "x86_64-linux";
+
+      # Containers configuration for Colmena
+      nixos-test = nixpkgs.lib.nixosSystem {
+        inherit system;
+        modules = [
+          ./hosts/containers/nixos-test/configuration.nix
+        ];
+      };
+    };
+
+    # Colmena deployment configuration
+    colmena = {
+      meta = {
+        nixpkgs = import nixpkgs {
+          inherit system;
+          config.allowUnfree = true;
+        };
+      };
+
+      nixos-test = {
+        deployment = {
+          targetHost = "192.168.50.6";
+          targetUser = "root";
+          tags = ["test" "container"];
+        };
+        imports = [
+          ./hosts/containers/nixos-test/configuration.nix
+        ];
+      };
     };
 
     # Expose packages for nix build, nix shell, etc.
