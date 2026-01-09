@@ -145,6 +145,29 @@
         };
         imports = [
           ./hosts/containers/nixos-test/configuration.nix
+
+          # Use home-manager for server
+          home-manager.nixosModules.home-manager
+          {
+            home-manager = {
+              useGlobalPkgs = true;
+              useUserPackages = true;
+              extraSpecialArgs = {
+                inherit inputs;
+                hostname = "nixos-test";
+              };
+
+              users.root = {
+                imports = [
+                  ./modules/home/tools/atuin.nix
+                ];
+
+                home.stateVersion = "25.11";
+              };
+
+              backupFileExtension = "backup";
+            };
+          }
         ];
       };
     };
