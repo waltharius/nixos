@@ -1,11 +1,5 @@
-# modules/system/server-atuin.nix
 # Atuin shell history with server sync for containers/servers
-{
-  pkgs,
-  lib,
-  config,
-  ...
-}: {
+{pkgs, ...}: {
   # Install atuin system-wide
   environment.systemPackages = with pkgs; [atuin];
 
@@ -32,16 +26,48 @@
     sync.records = true
   '';
 
-  # Create /etc/bashrc with Atuin integration
-  # This is sourced by ALL interactive bash shells
+  # System-wide bashrc with Atuin integration
   environment.etc."bashrc".text = ''
-    # System-wide bashrc for interactive shells
+    # Only for interactive shells
+    [[ $- == *i* ]] || return
 
-    # Atuin initialization
-    if [[ $- == *i* ]] && command -v atuin &> /dev/null; then
-      export ATUIN_CONFIG_DIR="/etc/atuin"
-      eval "$(${pkgs.atuin}/bin/atuin init bash)"
+    # Check if atuin is available
+    if ! command -v atuin &> /dev/null; then
+      return
     fi
+
+    # Set Atuin config directory
+    export ATUIN_CONFIG_DIR="/etc/atuin"
+
+    # Initialize Atuin
+    eval "$(${pkgs.atuin}/bin/atuin init bash --disable-up-arrow)"
+
+    # CRITICAL: Ensure PROMPT_COMMAND is set
+    # Sometimes the eval doesn't set it properly, so we force it
+    if [[ -z "$PROMPT_COMMAND" ]] || [[ "$PROMPT_COMMAND" != *"__atuin_precmd"* ]]; then
+      PROMPT_COMMAND="__atuin_precmd"
+    fi
+
+    # Bind Ctrl+R to Atuin search
+    bind -x '"\C-r": __atuin_history'
+  '';
+
+  # Create root's .bashrc to source system bashrc
+  system.activationScripts.rootBashrc = ''
+    cat > /root/.bashrc << 'EOF'
+    # Source system bashrc
+    if [ -f /etc/bashrc ]; then
+      source /etc/bashrc
+    fi
+
+    # Verify Atuin hooks are active
+    if command -v atuin &> /dev/null; then
+      # Ensure PROMPT_COMMAND includes Atuin
+      if [[ -z "$PROMPT_COMMAND" ]] || [[ "$PROMPT_COMMAND" != *"__atuin_precmd"* ]]; then
+        export PROMPT_COMMAND="__atuin_precmd"
+      fi
+    fi
+    EOF
   '';
 
   # Background sync timer
