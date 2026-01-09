@@ -52,22 +52,36 @@
     bind -x '"\C-r": __atuin_history'
   '';
 
+  environment.etc."profile.d/atuin.sh".text = ''
+    # This ensures atuin is loaded for login shells (like SSH sessions)
+    if [[ $- == *i* ]]; then
+      if [ -f /etc/bash.bashrc ]; then
+        source /etc/bash.bashrc
+      fi
+    fi
+  '';
+
   # Create root's .bashrc to source system bashrc
   system.activationScripts.rootBashrc = ''
+    mkdir -p /root
     cat > /root/.bashrc << 'EOF'
-    # Source system bashrc
-    if [ -f /etc/bashrc ]; then
-      source /etc/bashrc
+    # Source global bashrc
+    if [ -f /etc/bash.bashrc ]; then
+      source /etc/bash.bashrc
     fi
 
-    # Verify Atuin hooks are active
+    # Verify Atuin is active (debugging)
     if command -v atuin &> /dev/null; then
-      # Ensure PROMPT_COMMAND includes Atuin
-      if [[ -z "$PROMPT_COMMAND" ]] || [[ "$PROMPT_COMMAND" != *"__atuin_precmd"* ]]; then
+      # Verify PROMPT_COMMAND is set
+      if [[ -z "$PROMPT_COMMAND" ]]; then
+        echo "WARNING: PROMPT_COMMAND not set, atuin history will not be saved!"
         export PROMPT_COMMAND="__atuin_precmd"
       fi
     fi
     EOF
+
+    # Ensure proper permissions
+    chmod 644 /root/.bashrc
   '';
 
   # Background sync timer
