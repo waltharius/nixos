@@ -175,6 +175,8 @@ in {
       nixpkgs-fmt
       nvd
       nh
+      colmena
+      nix-generate
 
       # File managers
       yazi

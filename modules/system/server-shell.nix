@@ -1,7 +1,6 @@
 # modules/system/shell-server.nix
 # System-wide shell configuration for servers (atuin, starship, bash)
 {pkgs, ...}: {
-  # Install required packages system-wide
   environment.systemPackages = with pkgs; [
     atuin
     starship
@@ -12,69 +11,71 @@
     bat
   ];
 
-  # Configure bash system-wide
+  # Create /etc/bashrc that gets sourced for all interactive shells
+  environment.etc."bashrc".text = ''
+    # If not running interactively, don't do anything
+    [[ $- != *i* ]] && return
+
+    # Initialize Starship prompt
+    if command -v starship &> /dev/null; then
+      export STARSHIP_CONFIG="/etc/starship.toml"
+      eval "$(${pkgs.starship}/bin/starship init bash)"
+    fi
+
+    # Initialize Atuin (shell history) - WITH up arrow support
+    if command -v atuin &> /dev/null; then
+      export ATUIN_CONFIG_DIR="/etc/atuin"
+      eval "$(${pkgs.atuin}/bin/atuin init bash)"
+    fi
+
+    # Initialize Zoxide (smart cd)
+    if command -v zoxide &> /dev/null; then
+      eval "$(${pkgs.zoxide}/bin/zoxide init bash)"
+    fi
+
+    # Better history settings
+    export HISTSIZE=100000
+    export HISTFILESIZE=100000
+    export HISTCONTROL=ignoredups:erasedups
+    shopt -s histappend
+
+    # Set vim as default editor
+    export EDITOR=vim
+    export VISUAL=vim
+  '';
+
   programs.bash = {
-    # Enable bash completion
     enableCompletion = true;
 
-    # System-wide aliases for all users
     shellAliases = {
-      # Enhanced ls with eza
       ls = "eza --hyperlink --group-directories-first --color=auto --color-scale=size --color-scale-mode=gradient --icons --git";
       ll = "eza -alF --hyperlink --group-directories-first --color=auto --color-scale=size --color-scale-mode=gradient --icons --git";
       la = "eza -a --hyperlink --group-directories-first --color=auto --color-scale=size --color-scale-mode=gradient --icons --git";
       lt = "eza --tree --hyperlink --group-directories-first --color=auto --icons --git";
-
-      # Git shortcuts
       gs = "git status";
       ga = "git add";
       gc = "git commit";
       gp = "git push";
       gl = "git log --oneline --graph --decorate";
       gd = "git diff";
-      gco = "git checkout";
-
-      # System shortcuts
       ".." = "cd ..";
       "..." = "cd ../..";
-
-      # Useful tools
       cat = "bat";
+      grep = "grep --color=auto";
     };
 
-    # System-wide bash configuration
+    # Make sure /etc/bashrc is sourced
     interactiveShellInit = ''
-      # Initialize Starship prompt
-      eval "$(${pkgs.starship}/bin/starship init bash)"
-
-      # Initialize Atuin (shell history)
-      eval "$(${pkgs.atuin}/bin/atuin init bash --disable-up-arrow)"
-
-      # Initialize Zoxide (smart cd)
-      eval "$(${pkgs.zoxide}/bin/zoxide init bash)"
-
-      # Better history settings
-      export HISTSIZE=100000
-      export HISTFILESIZE=100000
-      export HISTCONTROL=ignoredups:erasedups
-
-      # Append to history, don't overwrite
-      shopt -s histappend
-
-      # Set vim as default editor
-      export EDITOR=vim
-      export VISUAL=vim
-
-      # Color support for ls and grep
-      alias grep='grep --color=auto'
-      alias fgrep='fgrep --color=auto'
-      alias egrep='egrep --color=auto'
+      # Source system bashrc if not already sourced
+      if [ -f /etc/bashrc ] && [ -z "$BASHRC_SOURCED" ]; then
+        export BASHRC_SOURCED=1
+        source /etc/bashrc
+      fi
     '';
   };
 
   # Configure Starship system-wide
   environment.etc."starship.toml".text = ''
-    # Starship configuration for servers
     add_newline = false
 
     [character]
@@ -104,20 +105,19 @@
     format = "[$user]($style) "
     disabled = false
     show_always = true
+
+    # Don't show systemd context
+    [status]
+    disabled = true
   '';
 
   # Configure Atuin for LOCAL-ONLY mode by default
   environment.etc."atuin/config.toml".text = ''
     # Atuin configuration - LOCAL ONLY by default
 
-    ## Sync disabled by default (enable manually per server)
+    ## Sync disabled by default
     auto_sync = false
     sync_frequency = "0"
-
-    ## Uncomment and configure when ready to sync with your server:
-    # sync_address = "https://atuin.home.lan"
-    # auto_sync = true
-    # sync_frequency = "300"
 
     ## Search settings
     search_mode = "fuzzy"
@@ -125,7 +125,8 @@
     style = "compact"
     show_preview = true
 
-    ## Smart Up arrow - filter by directory
+    ## Enable up arrow for atuin search
+    # Up arrow will search through history filtered by current directory
     filter_mode_shell_up_key_binding = "directory"
 
     ## Privacy - never save sensitive commands
@@ -145,11 +146,8 @@
     ## Enable better search
     inline_height = 20
     show_help = true
-  '';
 
-  # Set STARSHIP_CONFIG environment variable
-  environment.variables = {
-    STARSHIP_CONFIG = "/etc/starship.toml";
-    ATUIN_CONFIG_DIR = "/etc/atuin";
-  };
+    ## Update shell history
+    update_snapshots = true
+  '';
 }
