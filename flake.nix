@@ -110,25 +110,21 @@
   in {
     # Define all hosts here
     nixosConfigurations = {
-      # Test host: Lenovo ThinkPad P50, no battery, nvme
-      sukkub = mkHost "sukkub" "x86_64-linux";
+      # Workstations: ThinkPad laptops with GNOME
+      sukkub = mkHost "workstations/sukkub" "x86_64-linux";
+      azazel = mkHost "workstations/azazel" "x86_64-linux";
+      testvm = mkHost "workstations/testvm" "x86_64-linux";
 
-      # Production host: ThinkPad T16 Gen3, 128GB RAM, nvme
-      azazel = mkHost "azazel" "x86_64-linux";
-
-      # Test VM host for quick config testing
-      testvm = mkHost "testvm" "x86_64-linux";
-
-      # Containers configuration for Colmena
+      # Servers: LXC containers and VMs
       nixos-test = nixpkgs.lib.nixosSystem {
         inherit system;
         modules = [
-          ./hosts/containers/nixos-test/configuration.nix
+          ./hosts/servers/nixos-test/configuration.nix
         ];
       };
     };
 
-    # Colmena deployment configuration
+    # Colmena deployment configuration for servers
     colmena = {
       meta = {
         nixpkgs = import nixpkgs {
@@ -137,16 +133,17 @@
         };
       };
 
+      # Test server - LXC container
       nixos-test = {
         deployment = {
           targetHost = "192.168.50.6";
-          targetUser = "root";
-          tags = ["test" "container"];
+          targetUser = "nixadm";  # Use dedicated admin user instead of root
+          tags = ["test" "container" "lxc"];
         };
         imports = [
-          ./hosts/containers/nixos-test/configuration.nix
+          ./hosts/servers/nixos-test/configuration.nix
 
-          # Home Manager for server with minimal profile
+          # Home Manager for nixadm user
           home-manager.nixosModules.home-manager
           {
             home-manager = {
@@ -157,12 +154,8 @@
                 hostname = "nixos-test";
               };
 
-              # Use dedicated server profile (no daemon, minimal setup)
-              users.root = {
-                imports = [
-                  ./modules/home/server-profile.nix
-                ];
-              };
+              # Unified nixadm configuration for all servers
+              users.nixadm = import ./users/nixadm/home.nix;
 
               backupFileExtension = "backup";
             };
