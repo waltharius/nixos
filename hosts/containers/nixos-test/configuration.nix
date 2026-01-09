@@ -6,7 +6,6 @@
 }: {
   imports = [
     "${modulesPath}/virtualisation/proxmox-lxc.nix"
-    ../../../modules/system/server-atuin.nix
     ../../../modules/system/certificates.nix
   ];
 
