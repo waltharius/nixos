@@ -1,12 +1,16 @@
+# modules/system/server-atuin.nix
 # Atuin shell history with server sync for containers/servers
-{pkgs, ...}: {
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}: {
   # Install atuin system-wide
   environment.systemPackages = with pkgs; [atuin];
 
   # Configure atuin system-wide
   environment.etc."atuin/config.toml".text = ''
-    # Atuin server sync configuration
-
     sync_address = "https://atuin.home.lan"
     auto_sync = true
     sync_frequency = "300"
@@ -28,9 +32,12 @@
     sync.records = true
   '';
 
-  # Simple bash integration - ONLY load Atuin, don't touch anything else
-  environment.etc."profile.d/atuin.sh".text = ''
-    # Atuin initialization for interactive shells
+  # Create /etc/bashrc with Atuin integration
+  # This is sourced by ALL interactive bash shells
+  environment.etc."bashrc".text = ''
+    # System-wide bashrc for interactive shells
+
+    # Atuin initialization
     if [[ $- == *i* ]] && command -v atuin &> /dev/null; then
       export ATUIN_CONFIG_DIR="/etc/atuin"
       eval "$(${pkgs.atuin}/bin/atuin init bash)"
