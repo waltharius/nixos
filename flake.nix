@@ -146,7 +146,7 @@
         imports = [
           ./hosts/containers/nixos-test/configuration.nix
 
-          # Use home-manager for server
+          # Home Manager for server with minimal profile
           home-manager.nixosModules.home-manager
           {
             home-manager = {
@@ -157,13 +157,11 @@
                 hostname = "nixos-test";
               };
 
+              # Use dedicated server profile (no daemon, minimal setup)
               users.root = {
                 imports = [
-                  ./modules/home/tools/atuin.nix
-                  ./modules/home/shell/bash.nix
+                  ./modules/home/server-profile.nix
                 ];
-
-                home.stateVersion = "25.11";
               };
 
               backupFileExtension = "backup";
