@@ -42,7 +42,6 @@
     curl
     htop
     bind
-    atuin
   ];
 
   services.openssh = {
