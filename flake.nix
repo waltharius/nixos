@@ -160,6 +160,7 @@
               users.root = {
                 imports = [
                   ./modules/home/tools/atuin.nix
+                  ./modules/home/shell/bash.nix
                 ];
 
                 home.stateVersion = "25.11";
