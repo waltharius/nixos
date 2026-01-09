@@ -7,7 +7,6 @@
   imports = [
     "${modulesPath}/virtualisation/proxmox-lxc.nix"
     ../../../modules/system/certificates.nix
-    ../../../modules/system/server-atuin.nix
   ];
 
   system.stateVersion = "25.11";
