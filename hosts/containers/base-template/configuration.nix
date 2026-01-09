@@ -56,7 +56,6 @@
     fzf
     yazi
     fd
-    exa
   ];
 
   # SSH configuration - CRITICAL for remote management
