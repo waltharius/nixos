@@ -42,6 +42,8 @@
     curl
     htop
     bind
+    eza
+    zoxide
   ];
 
   services.openssh = {
