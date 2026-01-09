@@ -114,7 +114,6 @@
       # Note: Physical location is hosts/sukkub/, not hosts/workstations/sukkub/
       sukkub = mkHost "sukkub" "x86_64-linux";
       azazel = mkHost "azazel" "x86_64-linux";
-      testvm = mkHost "testvm" "x86_64-linux";
 
       # Servers: LXC containers and VMs
       nixos-test = nixpkgs.lib.nixosSystem {
@@ -138,7 +137,7 @@
       nixos-test = {
         deployment = {
           targetHost = "192.168.50.6";
-          targetUser = "nixadm";  # Use dedicated admin user instead of root
+          targetUser = "nixadm"; # Use dedicated admin user instead of root
           tags = ["test" "container" "lxc"];
         };
         imports = [

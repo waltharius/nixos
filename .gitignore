@@ -2,10 +2,6 @@
 result
 result-*
 
-# Hardware configurations (host-specific, regenerated during install)
-# NOTE: We keep placeholders in repo, but ignore if accidentally copied
-hosts/*/hardware-configuration.nix
-
 # CRITICAL SECURITY: Never commit private keys!
 # Age private keys
 keys.txt
