@@ -14,8 +14,8 @@
     "${modulesPath}/virtualisation/proxmox-lxc.nix"
 
     # Import shared server configurations below:
-    ../../../modules/system/vim-server.nix
-    ../../../modules/system/tmux-server.nix
+    ../../../modules/system/server-vim.nix
+    ../../../modules/system/server-tmux.nix
   ];
 
   # System version - IMPORTANT for tracking
