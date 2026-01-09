@@ -176,7 +176,6 @@ in {
       nvd
       nh
       colmena
-      nix-generate
 
       # File managers
       yazi
