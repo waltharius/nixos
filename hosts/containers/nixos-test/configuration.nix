@@ -20,6 +20,19 @@
     firewall.allowedTCPPorts = [22];
   };
 
+  services.resolved = {
+    enable = true;
+    dnssec = "false";
+    domains = ["home.lan"];
+    fallbackDns = ["9.9.9.11"];
+    extraConfig = ''
+      [Resolve]
+      DNS=192.168.50.1
+      Domains=home.lan
+      DNSoverTLS=no
+    '';
+  };
+
   time.timeZone = "Europe/Warsaw";
   i18n.defaultLocale = "en_US.UTF-8";
 
@@ -28,6 +41,7 @@
     git
     curl
     htop
+    bind
   ];
 
   services.openssh = {
