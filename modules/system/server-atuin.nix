@@ -1,9 +1,5 @@
 # Atuin shell history with server sync for containers/servers
-{
-  pkgs,
-  lib,
-  ...
-}: {
+{pkgs, ...}: {
   # Install atuin system-wide
   environment.systemPackages = with pkgs; [atuin];
 
@@ -16,7 +12,7 @@
 
     ## Auto-sync settings
     auto_sync = true
-    sync_frequency = "300"  # Sync every 5 minutes
+    sync_frequency = "300"
 
     ## Search settings
     search_mode = "fuzzy"
@@ -40,13 +36,6 @@
       "^sudo.*password",
     ]
 
-    ## Local database location
-    db_path = "~/.local/share/atuin/history.db"
-
-    ## Better search UI
-    inline_height = 20
-    show_help = true
-
     ## Update shell history
     update_snapshots = true
 
@@ -54,12 +43,55 @@
     sync.records = true
   '';
 
-  # Bash integration for atuin
-  programs.bash.interactiveShellInit = lib.mkAfter ''
-    # Initialize Atuin for shell history
-    if command -v atuin &> /dev/null; then
-      export ATUIN_CONFIG_DIR="/etc/atuin"
-      eval "$(${pkgs.atuin}/bin/atuin init bash)"
-    fi
-  '';
+  # CRITICAL: Enable bash system-wide
+  programs.bash = {
+    # Enable bash completion and integration
+    enableCompletion = true;
+
+    # This is CRITICAL - it creates /etc/bashrc
+    enableLsColors = true;
+
+    # Add Atuin integration
+    promptInit = ''
+      # Atuin shell history initialization
+      if command -v atuin &> /dev/null; then
+        export ATUIN_CONFIG_DIR="/etc/atuin"
+        export ATUIN_NOBIND="true"  # Don't bind keys yet
+        eval "$(${pkgs.atuin}/bin/atuin init bash)"
+      fi
+    '';
+
+    # Interactive shell init (runs after promptInit)
+    interactiveShellInit = ''
+      # Bind Ctrl+R to Atuin search
+      if command -v atuin &> /dev/null; then
+        bind -x '"\C-r": __atuin_history'
+
+        # Optional: Bind up arrow for directory-filtered history
+        bind '"\e[A": __atuin_history --shell-up-key-binding'
+      fi
+    '';
+  };
+
+  # Create systemd timer for background sync
+  systemd.timers.atuin-sync = {
+    description = "Atuin History Sync Timer";
+    wantedBy = ["timers.target"];
+    timerConfig = {
+      OnBootSec = "5m";
+      OnUnitActiveSec = "5m";
+    };
+  };
+
+  systemd.services.atuin-sync = {
+    description = "Atuin History Sync";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.atuin}/bin/atuin sync";
+      User = "root";
+    };
+    environment = {
+      ATUIN_CONFIG_DIR = "/etc/atuin";
+    };
+  };
 }
