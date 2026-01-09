@@ -111,9 +111,10 @@
     # Define all hosts here
     nixosConfigurations = {
       # Workstations: ThinkPad laptops with GNOME
-      sukkub = mkHost "workstations/sukkub" "x86_64-linux";
-      azazel = mkHost "workstations/azazel" "x86_64-linux";
-      testvm = mkHost "workstations/testvm" "x86_64-linux";
+      # Note: Physical location is hosts/sukkub/, not hosts/workstations/sukkub/
+      sukkub = mkHost "sukkub" "x86_64-linux";
+      azazel = mkHost "azazel" "x86_64-linux";
+      testvm = mkHost "testvm" "x86_64-linux";
 
       # Servers: LXC containers and VMs
       nixos-test = nixpkgs.lib.nixosSystem {
