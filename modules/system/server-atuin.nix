@@ -27,31 +27,32 @@
     update_snapshots = true
     sync.records = true
   '';
+
   programs.bash = {
     enableCompletion = true;
 
     interactiveShellInit = ''
-      # Atuin initialization
+      # Atuin initialization - tylko dla interaktywnych sesji
       if command -v atuin &> /dev/null; then
         export ATUIN_CONFIG_DIR="/etc/atuin"
 
-        # CRITICAL: Generate session ID if not exists
+        # Generate session ID if not exists
         if [ -z "$ATUIN_SESSION" ]; then
           export ATUIN_SESSION="$(${pkgs.atuin}/bin/atuin uuid)"
         fi
 
-        # Initialize atuin (this sets up PROMPT_COMMAND correctly)
+        # Initialize atuin
         eval "$(${pkgs.atuin}/bin/atuin init bash --disable-up-arrow)"
 
-        # Bind Ctrl+R
+        # Bind Ctrl+R to atuin search
         bind -x '"\C-r": __atuin_history'
       fi
     '';
 
-    # Bash completion for atuin
     enableLsColors = true;
   };
 
+  # Sync timer
   systemd.timers.atuin-sync = {
     description = "Atuin History Sync Timer";
     wantedBy = ["timers.target"];
