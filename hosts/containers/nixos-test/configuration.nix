@@ -45,21 +45,6 @@
     bind
   ];
 
-  environment.etc."skel/.bashrc".text = ''
-    if [ -f /etc/bashrc ]; then
-      . /etc/.bashrc
-    fi
-  '';
-
-  system.activationScripts.rootBashrc = ''
-    mkdir -p /root
-    cat > /root/.bashrc << 'EOF'
-    if [ -f /etc/bashrc ]; then
-      . /etc/bashrc
-    fi
-    EOF
-  '';
-
   services.openssh = {
     enable = true;
     settings = {
