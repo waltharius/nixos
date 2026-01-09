@@ -42,8 +42,9 @@
     curl
     htop
     bind
-    eza
-    zoxide
+    eza       # Modern ls replacement
+    zoxide    # Smart cd
+    starship  # Customizable prompt
   ];
 
   services.openssh = {
@@ -55,7 +56,7 @@
   };
 
   users.users.root.openssh.authorizedKeys.keys = [
-    # YOUR SSH PUBLIC KEY HERE
+    # SSH public key for remote access
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhyNxm4pZR9CCnWGlDA+jotcnH5sc53LpSkSLs7XNx0 walth@fedora-laptop-tabby-2025"
   ];
 }
