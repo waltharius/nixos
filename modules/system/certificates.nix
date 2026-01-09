@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: {
+{...}: {
   # Internal Certificates Authorities
   # These certificates are required for accessing internal infrastructure (homelab)
 
