@@ -16,6 +16,7 @@
     # Import shared server configurations below:
     ../../../modules/system/server-vim.nix
     ../../../modules/system/server-tmux.nix
+    ../../../modules/system/server-shell.nix
   ];
 
   # System version - IMPORTANT for tracking
