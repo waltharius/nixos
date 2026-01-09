@@ -224,7 +224,7 @@ in {
   xdg.configFile."run-or-raise/shortcuts.conf".text = ''
     <Control><Alt>e,${pkgs.emacs}/bin/emacs,emacs
     <Super>f,${pkgs.brave}/bin/brave,,
-    <Super>e:always-run,nautilus,org.gnome.Nautilus
+    <Super>e,nautilus,org.gnome.Nautilus
     <Super>t,ptyxis,org.gnome.Ptyxis
     <Control>p,${pkgs.signal-desktop}/bin/signal-desktop,signal
   '';
