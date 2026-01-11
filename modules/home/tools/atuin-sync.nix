@@ -2,7 +2,6 @@
 # Credentials are managed via sops-nix secrets
 # Works on both laptops (systemd) and servers (no daemon)
 {
-  config,
   lib,
   pkgs,
   osConfig ? {},
@@ -74,8 +73,10 @@ in {
       Type = "oneshot";
       RemainAfterExit = true;
       ExecStart = pkgs.writeShellScript "atuin-login" ''
+        PATH="${pkgs.coreutils}/bin:${pkgs.atuin}/bin"
+
         # Check if already logged in
-        if ${pkgs.atuin}/bin/atuin status &>/dev/null; then
+        if atuin status &>/dev/null; then
           echo "Atuin: Already logged in"
           exit 0
         fi
@@ -86,10 +87,16 @@ in {
         ATUIN_PASSWORD=$(cat ${osConfig.sops.secrets.atuin-password.path})
         ATUIN_KEY=$(cat ${osConfig.sops.secrets.atuin-key.path})
 
-        # Login with credentials
-        echo "$ATUIN_PASSWORD" | ${pkgs.atuin}/bin/atuin login \
-          -u admin \
-          -k "$ATUIN_KEY" || true
+        # Login with credentials using expect-style
+        ${pkgs.expect}/bin/expect -c "
+          set timeout 10
+          spawn atuin login -u admin -k \"$ATUIN_KEY\"
+          expect \"Please enter password:\"
+          send \"$ATUIN_PASSWORD\r\"
+          expect eof
+        " || {
+          echo "Atuin: Login failed, but continuing..."
+        }
 
         echo "Atuin: Login complete"
       '';
