@@ -57,7 +57,7 @@ creation_rules:
           - *sukkub
 
   # Atuin secrets - shared between all hosts that use atuin
-  - path_regex: secrets/atuin\.env$
+  - path_regex: secrets/atuin-(password|key)\.txt$
     key_groups:
       - age:
           - *admin

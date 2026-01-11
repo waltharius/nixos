@@ -35,18 +35,16 @@ in {
       # Atuin credentials (if enabled)
       secrets = mkIf cfg.enableAtuin {
         atuin-password = {
-          sopsFile = ../../secrets/atuin.env;
-          format = "dotenv";
-          key = "ATUIN_PASSWORD";
+          sopsFile = ../../secrets/atuin-password.txt;
+          format = "binary";
           mode = "0400";
           owner = "root";
           group = "root";
         };
 
         atuin-key = {
-          sopsFile = ../../secrets/atuin.env;
-          format = "dotenv";
-          key = "ATUIN_KEY";
+          sopsFile = ../../secrets/atuin-key.txt;
+          format = "binary";
           mode = "0400";
           owner = "root";
           group = "root";
