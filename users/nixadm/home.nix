@@ -7,42 +7,18 @@
   pkgs,
   ...
 }: {
+  imports = [
+    ../../modules/home/tools/atuin-sync.nix  # Atuin with auto-sync
+  ];
+
   home.username = "nixadm";
   home.homeDirectory = "/home/nixadm";
   home.stateVersion = "25.11";
 
   programs.home-manager.enable = true;
 
-  # Atuin without daemon (local history only)
-  programs.atuin = {
-    enable = true;
-    enableBashIntegration = true;
-
-    settings = {
-      # No sync on servers (local history only)
-      auto_sync = false;
-      
-      # Local settings
-      filter_mode = "host";
-      search_mode = "fuzzy";
-      style = "compact";
-      show_preview = true;
-      filter_mode_shell_up_key_binding = "directory";
-
-      # Privacy - never save sensitive commands
-      history_filter = [
-        "^pass"
-        "^password"
-        "^secret"
-        "^atuin login"
-      ];
-
-      # Disable daemon for servers (no graphical session)
-      daemon = {
-        enabled = false;
-      };
-    };
-  };
+  # Atuin is configured by atuin-sync.nix module
+  # It will automatically login and sync to atuin.home.lan
 
   # Bash configuration - identical on all servers
   programs.bash = {
@@ -115,9 +91,9 @@
   # Git configuration for servers
   programs.git = {
     enable = true;
-    settings = {
-      user.name = "nixadm";
-      user.email = "nixadm@home.lan";
+    userName = "nixadm";
+    userEmail = "nixadm@home.lan";
+    extraConfig = {
       init.defaultBranch = "main";
     };
   };
