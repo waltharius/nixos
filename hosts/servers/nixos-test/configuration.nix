@@ -12,7 +12,17 @@
 
   system.stateVersion = "25.11";
 
-  nix.settings.experimental-features = ["nix-command" "flakes"];
+  # Nix settings for remote deployment
+  nix.settings = {
+    experimental-features = ["nix-command" "flakes"];
+    
+    # Trust nixadm and wheel group for Colmena deployments
+    # This allows copying store paths without signature verification
+    trusted-users = [ "nixadm" "root" "@wheel" ];
+    
+    # Disable sandbox in LXC containers (kernel namespace limitations)
+    sandbox = false;
+  };
 
   networking = {
     hostName = "nixos-test";
