@@ -22,6 +22,7 @@ keys:
   # Location on host: /var/lib/sops-nix/key.txt
   - &sukkub age1lrla3ltkfljhshrlp2cqr3mzm3hvyxmka6fjs68ck2ykwgnjygwql9twy2
   - &azazel age1t73dnh9pj2qsz3rfqgq54t2pyxh8ew6w8xsta7pfwmmxmsjswgrshue8gx
+  - &nixos-test age1qu4pnzn2teff7m78nrhzq4vct4qczp2ajhfda559xgpk2n08qswqzyh2aw
 
 creation_rules:
   # SSH secrets - shared between all hosts (keys and config)
@@ -62,6 +63,7 @@ creation_rules:
           - *admin
           - *sukkub
           - *azazel
+          - *nixos-test
 
   # Azazel-specific secrets
   - path_regex: secrets/azazel\.yaml$
