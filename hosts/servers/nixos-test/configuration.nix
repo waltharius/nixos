@@ -7,10 +7,17 @@
   imports = [
     "${modulesPath}/virtualisation/proxmox-lxc.nix"
     ../../../modules/system/certificates.nix
-    ../../../modules/servers/users.nix  # Add nixadm user
+    ../../../modules/system/secrets.nix       # SOPS secrets management
+    ../../../modules/servers/users.nix        # Add nixadm user
   ];
 
   system.stateVersion = "25.11";
+
+  # Enable SOPS secrets with Atuin credentials
+  services.secrets = {
+    enable = true;
+    enableAtuin = true;  # Decrypt Atuin password and encryption key
+  };
 
   # Nix settings for remote deployment
   nix.settings = {
