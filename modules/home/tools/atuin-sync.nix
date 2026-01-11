@@ -11,7 +11,7 @@
 with lib; let
   # Check if we have access to system config (for secrets path)
   hasSecrets = osConfig ? sops.secrets.atuin-password;
-  
+
   # Determine if we're on a graphical system (laptop) or server
   isGraphical = osConfig ? services.xserver.enable && osConfig.services.xserver.enable or false;
 in {
@@ -22,10 +22,10 @@ in {
     settings = {
       # Self-hosted server
       sync_address = "https://atuin.home.lan";
-      
+
       # Auto-sync settings
       auto_sync = true;
-      sync_frequency = "5m";  # Sync every 5 minutes
+      sync_frequency = "5m";
 
       sync = {
         records = true;
@@ -34,7 +34,10 @@ in {
       # Daemon only on graphical systems (laptops)
       daemon = {
         enabled = isGraphical;
-        sync_frequency = if isGraphical then 300 else 0;  # 5 minutes in seconds
+        sync_frequency =
+          if isGraphical
+          then 300
+          else 0; # 5 minutes in seconds
       };
 
       # Filter by host by default
@@ -66,16 +69,16 @@ in {
       # Check if atuin is already logged in
       if ! ${pkgs.atuin}/bin/atuin status &>/dev/null; then
         echo "Atuin: Logging in to server..."
-        
+
         # Read credentials from sops secrets
         ATUIN_PASSWORD=$(cat ${osConfig.sops.secrets.atuin-password.path})
         ATUIN_KEY=$(cat ${osConfig.sops.secrets.atuin-key.path})
-        
+
         # Login with credentials
         echo "$ATUIN_PASSWORD" | ${pkgs.atuin}/bin/atuin login \
           -u admin \
           -k "$ATUIN_KEY" || true
-        
+
         echo "Atuin: Login complete"
       else
         echo "Atuin: Already logged in"
