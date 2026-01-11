@@ -5,7 +5,6 @@
   config,
   lib,
   pkgs,
-  inputs,
   ...
 }:
 with lib; let
@@ -22,9 +21,6 @@ in {
   };
 
   config = mkIf cfg.enable {
-    # Import sops-nix module from flake inputs
-    imports = [ inputs.sops-nix.nixosModules.sops ];
-
     # Global sops configuration
     sops = {
       # Default format for all secrets
