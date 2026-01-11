@@ -16,11 +16,11 @@
 keys:
   # Admin key - your personal key for editing secrets
   # Location: ~/.config/sops/age/keys.txt (on your management machine)
-  - &admin age1t73dnh9pj2qsz3rfqgq54t2pyxh8ew6w8xsta7pfwmmxmsjswgrshue8gx 
-  
+  - &admin age1t73dnh9pj2qsz3rfqgq54t2pyxh8ew6w8xsta7pfwmmxmsjswgrshue8gx
+
   # Host keys - generated on each machine during installation
   # Location on host: /var/lib/sops-nix/key.txt
-  - &sukkub age1lrla3ltkfljhshrlp2cqr3mzm3hvyxmka6fjs68ck2ykwgnjygwql9twy2 
+  - &sukkub age1lrla3ltkfljhshrlp2cqr3mzm3hvyxmka6fjs68ck2ykwgnjygwql9twy2
   - &azazel age1t73dnh9pj2qsz3rfqgq54t2pyxh8ew6w8xsta7pfwmmxmsjswgrshue8gx
 
 creation_rules:
@@ -31,7 +31,7 @@ creation_rules:
           - *admin
           - *sukkub
           - *azazel
-  
+
   # WiFi secrets - shared between all hosts (passwords for home, work, etc.)
   - path_regex: secrets/wifi\.env$
     key_groups:
@@ -39,7 +39,7 @@ creation_rules:
           - *admin
           - *sukkub
           - *azazel
-  
+
   # Common secrets - all hosts can decrypt
   - path_regex: secrets/common\.yaml$
     key_groups:
@@ -47,14 +47,22 @@ creation_rules:
           - *admin
           - *sukkub
           - *azazel
-  
+
   # Sukkub-specific secrets
   - path_regex: secrets/sukkub\.yaml$
     key_groups:
       - age:
           - *admin
           - *sukkub
-  
+
+  # Atuin secrets - shared between all hosts that use atuin
+  - path_regex: secrets/atuin\.yaml$
+    key_groups:
+      - age:
+          - *admin
+          - *sukkub
+          - *azazel
+
   # Azazel-specific secrets
   - path_regex: secrets/azazel\.yaml$
     key_groups:
