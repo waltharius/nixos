@@ -62,12 +62,24 @@ in {
     };
   };
 
-  # Automatic login script using sops secrets
-  # Runs on system activation to ensure atuin is always logged in
-  home.activation.atuinLogin = mkIf hasSecrets (
-    lib.hm.dag.entryAfter ["writeBoundary"] ''
-      # Check if atuin is already logged in
-      if ! ${pkgs.atuin}/bin/atuin status &>/dev/null; then
+  # Systemd oneshot service to login to Atuin after secrets are ready
+  systemd.user.services.atuin-login = mkIf hasSecrets {
+    Unit = {
+      Description = "Atuin auto-login to server";
+      After = ["sops-nix.service"]; # Wait for sops to decrypt
+      ConditionPathExists = osConfig.sops.secrets.atuin-password.path;
+    };
+
+    Service = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = pkgs.writeShellScript "atuin-login" ''
+        # Check if already logged in
+        if ${pkgs.atuin}/bin/atuin status &>/dev/null; then
+          echo "Atuin: Already logged in"
+          exit 0
+        fi
+
         echo "Atuin: Logging in to server..."
 
         # Read credentials from sops secrets
@@ -80,11 +92,13 @@ in {
           -k "$ATUIN_KEY" || true
 
         echo "Atuin: Login complete"
-      else
-        echo "Atuin: Already logged in"
-      fi
-    ''
-  );
+      '';
+    };
+
+    Install = {
+      WantedBy = ["default.target"];
+    };
+  };
 
   # Systemd service for background sync (laptops only)
   systemd.user.services.atuin-daemon = mkIf (hasSecrets && isGraphical) {
