@@ -143,6 +143,9 @@
         imports = [
           ./hosts/servers/nixos-test/configuration.nix
 
+          # SOPS for system-level secrets
+          sops-nix.nixosModules.sops
+
           # Home Manager for nixadm user
           home-manager.nixosModules.home-manager
           {
@@ -158,6 +161,11 @@
               users.nixadm = import ./users/nixadm/home.nix;
 
               backupFileExtension = "backup";
+
+              # SOPS for home-manager secrets
+              sharedModules = [
+                sops-nix.homeManagerModules.sops
+              ];
             };
           }
         ];
