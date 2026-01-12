@@ -1,28 +1,50 @@
 #+TITLE: Multi-Host NixOS Configuration
 #+AUTHOR: Marcin
-#+DATE: 2025-12-25
+#+DATE: 2026-01-13
 #+OPTIONS: toc:2 num:nil
 
 * Overview
 
-This repository contains a declarative, reproducible NixOS configuration for multiple hosts using Nix flakes, home-manager, and sops-nix for secret management.
+This repository contains a declarative, reproducible NixOS configuration for multiple hosts using Nix flakes, home-manager, Colmena deployment, and sops-nix for secret management.
 
 ** Hosts
 
-| Host   | Hardware             | Purpose    | Special Features        |
-|--------+----------------------+------------+-------------------------|
-| sukkub | ThinkPad P50, no bat | Test/POC   | Basic setup             |
+*** Workstations
+
+| Host   | Hardware             | Purpose    | Special Features          |
+|--------+----------------------+------------+---------------------------|
+| sukkub | ThinkPad P50, no bat | Test/POC   | Basic setup               |
 | azazel | T16 Gen3, 128GB RAM  | Production | TLP, hibernate, 45GB swap |
+
+*** Servers
+
+| Host          | Type | IP            | Purpose              | Services       |
+|---------------+------+---------------+----------------------+----------------|
+| nixos-test    | LXC  | 192.168.50.6  | Template & Testing   | Base template  |
+| actual-budget | LXC  | 192.168.50.11 | Budget Management    | Actual Budget  |
 
 ** Key Features
 
+*** General
 - ✅ Multi-host configuration with shared modules
 - ✅ Btrfs with compression (zstd:3) for root and home
 - ✅ Home-manager for user-level configuration
 - ✅ Sops-nix for encrypted secrets management
+- ✅ Reproducible builds with flake.lock
+
+*** Workstations
+- ✅ GNOME desktop environment
 - ✅ Suspend-then-hibernate (azazel only)
 - ✅ Comprehensive Neovim setup with LSP
-- ✅ Reproducible builds with flake.lock
+
+*** Servers
+- ✅ Colmena for centralized deployment
+- ✅ Shared SOPS keys across all servers
+- ✅ Proxmox LXC template for rapid provisioning
+- ✅ Role-based service modules
+- ✅ Automatic Atuin login across all servers
+- ✅ Dedicated nixadm user (root SSH disabled)
+- ✅ FreeIPA DNS integration
 
 * Repository Structure
 
@@ -30,33 +52,57 @@ This repository contains a declarative, reproducible NixOS configuration for mul
 nixos/
 ├── flake.nix                      # Main flake configuration
 ├── flake.lock                     # Locked dependency versions
+├── colmena.nix                    # Colmena deployment targets
 ├── .sops.yaml                     # SOPS public keys (safe to commit)
 ├── .gitignore                     # Prevents committing secrets
 ├── hosts/
-│   ├── sukkub/
-│   │   ├── configuration.nix         # Host-specific config
-│   │   └── hardware-configuration.nix # Generated during install
-│   └── azazel/
-│       ├── configuration.nix
-│       └── hardware-configuration.nix
+│   ├── workstations/              # Desktop/laptop systems
+│   │   ├── sukkub/
+│   │   │   ├── configuration.nix
+│   │   │   └── hardware-configuration.nix
+│   │   └── azazel/
+│   │       ├── configuration.nix
+│   │       └── hardware-configuration.nix
+│   └── servers/                   # Server systems (LXC, VM, physical)
+│       ├── nixos-test/            # Template & test server
+│       │   ├── configuration.nix
+│       │   └── hardware-configuration.nix
+│       └── actual-budget/         # Actual Budget server
+│           ├── configuration.nix
+│           └── hardware-configuration.nix
 ├── modules/
-│   ├── system/
+│   ├── system/                    # Common system modules
 │   │   ├── boot.nix               # Systemd-boot + UEFI
 │   │   ├── networking.nix         # NetworkManager, SSH
 │   │   ├── locale.nix             # Polish locale settings
 │   │   ├── gnome.nix              # GNOME desktop
 │   │   └── secrets.nix            # SOPS configuration
-│   └── laptop/
-│       ├── tlp.nix                # Battery optimization
-│       └── hibernate.nix          # Suspend-then-hibernate
+│   ├── laptop/                    # Laptop-specific modules
+│   │   ├── tlp.nix                # Battery optimization
+│   │   └── hibernate.nix          # Suspend-then-hibernate
+│   └── servers/                   # Server-specific modules
+│       ├── base-lxc.nix           # Base LXC container config
+│       ├── users.nix              # nixadm user definition
+│       └── roles/                 # Service-specific roles
+│           └── actual-budget.nix  # Actual Budget service
 ├── users/
-│   └── marcin/
-│       └── home.nix               # Home-manager config
-└── secrets/
-    ├── .gitignore                 # Blocks decrypted files
-    ├── common.yaml                # Shared secrets (encrypted)
-    ├── sukkub.yaml                # Sukkub secrets (encrypted)
-    └── azazel.yaml                # Azazel secrets (encrypted)
+│   ├── marcin/                    # Workstation user
+│   │   └── home.nix
+│   └── nixadm/                    # Server admin user
+│       └── home.nix
+├── scripts/
+│   └── create-server-from-template.sh  # New server creation
+├── secrets/
+│   ├── .gitignore                 # Blocks decrypted files
+│   ├── common.yaml                # Shared secrets (encrypted)
+│   ├── sukkub.yaml                # Sukkub secrets (encrypted)
+│   ├── azazel.yaml                # Azazel secrets (encrypted)
+│   ├── atuin-password.txt         # Atuin password (encrypted)
+│   └── atuin-key.txt              # Atuin encryption key (encrypted)
+└── docs/                          # Documentation
+    ├── README.md                  # Documentation index
+    ├── SERVER-DEPLOYMENT.org      # Server deployment guide
+    └── ...                        # Other guides
 #+end_src
 
 * Installation Guide
@@ -68,155 +114,114 @@ nixos/
 - UEFI-capable system
 - For azazel: sufficient disk space for 45GB swap
 
-** Step 1: Partition Setup (Btrfs)
+** Workstation Installation
 
-*** Boot from NixOS ISO
+See main installation guide in docs/INSTALLATION.md
 
-*** Partition the Disk
+** Server Deployment
 
-#+begin_src bash
-# Example for /dev/nvme0n1
-parted /dev/nvme0n1 -- mklabel gpt
-parted /dev/nvme0n1 -- mkpart ESP fat32 1MiB 512MiB
-parted /dev/nvme0n1 -- set 1 esp on
-parted /dev/nvme0n1 -- mkpart primary btrfs 512MiB 100%
-#+end_src
+For detailed server deployment instructions, see [[file:docs/SERVER-DEPLOYMENT.org][docs/SERVER-DEPLOYMENT.org]]
 
-*** Format Partitions
+*** Quick Start
 
 #+begin_src bash
-# EFI partition
-mkfs.fat -F32 /dev/nvme0n1p1
+# Create new server from template
+./scripts/create-server-from-template.sh hostname 111 192.168.50.11
 
-# Btrfs root partition
-mkfs.btrfs -L nixos /dev/nvme0n1p2
+# Deploy with Colmena
+colmena apply --on hostname
 #+end_src
 
-*** Create Btrfs Subvolumes
+* Server Management
+
+** Deployment with Colmena
+
+*** Deploy to Single Server
 
 #+begin_src bash
-# Mount root
-mount /dev/nvme0n1p2 /mnt
+# Deploy to specific server
+colmena apply --on nixos-test
 
-# Create subvolumes
-btrfs subvolume create /mnt/@root
-btrfs subvolume create /mnt/@home
-btrfs subvolume create /mnt/@nix
-
-# Unmount
-umount /mnt
+# Deploy with verbose output
+colmena apply --on actual-budget --verbose
 #+end_src
 
-*** Mount with Compression
+*** Deploy to Multiple Servers
 
 #+begin_src bash
-# Mount root with compression
-mount -o subvol=@root,compress=zstd:3,noatime /dev/nvme0n1p2 /mnt
+# Deploy to all servers with tag
+colmena apply --on @production
 
-# Create mount points
-mkdir -p /mnt/{home,nix,boot}
+# Deploy to all LXC containers
+colmena apply --on @lxc
 
-# Mount home with compression
-mount -o subvol=@home,compress=zstd:3,noatime /dev/nvme0n1p2 /mnt/home
-
-# Mount nix WITHOUT compression (better performance)
-mount -o subvol=@nix,noatime /dev/nvme0n1p2 /mnt/nix
-
-# Mount EFI
-mount /dev/nvme0n1p1 /mnt/boot
+# Deploy to all servers
+colmena apply
 #+end_src
 
-⚠️ *Important*: /nix is mounted without compression because the Nix store contains already-compressed archives. Additional compression would slow down builds with minimal space savings.
-
-** Step 2: Generate Hardware Configuration
+*** Useful Colmena Commands
 
 #+begin_src bash
-nixos-generate-config --root /mnt
+# List all managed servers
+colmena list
+
+# Show server information
+colmena nix-info --on nixos-test
+
+# Execute command on servers
+colmena exec --on @lxc -- systemctl status
+
+# Reboot servers
+colmena exec --on nixos-test -- sudo reboot
 #+end_src
 
-This generates ~/mnt/etc/nixos/hardware-configuration.nix~ with correct UUIDs and filesystem options.
+** Creating New Servers
 
-** Step 3: Clone Repository
+*** From Proxmox Template
 
 #+begin_src bash
-cd /mnt/etc
-git clone https://github.com/waltharius/nixos.git
-cd nixos
+# Create new LXC from template
+./scripts/create-server-from-template.sh bookstack 112 192.168.50.12
+
+# Add to colmena.nix
+# bookstack = mkServerDeployment "bookstack" "192.168.50.12" ["production" "lxc"];
+
+# Create configuration
+mkdir -p hosts/servers/bookstack
+cat > hosts/servers/bookstack/configuration.nix <<EOF
+{...}: {
+  imports = [
+    ./hardware-configuration.nix
+    ../../../modules/servers/base-lxc.nix
+    ../../../modules/servers/roles/bookstack.nix
+  ];
+  
+  networking.hostName = "bookstack";
+  system.stateVersion = "25.11";
+  
+  services.server-role.bookstack.enable = true;
+}
+EOF
+
+# Deploy
+colmena apply --on bookstack
 #+end_src
 
-** Step 4: Update Hardware Configuration
+** Server SOPS Key Management
+
+All servers share a single SOPS key for simplified secret management:
 
 #+begin_src bash
-# Copy generated hardware-configuration.nix to your host
-cp /mnt/etc/nixos/hardware-configuration.nix hosts/sukkub/  # or azazel
+# Key location on all servers
+/var/lib/sops-nix/key.txt
+
+# Public key in .sops.yaml
+&servers-shared age1qu4pnzn2teff7m78nrhzq4vct4qczp2ajhfda559xgpk2n08qswqzyh2aw
+
+# All servers can decrypt secrets encrypted for 'servers-shared'
 #+end_src
 
-Edit the file to ensure btrfs options are correct:
-
-#+begin_src nix
-fileSystems."/" = {
-  device = "/dev/disk/by-uuid/YOUR-ACTUAL-UUID";
-  fsType = "btrfs";
-  options = [ "subvol=@root" "compress=zstd:3" "noatime" ];
-};
-
-fileSystems."/home" = {
-  device = "/dev/disk/by-uuid/YOUR-ACTUAL-UUID";
-  fsType = "btrfs";
-  options = [ "subvol=@home" "compress=zstd:3" "noatime" ];
-};
-
-fileSystems."/nix" = {
-  device = "/dev/disk/by-uuid/YOUR-ACTUAL-UUID";
-  fsType = "btrfs";
-  options = [ "subvol=@nix" "noatime" ];  # NO COMPRESSION
-};
-#+end_src
-
-** Step 5: Generate Age Key for Host
-
-#+begin_src bash
-# Generate host age key
-mkdir -p /mnt/var/lib/sops-nix
-age-keygen -o /mnt/var/lib/sops-nix/key.txt
-
-# Display public key - SAVE THIS!
-age-keygen -y /mnt/var/lib/sops-nix/key.txt
-# Output: age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-#+end_src
-
-⚠️ *Save the public key* - you'll need it to encrypt secrets for this host.
-
-** Step 6: Install NixOS
-
-#+begin_src bash
-# Install without secrets (they won't decrypt yet)
-nixos-install --flake /mnt/etc/nixos#sukkub --no-root-password
-
-# Set user password manually
-nixos-enter --root /mnt
-passwd marcin
-exit
-
-# Reboot
-reboot
-#+end_src
-
-** Step 7: Configure Secrets (After First Boot)
-
-On your management machine (with your personal age key):
-
-1. Add host public key to ~.sops.yaml~
-2. Re-encrypt all secrets: ~sops updatekeys secrets/*.yaml~
-3. Commit and push changes
-
-On the new host:
-
-#+begin_src bash
-cd /etc/nixos
-git pull
-sudo nixos-rebuild switch --flake .#sukkub
-#+end_src
+⚠️ *Important*: The template contains the SOPS key. All cloned servers will have the same key and can decrypt the same secrets.
 
 * Secrets Management with SOPS
 
@@ -225,7 +230,7 @@ sudo nixos-rebuild switch --flake .#sukkub
 *** What's in the Repository (SAFE)
 
 - ✅ Public keys in ~.sops.yaml~
-- ✅ Encrypted secret files (~*.yaml~)
+- ✅ Encrypted secret files (~*.yaml~, ~*.txt~)
 - ✅ SOPS configuration
 
 *** What's NOT in the Repository (PRIVATE)
@@ -236,41 +241,50 @@ sudo nixos-rebuild switch --flake .#sukkub
 
 ** Key Types
 
-| Key Type      | Location                      | Purpose           | Backup? |
-|---------------+-------------------------------+-------------------+---------|
-| Personal      | ~~/.config/sops/age/keys.txt~ | Edit secrets      | YES     |
-| Host (sukkub) | ~/var/lib/sops-nix/key.txt~   | Decrypt on host   | YES     |
-| Host (azazel) | ~/var/lib/sops-nix/key.txt~   | Decrypt on host   | YES     |
+| Key Type       | Location                      | Purpose           | Backup? |
+|----------------+-------------------------------+-------------------+---------|
+| Personal       | ~~/.config/sops/age/keys.txt~ | Edit secrets      | YES     |
+| Host (sukkub)  | ~/var/lib/sops-nix/key.txt~   | Decrypt on host   | YES     |
+| Host (azazel)  | ~/var/lib/sops-nix/key.txt~   | Decrypt on host   | YES     |
+| Servers Shared | ~/var/lib/sops-nix/key.txt~   | All servers share | YES     |
 
 ** Creating/Editing Secrets
 
 #+begin_src bash
 # Edit secrets (automatically encrypted on save)
-sops secrets/common.yaml
+sops secrets/atuin-password.txt
 
 # View decrypted content
-sops -d secrets/common.yaml
+sops -d secrets/atuin-password.txt
+
+# Create new secret for all servers
+sops secrets/new-service-password.txt
 #+end_src
 
-** Adding a New Host
+** Adding Server Secrets
 
-1. Generate age key on new host during installation
-2. Add public key to ~.sops.yaml~
-3. Re-encrypt: ~sops updatekeys secrets/*.yaml~
-4. Commit and push
+Server secrets are encrypted with the ~servers-shared~ key defined in ~.sops.yaml~:
 
-** Emergency: Lost Host Key
+#+begin_src yaml
+# In .sops.yaml
+creation_rules:
+  # Server secrets - shared by all servers
+  - path_regex: secrets/atuin-(password|key)\.txt$
+    key_groups:
+      - age:
+          - *admin
+          - *sukkub
+          - *azazel
+          - *servers-shared
+#+end_src
 
-If you lose a host's private key:
-
-1. Generate new key on that host
-2. Update ~.sops.yaml~ with new public key
-3. Re-encrypt all secrets
-4. Your personal key ensures you never lose access
+All servers cloned from the template can decrypt these secrets automatically.
 
 * Daily Usage
 
-** Rebuilding System
+** Workstations
+
+*** Rebuilding System
 
 #+begin_src bash
 # Test configuration (doesn't modify boot entry)
@@ -283,6 +297,40 @@ sudo nixos-rebuild switch --flake /etc/nixos#sukkub
 sudo nixos-rebuild boot --flake /etc/nixos#sukkub
 #+end_src
 
+** Servers
+
+*** Deploying Changes
+
+#+begin_src bash
+# Deploy to single server
+colmena apply --on nixos-test
+
+# Deploy to all servers
+colmena apply
+
+# Deploy only servers with tag
+colmena apply --on @production
+#+end_src
+
+*** Checking Server Status
+
+#+begin_src bash
+# SSH to server
+ssh nixadm@192.168.50.6
+
+# Check service status
+systemctl status actual-budget
+
+# View logs
+journalctl -u actual-budget -f
+
+# Check failed services
+systemctl --failed
+
+# Exit
+exit
+#+end_src
+
 ** Updating Packages
 
 #+begin_src bash
@@ -292,11 +340,16 @@ nix flake update
 # Update specific input
 nix flake lock --update-input nixpkgs
 
-# Rebuild with updates
+# Rebuild workstation
 sudo nixos-rebuild switch --flake /etc/nixos#sukkub
+
+# Deploy to servers
+colmena apply
 #+end_src
 
 ** Rolling Back
+
+*** Workstations
 
 #+begin_src bash
 # List generations
@@ -310,14 +363,25 @@ sudo nix-env --switch-generation 42 --profile /nix/var/nix/profiles/system
 sudo /nix/var/nix/profiles/system/bin/switch-to-configuration switch
 #+end_src
 
+*** Servers
+
+#+begin_src bash
+# Rollback on server
+ssh nixadm@192.168.50.6
+sudo nixos-rebuild switch --rollback
+#+end_src
+
 ** Garbage Collection
 
 #+begin_src bash
-# Delete old generations (keeps last 3)
+# Workstation: Delete old generations (keeps last 3)
 sudo nix-collect-garbage --delete-older-than 3
 
 # Optimize store (deduplicate)
 sudo nix-store --optimise
+
+# Servers: Run on each server
+colmena exec --on @lxc -- sudo nix-collect-garbage --delete-older-than 7
 #+end_src
 
 * Laptop-Specific Features (Azazel Only)
@@ -363,28 +427,55 @@ journalctl -f -u systemd-hibernate.service
 
 * Customization
 
-** Adding a New Host
+** Adding a New Workstation
 
 1. Create host directory:
    #+begin_src bash
-   mkdir -p hosts/newhostname
+   mkdir -p hosts/workstations/newhostname
    #+end_src
 
 2. Copy template:
    #+begin_src bash
-   cp hosts/sukkub/configuration.nix hosts/newhostname/
+   cp hosts/workstations/sukkub/configuration.nix hosts/workstations/newhostname/
    #+end_src
 
 3. Add to ~flake.nix~:
    #+begin_src nix
    nixosConfigurations = {
      # ... existing hosts ...
-     newhostname = mkHost "newhostname" "x86_64-linux";
+     newhostname = mkHost "workstations/newhostname" "x86_64-linux";
    };
    #+end_src
 
 4. Generate age key during installation
 5. Add public key to ~.sops.yaml~
+
+** Adding a New Server
+
+See [[file:docs/SERVER-DEPLOYMENT.org][Server Deployment Guide]] for complete instructions.
+
+Quick version:
+
+1. Create from template:
+   #+begin_src bash
+   ./scripts/create-server-from-template.sh newserver 113 192.168.50.13
+   #+end_src
+
+2. Add to ~colmena.nix~:
+   #+begin_src nix
+   newserver = mkServerDeployment "newserver" "192.168.50.13" ["production" "lxc"];
+   #+end_src
+
+3. Create host configuration:
+   #+begin_src bash
+   mkdir -p hosts/servers/newserver
+   # Create configuration.nix
+   #+end_src
+
+4. Deploy:
+   #+begin_src bash
+   colmena apply --on newserver
+   #+end_src
 
 ** Adding System Packages
 
@@ -400,7 +491,7 @@ environment.systemPackages = with pkgs; [
 
 ** Adding User Packages
 
-Edit ~users/marcin/home.nix~:
+Edit ~users/marcin/home.nix~ or ~users/nixadm/home.nix~:
 
 #+begin_src nix
 home.packages = with pkgs; [
@@ -429,6 +520,27 @@ Check that:
 2. Public key is in ~.sops.yaml~
 3. Secrets were re-encrypted: ~sops updatekeys secrets/*.yaml~
 
+** Colmena Deployment Fails
+
+#+begin_src bash
+# Check SSH connectivity
+ssh nixadm@192.168.50.6
+
+# Verify server is in colmena.nix
+colmena list
+
+# Deploy with verbose output
+colmena apply --on nixos-test --verbose
+#+end_src
+
+** Server Can't Decrypt Secrets
+
+All servers use the shared ~servers-shared~ key. Verify:
+
+1. Key exists on server: ~ssh nixadm@SERVER cat /var/lib/sops-nix/key.txt~
+2. Public key matches ~.sops.yaml~: ~age-keygen -y /var/lib/sops-nix/key.txt~
+3. Secrets are encrypted for ~servers-shared~: ~sops -d secrets/atuin-password.txt~
+
 ** Hibernate Fails
 
 Check swap size:
@@ -451,11 +563,21 @@ nixos-rebuild switch --rollback
 
 * Resources
 
+** Official Documentation
 - [[https://nixos.org/manual/nixos/stable/][NixOS Manual]]
 - [[https://nix-community.github.io/home-manager/][Home Manager Manual]]
+- [[https://colmena.cli.rs/][Colmena Documentation]]
 - [[https://github.com/Mic92/sops-nix][sops-nix Documentation]]
+
+** Tools
 - [[https://github.com/FiloSottile/age][age Encryption Tool]]
 - [[https://wiki.archlinux.org/title/Btrfs][Btrfs Wiki]]
+- [[https://actualbudget.org/][Actual Budget]]
+
+** Repository-Specific Guides
+- [[file:docs/SERVER-DEPLOYMENT.org][Server Deployment Guide]]
+- [[file:docs/INSTALLATION.md][Workstation Installation Guide]]
+- [[file:docs/POST-INSTALL-SOPS-SETUP.md][SOPS Setup Guide]]
 
 * License
 
