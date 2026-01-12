@@ -34,7 +34,7 @@ This repository contains a declarative, reproducible NixOS configuration for mul
 
 *** Workstations
 - ✅ GNOME desktop environment
-- ✅ Suspend-then-hibernate (azazel only)
+- ✅ Suspend-then-hibernate
 - ✅ Comprehensive Neovim setup with LSP
 
 *** Servers
