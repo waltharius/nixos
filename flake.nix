@@ -107,6 +107,32 @@
           }
         ];
       };
+
+    mkServer = hostname: ip:
+      nixpkgs.lib.nixosSystem {
+        inherit system;
+        modules = [
+          ./hosts/servers/${hostname}/configuration.nix
+          sops-nix.nixosModules.sops
+
+          home-manager.nixosModules.home-manager
+          {
+            home-manager = {
+              useGlobalPkgs = true;
+              useUserPackages = true;
+              extraSpecialArgs = {
+                inherit inputs;
+                hostname = hostname;
+              };
+              users.nixadm = import ./users/nixadm/home.nix;
+              backupFileExtension = "backup";
+              sharedModules = [
+                sops-nix.homeManagerModules.sops
+              ];
+            };
+          }
+        ];
+      };
   in {
     # Define all hosts here
     nixosConfigurations = {
@@ -116,62 +142,12 @@
       azazel = mkHost "azazel" "x86_64-linux";
 
       # Servers: LXC containers and VMs
-      nixos-test = nixpkgs.lib.nixosSystem {
-        inherit system;
-        modules = [
-          ./hosts/servers/nixos-test/configuration.nix
-        ];
-      };
+      nixos-test = mkServer "nixos-test";
+      actual-budget = mkServer "actual-budget";
     };
 
     # Colmena deployment configuration for servers
-    colmena = {
-      meta = {
-        nixpkgs = import nixpkgs {
-          inherit system;
-          config.allowUnfree = true;
-        };
-      };
-
-      # Test server - LXC container
-      nixos-test = {
-        deployment = {
-          targetHost = "192.168.50.6";
-          targetUser = "nixadm"; # Use dedicated admin user instead of root
-          tags = ["test" "container" "lxc"];
-        };
-        imports = [
-          ./hosts/servers/nixos-test/configuration.nix
-
-          # SOPS for system-level secrets
-          sops-nix.nixosModules.sops
-
-          # Home Manager for nixadm user
-          home-manager.nixosModules.home-manager
-          {
-            home-manager = {
-              useGlobalPkgs = true;
-              useUserPackages = true;
-              extraSpecialArgs = {
-                inherit inputs;
-                hostname = "nixos-test";
-              };
-
-              # Unified nixadm configuration for all servers
-              users.nixadm = import ./users/nixadm/home.nix;
-
-              backupFileExtension = "backup";
-
-              # SOPS for home-manager secrets
-              sharedModules = [
-                sops-nix.homeManagerModules.sops
-              ];
-            };
-          }
-        ];
-      };
-    };
-
+    colmena = import ./colmena.nix {inherit inputs system;};
     # Expose packages for nix build, nix shell, etc.
     packages.${system} = customPackages;
   };
