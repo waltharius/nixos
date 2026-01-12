@@ -1,3 +1,4 @@
+# hosts/containers/base-template/configuration.nix
 # This is configuration file for building Proxmox LXC container
 # on a computer with Nix insalles (doesn't require to be a NixOS)
 {
@@ -26,6 +27,8 @@
     experimental-features = ["nix-command" "flakes"];
     sandbox = false;
     trusted-users = ["root" "nixadm" "@wheel"];
+    keep-outputs = false;
+    keep-derivations = false;
   };
 
   # Network configuration
@@ -91,6 +94,10 @@
 
   # Allow sudo without password for wheel group
   security.sudo.wheelNeedsPassword = false;
+
+  systemd.tmpfiles.rules = [
+    "d /var/lib/sops-nix 0755 root root -"
+  ];
 
   # DO NOT enable auto-upgrade in the template
   # Updates will be managed via Colmena deployment

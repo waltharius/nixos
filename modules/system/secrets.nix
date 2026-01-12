@@ -30,7 +30,8 @@ in {
       age.keyFile = "/var/lib/sops-nix/key.txt";
 
       # Generate age key on first boot if it doesn't exist
-      age.generateKey = true;
+      # We don't want this becasue only one key will be used for my servers
+      age.generateKey = false;
 
       # Atuin credentials (if enabled)
       secrets = mkIf cfg.enableAtuin {
