@@ -1,14 +1,12 @@
 # Home Manager configuration for nixadm user
 # Unified configuration for all servers - same aliases, tools, shell everywhere
-
 {
-  config,
   lib,
   pkgs,
   ...
 }: {
   imports = [
-    ../../modules/home/tools/atuin-sync.nix  # Atuin with auto-sync
+    ../../modules/home/tools/atuin-sync.nix # Atuin with auto-sync
   ];
 
   home.username = "nixadm";
@@ -29,13 +27,13 @@
       ls = "eza --group-directories-first --color=auto --icons";
       ll = "eza -alF --group-directories-first --color=auto --icons";
       la = "eza -a --group-directories-first --color=auto --icons";
-      
+
       # Git shortcuts
       gs = "git status";
       ga = "git add";
       gc = "git commit";
       gp = "git push";
-      
+
       # NixOS shortcuts for remote management
       nrs = "sudo nixos-rebuild switch";
       nrt = "sudo nixos-rebuild test";
@@ -52,11 +50,19 @@
         eval "$(zoxide init bash)"
       fi
     '';
+
+    initExtra = ''
+      # Only load starship in interactive shells
+      if [[ $- == *i* ]] && [[ "$TERM" != "dumb" ]]; then
+        eval "$(${pkgs.starship}/bin/starship init bash)"
+      fi
+    '';
   };
 
   # Starship prompt - server configuration
   programs.starship = {
     enable = true;
+    enableBashIntegration = true;
     settings = {
       add_newline = false;
       format = lib.concatStrings [
@@ -67,13 +73,13 @@
         "$git_status"
         "$character"
       ];
-      
+
       # Always show hostname on servers
       hostname = {
         ssh_only = false;
         format = "[@$hostname](bold red):";
       };
-      
+
       # Compact directory display
       directory = {
         truncation_length = 3;
