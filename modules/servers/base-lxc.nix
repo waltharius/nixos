@@ -94,6 +94,7 @@
       curl
       wget
       htop
+      btop
 
       # Network diagnostics
       bind # dig, nslookup
