@@ -7,13 +7,11 @@
 with lib; let
   cfg = config.services.atuin-auto-login;
 
-  # Secure wrapper script that uses file descriptors
+  # Secure wrapper script that passes password via stdin
   atuin-login-wrapper = pkgs.writeShellScript "atuin-login-wrapper" ''
     set -euo pipefail
 
     # File descriptors are passed by systemd via LoadCredential
-    # They are available in $CREDENTIALS_DIRECTORY
-
     if [ -z "''${CREDENTIALS_DIRECTORY:-}" ]; then
       echo "ERROR: CREDENTIALS_DIRECTORY not set" >&2
       exit 1
@@ -36,20 +34,14 @@ with lib; let
 
     echo "Logging in to Atuin server..."
 
-    # Read key into variable (needed for -k flag)
-    # This is acceptable as the key is already encrypted by sops
+    # Read the encryption key
     ATUIN_KEY=$(cat "$KEY_FILE")
 
-    # Login using stdin for password (secure)
-    # Use file descriptor redirection to avoid process exposure
-    exec 3< "$PASSWORD_FILE"
-    ${pkgs.atuin}/bin/atuin login \
+    # Login using stdin for password (secure method)
+    # When -p flag is omitted, atuin reads password from stdin
+    cat "$PASSWORD_FILE" | ${pkgs.atuin}/bin/atuin login \
       --username "${cfg.username}" \
-      --key "$ATUIN_KEY" \
-      <&3
-
-    # Close file descriptor
-    exec 3<&-
+      --key "$ATUIN_KEY"
 
     if [ $? -eq 0 ]; then
       echo "Successfully logged in to Atuin"
@@ -96,7 +88,6 @@ in {
         Environment = "HOME=/home/${cfg.user}";
 
         # Use systemd's credential system - most secure method
-        # Credentials are mounted in memory, never touch disk unencrypted
         LoadCredential = [
           "atuin-password:/run/secrets/atuin-password"
           "atuin-key:/run/secrets/atuin-key"
