@@ -10,7 +10,7 @@
   boot.extraModulePackages = [];
 
   fileSystems."/" = {
-    device = "/dev/mapper/pve-vm--104--disk--0";
+    device = "/dev/mapper/pve-vm--110--disk--0";
     fsType = "ext4";
   };
 
