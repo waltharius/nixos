@@ -1,0 +1,1098 @@
+#+TITLE: NixOS Server Deployment Guide
+#+AUTHOR: Marcin
+#+DATE: 2026-01-13
+#+OPTIONS: toc:2 num:nil
+
+* Overview
+
+This guide covers deploying and managing NixOS servers using Colmena, Proxmox LXC templates, and shared SOPS keys.
+
+** Architecture
+
+*** Deployment Tool
+- *Colmena*: Centralized deployment from your workstation
+- Deploy to single server, tagged groups, or all servers
+- SSH-based with automatic rollback
+
+*** Secret Management
+- *Shared SOPS key*: All servers use the same age key
+- Key baked into Proxmox template
+- Simplified secret encryption (once for all servers)
+
+*** Provisioning
+- *Proxmox LXC template*: Base NixOS container ready to clone
+- Template ID: 9000 (~nixos-base-template~)
+- Includes: SOPS key, nixadm user, base configuration
+
+** Infrastructure Components
+
+| Component        | Location                          | Purpose                     |
+|------------------+-----------------------------------+-----------------------------|
+| Template         | Proxmox CT 9000                   | Base for all new servers    |
+| Shared SOPS key  | ~/var/lib/sops-nix/key.txt~       | Decrypt secrets             |
+| nixadm user      | All servers                       | Admin access (root disabled)|
+| Colmena config   | ~colmena.nix~                     | Deployment targets          |
+| Base module      | ~modules/servers/base-lxc.nix~    | Common LXC config           |
+| Role modules     | ~modules/servers/roles/*.nix~     | Service-specific config     |
+| Atuin sync       | Automatic via systemd             | Shared command history      |
+
+* Prerequisites
+
+** On Your Workstation
+
+- ✅ NixOS flake repo cloned: ~~/nixos/~
+- ✅ Colmena installed (from flake devShell or globally)
+- ✅ SSH access to Proxmox host
+- ✅ SSH key in repo: ~modules/servers/users.nix~
+
+** On Proxmox
+
+- ✅ Template exists: CT ID 9000
+- ✅ Network configured: ~vmbr0~ bridge
+- ✅ Storage available: ~local-lvm~ or equivalent
+
+** On FreeIPA
+
+- ✅ DNS zone: ~home.lan~
+- ✅ Ability to add A records
+- ✅ (Optional) SSL certificates available
+
+* Quick Start: Deploy a New Server
+
+** Summary
+
+Deploy a new service in 5 steps (< 5 minutes):
+
+1. Create LXC from template
+2. Add to ~colmena.nix~
+3. Create host configuration
+4. (Optional) Create role module
+5. Deploy with Colmena
+
+** Example: Deploying BookStack
+
+*** Step 1: Create LXC Container
+
+#+begin_src bash
+# On your workstation
+cd ~/nixos
+
+# Create container from template
+./scripts/create-server-from-template.sh bookstack 112 192.168.50.12
+
+# Wait for container to boot
+sleep 10
+
+# Test SSH access
+ssh nixadm@192.168.50.12
+# Should work immediately!
+exit
+#+end_src
+
+*** Step 2: Add to Colmena
+
+Edit ~colmena.nix~:
+
+#+begin_src nix
+# Add to the servers section
+bookstack = mkServerDeployment "bookstack" "192.168.50.12" ["production" "lxc"];
+#+end_src
+
+*** Step 3: Create Host Configuration
+
+#+begin_src bash
+# Create host directory
+mkdir -p hosts/servers/bookstack
+
+# Create configuration
+cat > hosts/servers/bookstack/configuration.nix <<'EOF'
+{...}: {
+  imports = [
+    ./hardware-configuration.nix
+    ../../../modules/servers/base-lxc.nix
+    ../../../modules/servers/roles/bookstack.nix
+  ];
+
+  networking.hostName = "bookstack";
+  system.stateVersion = "25.11";
+
+  services.server-role.bookstack.enable = true;
+}
+EOF
+
+# Create hardware-configuration (basic for LXC)
+cat > hosts/servers/bookstack/hardware-configuration.nix <<'EOF'
+{...}: {
+  fileSystems."/" = {
+    device = "/dev/sda";
+    fsType = "ext4";
+  };
+}
+EOF
+#+end_src
+
+*** Step 4: Create Role Module
+
+#+begin_src bash
+cat > modules/servers/roles/bookstack.nix <<'EOF'
+{ config, lib, pkgs, ... }:
+
+with lib;
+let
+  cfg = config.services.server-role.bookstack;
+in {
+  options.services.server-role.bookstack = {
+    enable = mkEnableOption "bookstack role";
+    
+    port = mkOption {
+      type = types.port;
+      default = 8080;
+      description = "Port to run BookStack on";
+    };
+    
+    dataDir = mkOption {
+      type = types.path;
+      default = "/var/lib/bookstack";
+      description = "Data directory";
+    };
+  };
+
+  config = mkIf cfg.enable {
+    # Open firewall
+    networking.firewall.allowedTCPPorts = [ cfg.port ];
+    
+    # Create data directory
+    systemd.tmpfiles.rules = [
+      "d ${cfg.dataDir} 0755 bookstack bookstack -"
+    ];
+    
+    # User
+    users.users.bookstack = {
+      isSystemUser = true;
+      group = "bookstack";
+      home = cfg.dataDir;
+    };
+    users.groups.bookstack = {};
+    
+    # Service
+    systemd.services.bookstack = {
+      description = "BookStack Wiki";
+      after = [ "network.target" ];
+      wantedBy = [ "multi-user.target" ];
+      
+      serviceConfig = {
+        Type = "simple";
+        User = "bookstack";
+        Group = "bookstack";
+        WorkingDirectory = cfg.dataDir;
+        # Add your service start command here
+      };
+    };
+  };
+}
+EOF
+#+end_src
+
+*** Step 5: Deploy
+
+#+begin_src bash
+# Test configuration syntax
+nix flake check
+
+# Commit changes
+git add .
+git commit -m "Add bookstack server"
+git push
+
+# Deploy!
+colmena apply --on bookstack --verbose
+
+# Verify deployment
+ssh nixadm@192.168.50.12 'systemctl status bookstack'
+#+end_src
+
+*** Step 6: Add DNS Record (Optional)
+
+In FreeIPA:
+
+1. Navigate to *Network Services* → *DNS* → *home.lan*
+2. Add A record: ~bookstack~ → ~192.168.50.12~
+3. Test: ~ping bookstack.home.lan~
+
+*** Step 7: Configure Reverse Proxy (Optional)
+
+On your Caddy server, add:
+
+#+begin_src caddyfile
+bookstack.home.lan:443 {
+    tls /etc/ssl/local/bookstack.crt /etc/ssl/local/bookstack.key
+    reverse_proxy 192.168.50.12:8080
+}
+#+end_src
+
+✅ *Done!* Service is live at ~https://bookstack.home.lan~
+
+* Server Template Management
+
+** Understanding the Template
+
+*** What's in the Template
+
+*Template ID:* 9000  
+*Name:* ~nixos-base-template~  
+*Based on:* nixos-test (CT 109)
+
+*Includes:*
+- ✅ NixOS 25.11 minimal system
+- ✅ Shared SOPS key at ~/var/lib/sops-nix/key.txt~
+- ✅ nixadm user with your SSH key
+- ✅ All base-lxc.nix configuration
+- ✅ Nix sandbox disabled
+- ✅ Trusted users configured
+- ✅ FreeIPA DNS settings
+- ✅ Atuin configured (login on first deployment)
+
+*** When to Update the Template
+
+Update when you change:
+- Base system packages (git, vim, etc.)
+- SOPS key (rare, only if compromised)
+- nixadm user SSH key
+- Fundamental networking settings
+
+*Don't update for:*
+- Service-specific changes (use role modules)
+- Secret content (use SOPS)
+- Individual server settings
+
+** Updating the Template
+
+#+begin_src bash
+# 1. Deploy latest config to nixos-test
+colmena apply --on nixos-test
+
+# 2. SSH to Proxmox
+ssh root@proxmox.home.lan
+
+# 3. Stop nixos-test
+pct stop 109
+
+# 4. Backup current template
+pct snapshot 9000 pre-update-$(date +%Y%m%d) "Backup before update"
+
+# 5. Delete old template
+pct destroy 9000
+
+# 6. Create new template
+pct clone 109 9000 \
+  --full 1 \
+  --hostname nixos-base-template \
+  --description "NixOS 25.11 LXC Base Template - Updated $(date +%Y-%m-%d)" \
+  --storage local-lvm
+
+# 7. Convert to template
+pct template 9000
+
+# 8. Restart nixos-test
+pct start 109
+
+# 9. Exit Proxmox
+exit
+
+# 10. Test new template
+./scripts/create-server-from-template.sh test-clone 998 192.168.50.98
+ssh nixadm@192.168.50.98
+# Verify everything works
+exit
+
+# Clean up test
+ssh root@proxmox.home.lan pct destroy 998
+#+end_src
+
+** Recreating the Template (Emergency)
+
+If template is corrupted or lost:
+
+#+begin_src bash
+# Redeploy nixos-test with latest config
+colmena apply --on nixos-test
+
+# Follow "Updating the Template" steps above
+# Or reference REFACTOR.md "Phase 5: Template Creation"
+#+end_src
+
+* Secret Management
+
+** Understanding Shared SOPS Keys
+
+*** Architecture
+
+*One key for all servers:*
+- Simplifies secret management
+- Encrypt once, all servers can decrypt
+- Key is in template, automatically copied to new servers
+- Safe because all servers trust you (admin) anyway
+
+*Key location:*
+#+begin_src
+/var/lib/sops-nix/key.txt
+#+end_src
+
+*Public key in .sops.yaml:*
+#+begin_src yaml
+keys:
+  - &servers-shared age1qu4pnzn2teff7m78nrhzq4vct4qczp2ajhfda559xgpk2n08qswqzyh2aw
+#+end_src
+
+*** Security Considerations
+
+*Safe because:*
+- Homelab environment (you control infrastructure)
+- All servers are trusted
+- Secrets are still encrypted at rest
+- Secrets in transit over SSH (encrypted)
+- Easier than managing individual keys per server
+
+*Risk mitigation:*
+- Keep template secure (don't expose publicly)
+- Regular Proxmox backups
+- Personal age key as backup (can always re-encrypt)
+
+** Adding New Secrets for Servers
+
+*** Create Secret File
+
+#+begin_src bash
+# Create new secret
+sops secrets/bookstack-db-password.txt
+
+# Type the secret content
+# Save and exit (Ctrl+X, Y, Enter in nano)
+#+end_src
+
+*** Update .sops.yaml
+
+Add encryption rule:
+
+#+begin_src yaml
+# In .sops.yaml
+creation_rules:
+  # Existing rules...
+  
+  # BookStack secrets
+  - path_regex: secrets/bookstack-.*\.txt$
+    key_groups:
+      - age:
+          - *admin
+          - *servers-shared
+#+end_src
+
+*** Use Secret in Configuration
+
+#+begin_src nix
+# In role module or configuration.nix
+sops.secrets.bookstack-db-password = {
+  sopsFile = ../../../secrets/bookstack-db-password.txt;
+  format = "binary";
+  owner = "bookstack";
+  group = "bookstack";
+  mode = "0400";
+};
+
+# Reference in service
+systemd.services.bookstack = {
+  serviceConfig = {
+    EnvironmentFile = config.sops.secrets.bookstack-db-password.path;
+  };
+};
+#+end_src
+
+** Viewing Secrets
+
+#+begin_src bash
+# Decrypt and view
+sops -d secrets/atuin-password.txt
+
+# Edit (re-encrypt on save)
+sops secrets/atuin-password.txt
+#+end_src
+
+** Rotating the Shared Key (Advanced)
+
+⚠️ *Only needed if key is compromised!*
+
+#+begin_src bash
+# 1. Generate new key on nixos-test
+ssh nixadm@192.168.50.6
+sudo age-keygen -o /tmp/new-key.txt
+sudo age-keygen -y /tmp/new-key.txt
+# Save this public key!
+exit
+
+# 2. Update .sops.yaml with new public key
+vim .sops.yaml
+# Replace &servers-shared key
+
+# 3. Re-encrypt all secrets
+sops updatekeys secrets/*.txt
+sops updatekeys secrets/*.yaml
+
+# 4. Update template
+# Copy new key to nixos-test
+scp /tmp/new-key.txt root@192.168.50.6:/var/lib/sops-nix/key.txt
+
+# Recreate template (see "Updating the Template" above)
+
+# 5. Redeploy all servers
+colmena apply
+#+end_src
+
+* Colmena Deployment
+
+** Understanding colmena.nix
+
+*** Structure
+
+#+begin_src nix
+{
+  meta = {
+    nixpkgs = import inputs.nixpkgs { system = "x86_64-linux"; };
+    specialArgs = { inherit inputs; };
+  };
+
+  # Helper function
+  mkServerDeployment = name: ip: tags: {
+    deployment = {
+      targetHost = ip;
+      targetUser = "nixadm";
+      tags = tags;
+    };
+    imports = [ ./hosts/servers/${name} ];
+  };
+
+  # Servers
+  nixos-test = mkServerDeployment "nixos-test" "192.168.50.6" ["test" "lxc"];
+  actual-budget = mkServerDeployment "actual-budget" "192.168.50.11" ["production" "lxc"];
+}
+#+end_src
+
+*** Tags
+
+| Tag          | Purpose                  | Example                         |
+|--------------+--------------------------+---------------------------------|
+| ~production~ | Production services      | actual-budget, bookstack        |
+| ~test~       | Testing/development      | nixos-test                      |
+| ~lxc~        | LXC containers           | All current servers             |
+| ~vm~         | Virtual machines         | Future use                      |
+| ~arm~        | ARM architecture         | Future Raspberry Pi servers     |
+
+** Deployment Commands
+
+*** Deploy to Single Server
+
+#+begin_src bash
+# Deploy to specific server
+colmena apply --on nixos-test
+
+# With verbose output
+colmena apply --on actual-budget --verbose
+
+# Very verbose (debugging)
+colmena apply --on bookstack -vv
+#+end_src
+
+*** Deploy to Tagged Servers
+
+#+begin_src bash
+# Deploy to all production servers
+colmena apply --on @production
+
+# Deploy to all LXC containers
+colmena apply --on @lxc
+
+# Deploy to test servers only
+colmena apply --on @test
+#+end_src
+
+*** Deploy to All Servers
+
+#+begin_src bash
+# Deploy everywhere
+colmena apply
+
+# With confirmation prompts
+colmena apply --confirm
+#+end_src
+
+*** Useful Flags
+
+| Flag          | Description                              |
+|---------------+------------------------------------------|
+| ~--verbose~   | Show more output                         |
+| ~-vv~         | Very verbose (debugging)                 |
+| ~--confirm~   | Ask before each deployment               |
+| ~--no-keys~   | Don't upload SOPS keys                   |
+| ~--reboot~    | Reboot after activation                  |
+| ~--evaluator~ | Choose how to evaluate (local/remote)    |
+
+** Useful Colmena Commands
+
+*** List Servers
+
+#+begin_src bash
+# List all managed servers
+colmena list
+
+# Output:
+# nixos-test (tags: test, lxc)
+# actual-budget (tags: production, lxc)
+#+end_src
+
+*** Execute Commands
+
+#+begin_src bash
+# Run command on single server
+colmena exec --on nixos-test -- systemctl status atuin-auto-login
+
+# Run on all servers
+colmena exec -- df -h
+
+# Run on tagged servers
+colmena exec --on @production -- uptime
+
+# Parallel execution (default)
+colmena exec --on @lxc -- 'echo $(hostname): $(uptime)'
+#+end_src
+
+*** System Information
+
+#+begin_src bash
+# Show Nix version, system info
+colmena nix-info --on nixos-test
+
+# Check configuration evaluation
+colmena build --on actual-budget
+#+end_src
+
+*** Rebooting
+
+#+begin_src bash
+# Reboot single server
+colmena exec --on nixos-test -- sudo reboot
+
+# Reboot after deployment
+colmena apply --on actual-budget --reboot
+
+# Reboot all production servers (careful!)
+colmena exec --on @production -- sudo reboot
+#+end_src
+
+** Troubleshooting Deployments
+
+*** SSH Connection Fails
+
+#+begin_src bash
+# Test SSH manually
+ssh nixadm@192.168.50.6
+
+# Check SSH key
+cat modules/servers/users.nix | grep ssh-ed25519
+
+# Verify server is reachable
+ping 192.168.50.6
+#+end_src
+
+*** Build Fails
+
+#+begin_src bash
+# Check syntax locally first
+nix flake check
+
+# Evaluate configuration
+nix eval .#nixosConfigurations.nixos-test.config.system.build.toplevel
+
+# Show specific option
+nix eval .#nixosConfigurations.nixos-test.config.networking.hostName
+#+end_src
+
+*** Activation Fails
+
+#+begin_src bash
+# Check logs on server
+ssh nixadm@192.168.50.6
+journalctl -xe
+sudo systemctl --failed
+
+# Try manual activation
+sudo nixos-rebuild switch --flake /etc/nixos#nixos-test
+#+end_src
+
+*** SOPS Decryption Fails
+
+#+begin_src bash
+# Verify key exists
+ssh nixadm@192.168.50.6 'cat /var/lib/sops-nix/key.txt'
+
+# Check public key matches
+age-keygen -y /var/lib/sops-nix/key.txt
+# Compare with .sops.yaml
+
+# Try decrypting manually
+sops -d secrets/atuin-password.txt
+#+end_src
+
+* Common Tasks
+
+** Adding a New Service
+
+See "Quick Start" section above.
+
+** Updating All Servers
+
+#+begin_src bash
+# Update flake inputs
+nix flake update
+
+# Test on test server first
+colmena apply --on @test
+
+# If successful, deploy to production
+colmena apply --on @production
+
+# Or all at once
+colmena apply
+#+end_src
+
+** Checking Server Status
+
+#+begin_src bash
+# Quick health check
+colmena exec -- 'echo "$(hostname): $(systemctl is-system-running)"'
+
+# Check specific service across all servers
+colmena exec -- systemctl status atuin-auto-login
+
+# Check disk usage
+colmena exec -- df -h /
+
+# Check memory
+colmena exec -- free -h
+#+end_src
+
+** Backing Up Server Configurations
+
+All configuration is in Git:
+
+#+begin_src bash
+# Commit changes
+git add .
+git commit -m "Update server configs"
+git push
+
+# Configuration is backed up!
+#+end_src
+
+For Proxmox LXC data:
+
+#+begin_src bash
+# Backup on Proxmox
+ssh root@proxmox.home.lan
+
+# Create backup
+vzdump 111 --mode snapshot --compress zstd --storage local
+
+# List backups
+pvesm list local | grep vzdump
+#+end_src
+
+** Rollback Failed Deployment
+
+#+begin_src bash
+# Rollback on specific server
+ssh nixadm@192.168.50.6
+sudo nixos-rebuild switch --rollback
+exit
+
+# Or via Colmena
+colmena exec --on nixos-test -- sudo nixos-rebuild switch --rollback
+#+end_src
+
+** Decommissioning a Server
+
+#+begin_src bash
+# 1. Remove from colmena.nix
+vim colmena.nix
+# Delete server entry
+
+# 2. Commit changes
+git add colmena.nix
+git commit -m "Remove old-server"
+git push
+
+# 3. Destroy on Proxmox
+ssh root@proxmox.home.lan
+pct stop 111
+pct destroy 111
+
+# 4. Remove DNS (optional)
+# Delete A record in FreeIPA
+
+# 5. Clean up host directory (optional)
+rm -rf hosts/servers/old-server/
+git add hosts/servers/
+git commit -m "Clean up old-server configuration"
+#+end_src
+
+* Advanced Topics
+
+** Multi-Architecture Support
+
+To support ARM (e.g., Raspberry Pi):
+
+#+begin_src nix
+# In colmena.nix
+walthipi = {
+  deployment = {
+    targetHost = "192.168.50.50";
+    targetUser = "nixadm";
+    tags = [ "production" "arm" ];
+  };
+  imports = [ ./hosts/servers/walthipi ];
+  
+  # Override nixpkgs for ARM
+  nixpkgs.system = "aarch64-linux";
+};
+#+end_src
+
+** Custom Deployment Scripts
+
+Add to ~scripts/~:
+
+#+begin_src bash
+#!/usr/bin/env bash
+# scripts/deploy-production.sh
+set -e
+
+echo "Deploying to production servers..."
+
+# Deploy to test first
+echo "Testing on test servers..."
+colmena apply --on @test --confirm
+
+# Confirm for production
+read -p "Deploy to production? (y/N) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+  colmena apply --on @production
+  echo "Production deployment complete!"
+fi
+#+end_src
+
+** Monitoring Integration
+
+Add to ~base-lxc.nix~ for Prometheus node_exporter:
+
+#+begin_src nix
+# modules/servers/base-lxc.nix
+services.prometheus.exporters.node = {
+  enable = true;
+  port = 9100;
+  enabledCollectors = [ "systemd" ];
+};
+
+networking.firewall.allowedTCPPorts = [ 9100 ];
+#+end_src
+
+** Automated Backups
+
+Create backup role:
+
+#+begin_src nix
+# modules/servers/roles/backup.nix
+{ config, lib, pkgs, ... }:
+
+with lib;
+let
+  cfg = config.services.server-role.backup;
+in {
+  options.services.server-role.backup = {
+    enable = mkEnableOption "automated backups";
+    destination = mkOption {
+      type = types.str;
+      description = "Backup destination";
+    };
+  };
+
+  config = mkIf cfg.enable {
+    services.restic.backups.system = {
+      repository = cfg.destination;
+      passwordFile = config.sops.secrets.restic-password.path;
+      paths = [ "/var/lib" "/etc/nixos" ];
+      timerConfig = {
+        OnCalendar = "daily";
+        Persistent = true;
+      };
+    };
+  };
+}
+#+end_src
+
+* Troubleshooting
+
+** Template Issues
+
+*** Template doesn't exist
+
+#+begin_src bash
+# List templates on Proxmox
+ssh root@proxmox.home.lan pct list | grep template
+
+# Recreate if missing (see "Recreating the Template")
+#+end_src
+
+*** New server can't decrypt secrets
+
+#+begin_src bash
+# Verify key exists and matches
+ssh nixadm@192.168.50.11 'sudo cat /var/lib/sops-nix/key.txt'
+age-keygen -y - < /tmp/key.txt
+# Compare with .sops.yaml servers-shared key
+
+# If different, copy from template
+ssh root@proxmox.home.lan
+pct mount 9000
+cat /var/lib/lxc/9000/rootfs/var/lib/sops-nix/key.txt
+# Copy this to the new server
+#+end_src
+
+** Network Issues
+
+*** Server not reachable
+
+#+begin_src bash
+# Check from Proxmox
+ssh root@proxmox.home.lan
+pct exec 111 -- ip addr
+pct exec 111 -- ping 8.8.8.8
+
+# Check network config in NixOS
+ssh nixadm@192.168.50.11
+ip addr
+cat /etc/resolv.conf
+#+end_src
+
+*** DNS not resolving
+
+#+begin_src bash
+# Verify FreeIPA DNS
+dig @192.168.50.1 actual.home.lan
+
+# Check server's resolv.conf
+ssh nixadm@192.168.50.11 cat /etc/resolv.conf
+# Should have: nameserver 192.168.50.1
+
+# Verify base-lxc.nix settings
+cat modules/servers/base-lxc.nix | grep nameservers
+#+end_src
+
+** Service Issues
+
+*** Service won't start
+
+#+begin_src bash
+# Check service status
+ssh nixadm@192.168.50.11
+systemctl status actual-budget
+journalctl -u actual-budget -n 100
+
+# Check service definition
+systemctl cat actual-budget
+
+# Try manual start
+sudo systemctl restart actual-budget
+#+end_src
+
+*** Port already in use
+
+#+begin_src bash
+# Check what's using the port
+ssh nixadm@192.168.50.11
+sudo ss -tlnp | grep :5006
+
+# Kill the process or change port in config
+#+end_src
+
+** General Debugging
+
+#+begin_src bash
+# Check system journal for errors
+ssh nixadm@SERVER journalctl -b 0 --no-pager | grep -i error
+
+# Check failed services
+ssh nixadm@SERVER systemctl --failed
+
+# Check last boot
+ssh nixadm@SERVER journalctl -b -1
+
+# Rebuild verbosely
+ssh nixadm@SERVER
+sudo nixos-rebuild switch --flake /etc/nixos#HOSTNAME --show-trace
+#+end_src
+
+* Best Practices
+
+** Development Workflow
+
+1. *Make changes in Git*
+2. *Test on @test servers first*
+3. *Review logs and verify*
+4. *Deploy to @production*
+5. *Commit and push*
+
+** Security
+
+- ✅ Never commit decrypted secrets
+- ✅ Always use SOPS for sensitive data
+- ✅ Keep SSH keys secure
+- ✅ Regularly update packages
+- ✅ Monitor logs for suspicious activity
+
+** Maintenance
+
+- ✅ Update flake weekly (~nix flake update~)
+- ✅ Test updates on @test first
+- ✅ Run garbage collection monthly
+- ✅ Keep documentation up to date
+- ✅ Backup Proxmox containers regularly
+
+** Organization
+
+- ✅ One role module per service
+- ✅ Keep base-lxc.nix minimal
+- ✅ Use meaningful hostnames
+- ✅ Tag servers appropriately
+- ✅ Document non-obvious configurations
+
+* Resources
+
+** Documentation
+- [[file:../README.org][Main README]]
+- [[file:../REFACTOR.md][Refactoring Documentation]]
+- [[https://colmena.cli.rs/][Colmena Manual]]
+- [[https://nixos.org/manual/nixos/stable/][NixOS Manual]]
+- [[https://github.com/Mic92/sops-nix][sops-nix Documentation]]
+
+** Scripts
+- ~scripts/create-server-from-template.sh~ - Create new server
+- ~scripts/update-template.sh~ - Update base template (create this!)
+- ~scripts/deploy-production.sh~ - Safe production deployment (create this!)
+
+** Configuration Files
+- ~colmena.nix~ - Deployment targets
+- ~.sops.yaml~ - Secret encryption rules
+- ~modules/servers/base-lxc.nix~ - Base configuration
+- ~modules/servers/roles/*.nix~ - Service modules
+
+* Appendix
+
+** Complete Server Checklist
+
+When deploying a new server:
+
+- [ ] Create LXC from template (~./scripts/create-server-from-template.sh~)
+- [ ] Add to ~colmena.nix~ with appropriate tags
+- [ ] Create ~hosts/servers/NAME/configuration.nix~
+- [ ] Create ~hosts/servers/NAME/hardware-configuration.nix~
+- [ ] Create role module if new service (~modules/servers/roles/~)
+- [ ] Add secrets if needed (~sops secrets/NAME-*.txt~)
+- [ ] Update ~.sops.yaml~ with secret rules
+- [ ] Test deployment: ~colmena apply --on NAME --verbose~
+- [ ] Verify service: ~ssh nixadm@IP 'systemctl status SERVICE'~
+- [ ] Add DNS record in FreeIPA
+- [ ] Configure reverse proxy in Caddy
+- [ ] Test HTTPS access
+- [ ] Commit and push to Git
+- [ ] Update documentation
+
+** Role Module Template
+
+#+begin_src nix
+{ config, lib, pkgs, ... }:
+
+with lib;
+let
+  cfg = config.services.server-role.SERVICE_NAME;
+in {
+  options.services.server-role.SERVICE_NAME = {
+    enable = mkEnableOption "SERVICE_NAME role";
+    
+    port = mkOption {
+      type = types.port;
+      default = 8080;
+      description = "Port to run SERVICE_NAME on";
+    };
+    
+    dataDir = mkOption {
+      type = types.path;
+      default = "/var/lib/SERVICE_NAME";
+      description = "Data directory";
+    };
+  };
+
+  config = mkIf cfg.enable {
+    # Open firewall
+    networking.firewall.allowedTCPPorts = [ cfg.port ];
+    
+    # Create data directory
+    systemd.tmpfiles.rules = [
+      "d ${cfg.dataDir} 0755 SERVICE_NAME SERVICE_NAME -"
+    ];
+    
+    # User and group
+    users.users.SERVICE_NAME = {
+      isSystemUser = true;
+      group = "SERVICE_NAME";
+      home = cfg.dataDir;
+    };
+    users.groups.SERVICE_NAME = {};
+    
+    # Service
+    systemd.services.SERVICE_NAME = {
+      description = "SERVICE_NAME Service";
+      after = [ "network.target" ];
+      wantedBy = [ "multi-user.target" ];
+      
+      serviceConfig = {
+        Type = "simple";
+        User = "SERVICE_NAME";
+        Group = "SERVICE_NAME";
+        WorkingDirectory = cfg.dataDir;
+        ExecStart = "${pkgs.SERVICE_NAME}/bin/SERVICE_NAME";
+        Restart = "on-failure";
+        RestartSec = "10s";
+      };
+    };
+  };
+}
+#+end_src
+
+** Server Configuration Template
+
+#+begin_src nix
+{...}: {
+  imports = [
+    ./hardware-configuration.nix
+    ../../../modules/servers/base-lxc.nix
+    ../../../modules/servers/roles/SERVICE_NAME.nix
+  ];
+
+  networking.hostName = "HOSTNAME";
+  system.stateVersion = "25.11";
+
+  services.server-role.SERVICE_NAME = {
+    enable = true;
+    port = 8080;
+    dataDir = "/var/lib/SERVICE_NAME";
+  };
+}
+#+end_src
