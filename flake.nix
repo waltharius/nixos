@@ -108,7 +108,7 @@
         ];
       };
 
-    mkServer = hostname: ip:
+    mkServer = hostname:
       nixpkgs.lib.nixosSystem {
         inherit system;
         modules = [
