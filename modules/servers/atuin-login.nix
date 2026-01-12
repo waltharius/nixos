@@ -7,8 +7,8 @@
 with lib; let
   cfg = config.services.atuin-auto-login;
 
-  # Secure wrapper that feeds password via here-string (works in systemd)
-  atuin-login-wrapper = pkgs.writeShellScript "atuin-login-wrapper" ''
+  # Use expect to automate interactive login
+  atuin-login-expect = pkgs.writeShellScript "atuin-login-expect" ''
     set -euo pipefail
 
     if [ -z "''${CREDENTIALS_DIRECTORY:-}" ]; then
@@ -30,18 +30,37 @@ with lib; let
       exit 0
     fi
 
-    echo "Logging in to Atuin server..."
+    echo "Logging in to Atuin server using expect..."
 
-    # Read credentials into variables
+    # Read credentials
     ATUIN_PASSWORD=$(cat "$PASSWORD_FILE")
     ATUIN_KEY=$(cat "$KEY_FILE")
 
-    # Use here-string to feed password to stdin
-    # This works even when stdin is closed by systemd
-    ${pkgs.atuin}/bin/atuin login \
-      --username "${cfg.username}" \
-      --key "$ATUIN_KEY" \
-      <<< "$ATUIN_PASSWORD"
+    # Use expect to automate the interactive login
+    ${pkgs.expect}/bin/expect -c "
+      set timeout 30
+
+      spawn ${pkgs.atuin}/bin/atuin login --username ${cfg.username}
+
+      expect {
+        -re {password.*:} {
+          send \"$ATUIN_PASSWORD\r\"
+          exp_continue
+        }
+        -re {key.*:} {
+          send \"$ATUIN_KEY\r\"
+          exp_continue
+        }
+        eof {
+          catch wait result
+          exit [lindex \$result 3]
+        }
+        timeout {
+          puts \"ERROR: Login timed out\"
+          exit 1
+        }
+      }
+    "
 
     if [ $? -eq 0 ]; then
       echo "Successfully logged in to Atuin"
@@ -63,13 +82,13 @@ in {
 
     username = mkOption {
       type = types.str;
-      default = "nixadm";
+      default = "admin";
       description = "Atuin server username";
     };
   };
 
   config = mkIf cfg.enable {
-    environment.systemPackages = [pkgs.atuin];
+    environment.systemPackages = [pkgs.atuin pkgs.expect];
 
     systemd.services.atuin-auto-login = {
       description = "Auto-login to Atuin server";
@@ -100,7 +119,7 @@ in {
         StandardOutput = "journal";
         StandardError = "journal";
 
-        ExecStart = "${atuin-login-wrapper}";
+        ExecStart = "${atuin-login-expect}";
       };
     };
   };
