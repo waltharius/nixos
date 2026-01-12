@@ -166,7 +166,6 @@ in {
       wget
       rclone
       rclone-ui
-      bind
       dig
 
       # Nix tools
