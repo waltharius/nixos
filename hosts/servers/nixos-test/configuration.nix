@@ -7,8 +7,9 @@
   imports = [
     "${modulesPath}/virtualisation/proxmox-lxc.nix"
     ../../../modules/system/certificates.nix
-    ../../../modules/system/secrets.nix       # SOPS secrets management
-    ../../../modules/servers/users.nix        # Add nixadm user
+    ../../../modules/system/secrets.nix
+    ../../../modules/servers/users.nix
+    ../../../modules/servers/atuin-login.nix
   ];
 
   system.stateVersion = "25.11";
@@ -16,26 +17,33 @@
   # Enable SOPS secrets with Atuin credentials
   services.secrets = {
     enable = true;
-    enableAtuin = true;  # Decrypt Atuin password and encryption key
+    enableAtuin = true; # Decrypt Atuin password and encryption key
+  };
+
+  # Enable automatic Atuin Atuin login
+  services.atuin-auto-login = {
+    enable = true;
+    user = "nixadm";
+    username = "admin";
   };
 
   # Nix settings for remote deployment
   nix.settings = {
     experimental-features = ["nix-command" "flakes"];
-    
+
     # Trust nixadm and wheel group for Colmena deployments
     # This allows copying store paths without signature verification
-    trusted-users = [ "nixadm" "root" "@wheel" ];
-    
+    trusted-users = ["nixadm" "root" "@wheel"];
+
     # Disable sandbox in LXC containers (kernel namespace limitations)
     sandbox = false;
   };
 
   networking = {
     hostName = "nixos-test";
-    domain = "home.lan";  # DNS integration with FreeIPA
-    search = [ "home.lan" ];
-    nameservers = [ "192.168.50.1" ];  # FreeIPA DNS
+    domain = "home.lan"; # DNS integration with FreeIPA
+    search = ["home.lan"];
+    nameservers = ["192.168.50.1"]; # FreeIPA DNS
     useDHCP = lib.mkDefault true;
     firewall.enable = true;
     firewall.allowedTCPPorts = [22];
@@ -46,7 +54,7 @@
     enable = true;
     dnssec = "false";
     domains = ["home.lan"];
-    fallbackDns = ["9.9.9.9"];  # Quad9 fallback
+    fallbackDns = ["9.9.9.9"]; # Quad9 fallback
     extraConfig = ''
       [Resolve]
       DNS=192.168.50.1
@@ -65,9 +73,9 @@
     curl
     htop
     bind
-    eza       # Modern ls replacement
-    zoxide    # Smart cd
-    starship  # Customizable prompt
+    eza # Modern ls replacement
+    zoxide # Smart cd
+    starship # Customizable prompt
   ];
 
   # SSH configuration (managed by users.nix module)
