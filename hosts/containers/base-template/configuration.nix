@@ -22,7 +22,11 @@
   system.stateVersion = "25.11";
 
   # Enable flakes for remote management
-  nix.settings.experimental-features = ["nix-command" "flakes"];
+  nix.settings = {
+    experimental-features = ["nix-command" "flakes"];
+    sandbox = false;
+    trusted-users = ["root" "nixadm" "@wheel"];
+  };
 
   # Network configuration
   # Proxmox will handle the actual network setup, but we need basic settings
@@ -76,7 +80,7 @@
   };
 
   # Optional: Create a non-root user for better security
-  users.users.nixos = {
+  users.users.nixadm = {
     isNormalUser = true;
     extraGroups = ["wheel"]; # Enable sudo
     openssh.authorizedKeys.keys = [
