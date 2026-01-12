@@ -1,0 +1,1058 @@
+#+TITLE: Deploying Nextcloud Server - Complete Example
+#+AUTHOR: Marcin
+#+DATE: 2026-01-13
+#+OPTIONS: toc:2 num:nil
+
+* Overview
+
+This document walks through deploying a complete Nextcloud server with all dependencies as a real-world test of the server infrastructure.
+
+** Server Purpose
+
+*Hostname:* ~cloud-server~  
+*IP:* ~192.168.50.20~  
+*Container ID:* ~120~
+
+** Services on This Server
+
+| Service    | Purpose                    | Port | User     |
+|------------+----------------------------+------+----------|
+| Nextcloud  | File sync and collaboration| 8080 | nextcloud|
+| MariaDB    | Database backend           | 3306 | mysql    |
+| Syncthing  | Alternative file sync      | 8384 | syncthing|
+| Redis      | Nextcloud caching          | 6379 | redis    |
+
+** Architecture Decision
+
+We'll create:
+1. *One role module* for Nextcloud (includes MariaDB, Redis as dependencies)
+2. *Separate role module* for Syncthing (reusable for other servers)
+3. *Server combines both roles*
+
+This tests the multi-role pattern.
+
+* Phase 1: Planning
+
+** Prerequisites Check
+
+#+begin_src bash
+# 1. Template exists
+ssh root@proxmox.home.lan pct list | grep template
+# Should show: 9000
+
+# 2. IP not in use
+ping -c 1 192.168.50.20
+# Should fail (host not reachable)
+
+# 3. Container ID available
+ssh root@proxmox.home.lan pct list | grep 120
+# Should return nothing
+
+# 4. DNS not already configured
+dig cloud.home.lan
+# Should return NXDOMAIN or no answer
+#+end_src
+
+** Resource Planning
+
+Nextcloud + MariaDB needs more resources than minimal LXC:
+
+| Resource | Default | Nextcloud | Reason                    |
+|----------+---------+-----------+---------------------------|
+| RAM      | 512 MB  | 4 GB      | Database + PHP + caching  |
+| Disk     | 8 GB    | 50 GB     | User files storage        |
+| CPU      | 1 core  | 2 cores   | Background jobs           |
+
+** Security Planning
+
+Secrets needed:
+- ~nextcloud-admin-password.txt~ - Nextcloud admin password
+- ~nextcloud-db-password.txt~ - MariaDB password for Nextcloud
+- ~nextcloud-db-root-password.txt~ - MariaDB root password
+
+* Phase 2: Create Infrastructure
+
+** Step 1: Create LXC Container
+
+#+begin_src bash
+# On your workstation
+cd ~/nixos
+
+# Create container with custom resources
+ssh root@proxmox.home.lan << 'EOF'
+# Clone from template
+pct clone 9000 120 \
+  --full 1 \
+  --hostname cloud-server \
+  --description "Nextcloud + Syncthing Server" \
+  --storage local-lvm
+
+# Configure network
+pct set 120 --net0 name=eth0,bridge=vmbr0,ip=192.168.50.20/24,gw=192.168.50.1
+
+# Set resources (more than default!)
+pct set 120 \
+  --cores 2 \
+  --memory 4096 \
+  --swap 1024
+
+# Resize disk to 50GB
+pct resize 120 rootfs 50G
+
+# Start container
+pct start 120
+EOF
+
+# Wait for boot
+sleep 15
+
+# Test SSH access
+ssh nixadm@192.168.50.20
+# Should work!
+exit
+#+end_src
+
+** Step 2: Add to Colmena
+
+Edit ~colmena.nix~:
+
+#+begin_src nix
+# Add after actual-budget
+cloud-server = mkServerDeployment "cloud-server" "192.168.50.20" ["production" "lxc" "cloud"];
+#+end_src
+
+Commit:
+#+begin_src bash
+git add colmena.nix
+git commit -m "Add cloud-server to Colmena"
+#+end_src
+
+** Step 3: Create Secrets
+
+#+begin_src bash
+# Generate strong passwords
+ADMIN_PASS=$(openssl rand -base64 32)
+DB_PASS=$(openssl rand -base64 32)
+DB_ROOT_PASS=$(openssl rand -base64 32)
+
+# Store in password manager or temporary file
+echo "Nextcloud Admin: $ADMIN_PASS"
+echo "DB Password: $DB_PASS"
+echo "DB Root: $DB_ROOT_PASS"
+
+# Create SOPS secrets
+echo -n "$ADMIN_PASS" | sops -e /dev/stdin > secrets/nextcloud-admin-password.txt
+echo -n "$DB_PASS" | sops -e /dev/stdin > secrets/nextcloud-db-password.txt
+echo -n "$DB_ROOT_PASS" | sops -e /dev/stdin > secrets/nextcloud-db-root-password.txt
+
+# Verify encryption
+sops -d secrets/nextcloud-admin-password.txt
+# Should show your password
+
+# Clean up variables
+unset ADMIN_PASS DB_PASS DB_ROOT_PASS
+#+end_src
+
+** Step 4: Update .sops.yaml
+
+Edit ~.sops.yaml~:
+
+#+begin_src yaml
+# Add to creation_rules
+  # Nextcloud secrets - cloud-server only
+  - path_regex: secrets/nextcloud-.*\.txt$
+    key_groups:
+      - age:
+          - *admin
+          - *servers-shared
+#+end_src
+
+Verify:
+#+begin_src bash
+# Re-encrypt to test
+sops updatekeys secrets/nextcloud-*.txt
+
+# Test decryption
+sops -d secrets/nextcloud-admin-password.txt
+#+end_src
+
+* Phase 3: Create Role Modules
+
+** Step 1: Create Nextcloud Role
+
+Create ~modules/servers/roles/nextcloud.nix~:
+
+#+begin_src nix
+{ config, lib, pkgs, ... }:
+
+with lib;
+let
+  cfg = config.services.server-role.nextcloud;
+in {
+  options.services.server-role.nextcloud = {
+    enable = mkEnableOption "Nextcloud role with MariaDB and Redis";
+    
+    hostName = mkOption {
+      type = types.str;
+      default = "cloud.home.lan";
+      description = "Hostname for Nextcloud";
+    };
+    
+    dataDir = mkOption {
+      type = types.path;
+      default = "/var/lib/nextcloud";
+      description = "Nextcloud data directory";
+    };
+    
+    maxUploadSize = mkOption {
+      type = types.str;
+      default = "512M";
+      description = "Maximum upload size";
+    };
+  };
+
+  config = mkIf cfg.enable {
+    # SOPS secrets
+    sops.secrets = {
+      nextcloud-admin-password = {
+        sopsFile = ../../../secrets/nextcloud-admin-password.txt;
+        format = "binary";
+        owner = "nextcloud";
+        group = "nextcloud";
+        mode = "0400";
+      };
+      nextcloud-db-password = {
+        sopsFile = ../../../secrets/nextcloud-db-password.txt;
+        format = "binary";
+        owner = "nextcloud";
+        group = "nextcloud";
+        mode = "0400";
+      };
+      nextcloud-db-root-password = {
+        sopsFile = ../../../secrets/nextcloud-db-root-password.txt;
+        format = "binary";
+        owner = "mysql";
+        group = "mysql";
+        mode = "0400";
+      };
+    };
+
+    # MariaDB database
+    services.mysql = {
+      enable = true;
+      package = pkgs.mariadb;
+      
+      # Create database and user for Nextcloud
+      ensureDatabases = [ "nextcloud" ];
+      ensureUsers = [
+        {
+          name = "nextcloud";
+          ensurePermissions = {
+            "nextcloud.*" = "ALL PRIVILEGES";
+          };
+        }
+      ];
+      
+      # Performance tuning for Nextcloud
+      settings = {
+        mysqld = {
+          innodb_buffer_pool_size = "1G";
+          innodb_log_file_size = "256M";
+          max_connections = 200;
+        };
+      };
+    };
+
+    # Redis for caching
+    services.redis.servers.nextcloud = {
+      enable = true;
+      port = 6379;
+      bind = "127.0.0.1";
+    };
+
+    # Nextcloud itself
+    services.nextcloud = {
+      enable = true;
+      package = pkgs.nextcloud29;
+      
+      hostName = cfg.hostName;
+      
+      # Database configuration
+      database.createLocally = false;  # We manage it ourselves
+      config = {
+        dbtype = "mysql";
+        dbname = "nextcloud";
+        dbuser = "nextcloud";
+        dbhost = "localhost";
+        dbpassFile = config.sops.secrets.nextcloud-db-password.path;
+        
+        adminuser = "admin";
+        adminpassFile = config.sops.secrets.nextcloud-admin-password.path;
+      };
+      
+      # PHP settings
+      phpOptions = {
+        upload_max_filesize = cfg.maxUploadSize;
+        post_max_size = cfg.maxUploadSize;
+        memory_limit = "512M";
+      };
+      
+      # Enable apps
+      extraApps = with pkgs.nextcloud29Packages.apps; {
+        inherit calendar contacts mail notes tasks;
+      };
+      extraAppsEnable = true;
+      
+      # Redis caching
+      configureRedis = true;
+      
+      # Cron jobs
+      autoUpdateApps.enable = true;
+      autoUpdateApps.startAt = "05:00:00";
+    };
+
+    # Nginx reverse proxy (Nextcloud includes this)
+    services.nginx.virtualHosts.${cfg.hostName} = {
+      # Additional nginx settings if needed
+      extraConfig = ''
+        client_max_body_size ${cfg.maxUploadSize};
+      '';
+    };
+
+    # Open firewall
+    networking.firewall.allowedTCPPorts = [ 80 443 ];
+
+    # Systemd service to set MariaDB password
+    # This runs once to initialize the database
+    systemd.services.mysql-init-nextcloud = {
+      description = "Initialize MariaDB for Nextcloud";
+      after = [ "mysql.service" ];
+      requires = [ "mysql.service" ];
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+      script = ''
+        # Wait for MySQL to be ready
+        while ! ${pkgs.mariadb}/bin/mysqladmin ping -h localhost --silent; do
+          sleep 1
+        done
+        
+        # Set root password if not already set
+        if ${pkgs.mariadb}/bin/mysql -u root -e "SELECT 1" &>/dev/null; then
+          ROOT_PASS=$(cat ${config.sops.secrets.nextcloud-db-root-password.path})
+          ${pkgs.mariadb}/bin/mysql -u root << EOF
+ALTER USER 'root'@'localhost' IDENTIFIED BY '$ROOT_PASS';
+FLUSH PRIVILEGES;
+EOF
+        fi
+        
+        # Set nextcloud user password
+        DB_PASS=$(cat ${config.sops.secrets.nextcloud-db-password.path})
+        ${pkgs.mariadb}/bin/mysql -u root << EOF
+ALTER USER 'nextcloud'@'localhost' IDENTIFIED BY '$DB_PASS';
+FLUSH PRIVILEGES;
+EOF
+      '';
+    };
+  };
+}
+#+end_src
+
+** Step 2: Create Syncthing Role
+
+Create ~modules/servers/roles/syncthing.nix~:
+
+#+begin_src nix
+{ config, lib, pkgs, ... }:
+
+with lib;
+let
+  cfg = config.services.server-role.syncthing;
+in {
+  options.services.server-role.syncthing = {
+    enable = mkEnableOption "Syncthing role";
+    
+    user = mkOption {
+      type = types.str;
+      default = "syncthing";
+      description = "User to run Syncthing as";
+    };
+    
+    dataDir = mkOption {
+      type = types.path;
+      default = "/var/lib/syncthing";
+      description = "Syncthing data directory";
+    };
+    
+    openFirewall = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Open firewall for Syncthing";
+    };
+  };
+
+  config = mkIf cfg.enable {
+    services.syncthing = {
+      enable = true;
+      user = cfg.user;
+      dataDir = cfg.dataDir;
+      configDir = "${cfg.dataDir}/.config/syncthing";
+      
+      # Web UI
+      guiAddress = "0.0.0.0:8384";
+      
+      # Allow from any host (will be behind reverse proxy)
+      settings = {
+        gui = {
+          insecureSkipHostcheck = true;  # Behind reverse proxy
+        };
+      };
+      
+      overrideDevices = true;
+      overrideFolders = true;
+    };
+
+    # Create user if needed
+    users.users.${cfg.user} = mkIf (cfg.user == "syncthing") {
+      isSystemUser = true;
+      group = cfg.user;
+      home = cfg.dataDir;
+      createHome = true;
+    };
+    users.groups.${cfg.user} = mkIf (cfg.user == "syncthing") {};
+
+    # Open firewall
+    networking.firewall = mkIf cfg.openFirewall {
+      allowedTCPPorts = [ 
+        8384  # Web UI
+        22000 # Sync protocol
+      ];
+      allowedUDPPorts = [ 
+        22000 # Sync protocol
+        21027 # Discovery
+      ];
+    };
+  };
+}
+#+end_src
+
+* Phase 4: Create Server Configuration
+
+** Step 1: Create Host Directory
+
+#+begin_src bash
+mkdir -p hosts/servers/cloud-server
+#+end_src
+
+** Step 2: Create configuration.nix
+
+Create ~hosts/servers/cloud-server/configuration.nix~:
+
+#+begin_src nix
+{...}: {
+  imports = [
+    ./hardware-configuration.nix
+    ../../../modules/servers/base-lxc.nix
+    ../../../modules/servers/roles/nextcloud.nix
+    ../../../modules/servers/roles/syncthing.nix
+  ];
+
+  networking.hostName = "cloud-server";
+  system.stateVersion = "25.11";
+
+  # Enable both roles
+  services.server-role = {
+    nextcloud = {
+      enable = true;
+      hostName = "cloud.home.lan";
+      maxUploadSize = "2G";  # Allow 2GB uploads
+    };
+    
+    syncthing = {
+      enable = true;
+      user = "nextcloud";  # Share files with Nextcloud user
+      dataDir = "/var/lib/nextcloud/syncthing";
+    };
+  };
+
+  # Additional packages for management
+  environment.systemPackages = with pkgs; [
+    mariadb  # For mysql CLI
+    redis    # For redis-cli
+  ];
+}
+#+end_src
+
+** Step 3: Create hardware-configuration.nix
+
+Create ~hosts/servers/cloud-server/hardware-configuration.nix~:
+
+#+begin_src nix
+{...}: {
+  # LXC container - simple filesystem
+  fileSystems."/" = {
+    device = "/dev/sda";
+    fsType = "ext4";
+  };
+  
+  # No swap needed (handled by Proxmox)
+  swapDevices = [];
+}
+#+end_src
+
+* Phase 5: Deploy and Test
+
+** Step 1: Syntax Check
+
+#+begin_src bash
+# Check flake syntax
+nix flake check
+
+# Expected issues to watch for:
+# - SOPS secret paths
+# - Module import paths
+# - Syntax errors in role modules
+#+end_src
+
+** Step 2: Commit Changes
+
+#+begin_src bash
+git add .
+git status
+# Review all changes
+
+git commit -m "Add cloud-server with Nextcloud and Syncthing roles"
+#+end_src
+
+** Step 3: Deploy with Colmena
+
+#+begin_src bash
+# Deploy with verbose output
+colmena apply --on cloud-server --verbose
+
+# Watch for errors:
+# - SOPS decryption failures
+# - Service start failures
+# - Database initialization issues
+# - Port conflicts
+#+end_src
+
+** Step 4: Verify Services
+
+#+begin_src bash
+# SSH to server
+ssh nixadm@192.168.50.20
+
+# Check all services are running
+sudo systemctl status mysql
+sudo systemctl status redis-nextcloud
+sudo systemctl status phpfpm-nextcloud
+sudo systemctl status nginx
+sudo systemctl status syncthing
+
+# Check for failed services
+systemctl --failed
+
+# Check MySQL
+sudo mysql -u root -p$(sudo cat /run/secrets/nextcloud-db-root-password) -e "SHOW DATABASES;"
+# Should show: nextcloud database
+
+# Check Redis
+redis-cli ping
+# Should return: PONG
+
+# Check Nextcloud
+curl -I http://localhost
+# Should return: HTTP/1.1 302 Found (redirect to /index.php)
+
+# Check Syncthing
+curl -I http://localhost:8384
+# Should return: HTTP/1.1 200 OK
+
+# Exit
+exit
+#+end_src
+
+** Step 5: Check Logs
+
+#+begin_src bash
+# View Nextcloud logs
+ssh nixadm@192.168.50.20 'sudo journalctl -u phpfpm-nextcloud -n 50'
+
+# View MySQL logs
+ssh nixadm@192.168.50.20 'sudo journalctl -u mysql -n 50'
+
+# View nginx logs
+ssh nixadm@192.168.50.20 'sudo journalctl -u nginx -n 50'
+
+# Check for errors
+ssh nixadm@192.168.50.20 'sudo journalctl -p err -n 100'
+#+end_src
+
+* Phase 6: External Access Configuration
+
+** Step 1: Add DNS Record
+
+In FreeIPA web UI (https://ipa.home.lan):
+
+1. Navigate to *Network Services* → *DNS* → *DNS Zones* → ~home.lan~
+2. Click *Add*
+3. Fill in:
+   - Record name: ~cloud~
+   - Record type: ~A~
+   - IP address: ~192.168.50.20~
+4. Click *Add*
+
+Test:
+#+begin_src bash
+dig cloud.home.lan
+# Should return: 192.168.50.20
+
+ping cloud.home.lan
+# Should respond
+#+end_src
+
+** Step 2: Request SSL Certificate from FreeIPA
+
+On your Caddy server:
+
+#+begin_src bash
+# Create service principal
+ipa service-add HTTP/cloud.home.lan
+
+# Generate private key
+sudo mkdir -p /etc/ssl/local
+sudo openssl genrsa -out /etc/ssl/local/cloud.key 2048
+
+# Generate CSR
+sudo openssl req -new \
+  -key /etc/ssl/local/cloud.key \
+  -out /tmp/cloud.csr \
+  -subj "/CN=cloud.home.lan"
+
+# Request certificate from FreeIPA
+CERT_ID=$(ipa cert-request /tmp/cloud.csr --principal=HTTP/cloud.home.lan | grep "Certificate ID" | awk '{print $3}')
+
+# Get the certificate
+ipa cert-show $CERT_ID --out=/etc/ssl/local/cloud.crt
+
+# Set permissions
+sudo chown root:root /etc/ssl/local/cloud.{key,crt}
+sudo chmod 600 /etc/ssl/local/cloud.key
+sudo chmod 644 /etc/ssl/local/cloud.crt
+
+# Verify files
+ls -l /etc/ssl/local/cloud.*
+#+end_src
+
+** Step 3: Configure Caddy Reverse Proxy
+
+Edit ~/etc/caddy/Caddyfile~ on your Caddy server:
+
+#+begin_src caddyfile
+# Nextcloud
+cloud.home.lan:443 {
+    tls /etc/ssl/local/cloud.crt /etc/ssl/local/cloud.key
+    
+    # Reverse proxy to Nextcloud
+    reverse_proxy 192.168.50.20:80
+    
+    # Nextcloud requires these headers
+    header {
+        # HSTS
+        Strict-Transport-Security "max-age=31536000;"
+    }
+}
+
+# Syncthing Web UI
+sync.home.lan:443 {
+    tls /etc/ssl/local/sync.crt /etc/ssl/local/sync.key
+    reverse_proxy 192.168.50.20:8384
+}
+#+end_src
+
+Reload Caddy:
+#+begin_src bash
+sudo systemctl reload caddy
+#+end_src
+
+** Step 4: Configure Nextcloud Trusted Domains
+
+SSH to cloud-server and add trusted domain:
+
+#+begin_src bash
+ssh nixadm@192.168.50.20
+
+# Add trusted domain
+sudo nextcloud-occ config:system:set trusted_domains 1 --value=cloud.home.lan
+
+# Verify
+sudo nextcloud-occ config:system:get trusted_domains
+
+# Exit
+exit
+#+end_src
+
+* Phase 7: Testing and Validation
+
+** Functional Tests
+
+#+begin_src bash
+# Test Nextcloud web interface
+firefox https://cloud.home.lan
+# Should show Nextcloud login page
+# Login with: admin / (password from SOPS secret)
+
+# Test Syncthing web interface
+firefox https://sync.home.lan
+# Should show Syncthing dashboard
+
+# Test file upload
+# 1. Login to Nextcloud
+# 2. Upload a test file
+# 3. Verify it appears in Files app
+
+# Test from mobile device or other computer
+# Should be accessible from entire home network
+#+end_src
+
+** Performance Tests
+
+#+begin_src bash
+# Check resource usage
+ssh nixadm@192.168.50.20 'htop'
+# Watch CPU, RAM usage
+# Press q to quit
+
+# Check database performance
+ssh nixadm@192.168.50.20 'sudo mysqltuner'
+
+# Check disk usage
+ssh nixadm@192.168.50.20 'df -h'
+#+end_src
+
+** Security Tests
+
+#+begin_src bash
+# Verify HTTPS is working
+curl -I https://cloud.home.lan
+# Should return: HTTP/2 200
+
+# Check SSL certificate
+openssl s_client -connect cloud.home.lan:443 -showcerts
+# Verify it's from FreeIPA CA
+
+# Test that HTTP redirects to HTTPS
+curl -I http://cloud.home.lan
+# Should return: HTTP/1.1 301 Moved Permanently
+#+end_src
+
+* Expected Issues and Solutions
+
+** Issue 1: SOPS Secret Format
+
+*Problem:* Secrets might have newlines or wrong format.
+
+*Solution:*
+#+begin_src bash
+# Always use -n with echo
+echo -n "password" | sops -e /dev/stdin > secret.txt
+
+# Verify no extra characters
+sops -d secret.txt | xxd
+# Should show exact password bytes, no trailing newline
+#+end_src
+
+** Issue 2: MySQL Password Setting
+
+*Problem:* ~mysql-init-nextcloud~ service might fail if password already set.
+
+*Solution:*
+#+begin_src bash
+# Check service status
+ssh nixadm@192.168.50.20 'sudo systemctl status mysql-init-nextcloud'
+
+# View logs
+ssh nixadm@192.168.50.20 'sudo journalctl -u mysql-init-nextcloud -n 50'
+
+# Manual fix if needed
+ssh nixadm@192.168.50.20
+sudo mysql -u root
+# ALTER USER 'root'@'localhost' IDENTIFIED BY 'newpassword';
+#+end_src
+
+** Issue 3: Nextcloud First-Run Wizard
+
+*Problem:* Nextcloud might show wizard instead of using config.
+
+*Solution:*
+#+begin_src bash
+# Manually run occ install
+ssh nixadm@192.168.50.20
+sudo nextcloud-occ maintenance:install \
+  --database "mysql" \
+  --database-name "nextcloud" \
+  --database-user "nextcloud" \
+  --database-pass "$(sudo cat /run/secrets/nextcloud-db-password)" \
+  --admin-user "admin" \
+  --admin-pass "$(sudo cat /run/secrets/nextcloud-admin-password)"
+#+end_src
+
+** Issue 4: File Permissions
+
+*Problem:* Nextcloud can't write to data directory.
+
+*Solution:*
+#+begin_src bash
+# Fix ownership
+ssh nixadm@192.168.50.20
+sudo chown -R nextcloud:nextcloud /var/lib/nextcloud
+sudo chmod -R 750 /var/lib/nextcloud
+#+end_src
+
+** Issue 5: Redis Connection
+
+*Problem:* Nextcloud can't connect to Redis.
+
+*Solution:*
+#+begin_src bash
+# Verify Redis is running
+ssh nixadm@192.168.50.20 'sudo systemctl status redis-nextcloud'
+
+# Test connection
+ssh nixadm@192.168.50.20 'redis-cli -p 6379 ping'
+
+# Check Nextcloud config
+ssh nixadm@192.168.50.20 'sudo cat /var/lib/nextcloud/config/config.php | grep redis'
+#+end_src
+
+** Issue 6: Nginx Port Conflict
+
+*Problem:* Port 80 already in use if multiple services use nginx.
+
+*Solution:*
+#+begin_src bash
+# Check what's using port 80
+ssh nixadm@192.168.50.20 'sudo ss -tlnp | grep :80'
+
+# Our setup: Nginx serves Nextcloud on port 80
+# Caddy reverse proxies from outside
+# This is correct!
+#+end_src
+
+* Potential Infrastructure Issues to Discover
+
+** 1. Multi-Role Dependencies
+
+*Question:* Do both roles' systemd services start in correct order?
+
+*Test:*
+#+begin_src bash
+# Check service dependencies
+ssh nixadm@192.168.50.20 'systemctl list-dependencies nextcloud-setup.service'
+ssh nixadm@192.168.50.20 'systemctl list-dependencies syncthing.service'
+#+end_src
+
+** 2. Firewall Port Conflicts
+
+*Question:* Do multiple services trying to open same port cause issues?
+
+*Current setup:*
+- base-lxc.nix opens 22, 5006
+- nextcloud.nix opens 80, 443
+- syncthing.nix opens 8384, 22000
+
+*Verify:*
+#+begin_src bash
+ssh nixadm@192.168.50.20 'sudo nft list ruleset | grep dport'
+# Should show all ports open
+#+end_src
+
+** 3. SOPS Secret Ownership
+
+*Question:* Do secrets have correct ownership for multiple services?
+
+*Current:*
+- nextcloud-admin-password: owner=nextcloud
+- nextcloud-db-password: owner=nextcloud
+- nextcloud-db-root-password: owner=mysql
+
+*Test:*
+#+begin_src bash
+ssh nixadm@192.168.50.20 'ls -l /run/secrets/'
+# Verify ownership matches
+#+end_src
+
+** 4. Resource Limits
+
+*Question:* Does LXC container have enough resources?
+
+*Monitor:*
+#+begin_src bash
+# During deployment
+ssh nixadm@192.168.50.20 'watch -n 1 free -h'
+
+# If OOM (Out of Memory), increase in Proxmox:
+ssh root@proxmox.home.lan
+pct set 120 --memory 8192
+pct reboot 120
+#+end_src
+
+** 5. Shared Data Between Services
+
+*Question:* Can Syncthing and Nextcloud share files safely?
+
+*Current setup:* Syncthing runs as ~nextcloud~ user, shares data dir.
+
+*Test:*
+#+begin_src bash
+# Create file in Syncthing
+# Check if Nextcloud sees it
+ssh nixadm@192.168.50.20 'sudo -u nextcloud ls -la /var/lib/nextcloud/syncthing'
+#+end_src
+
+** 6. Template Size Limits
+
+*Question:* Is 50GB disk enough for Nextcloud + user files?
+
+*Monitor:*
+#+begin_src bash
+ssh nixadm@192.168.50.20 'df -h /'
+
+# If needed, resize:
+ssh root@proxmox.home.lan
+pct resize 120 rootfs +50G  # Add 50GB more
+#+end_src
+
+* Rollback Plan
+
+If deployment fails catastrophically:
+
+#+begin_src bash
+# 1. Stop trying to deploy
+# Don't run colmena apply again
+
+# 2. Check what's broken
+ssh nixadm@192.168.50.20
+sudo systemctl --failed
+journalctl -xe
+
+# 3. If unfixable, destroy and recreate
+exit
+ssh root@proxmox.home.lan
+pct stop 120
+pct destroy 120
+
+# 4. Start over from Phase 2
+# Or investigate and fix specific issues
+
+# 5. Remove from Colmena temporarily
+vim colmena.nix
+# Comment out cloud-server line
+git commit -m "Temporarily disable cloud-server"
+#+end_src
+
+* Success Criteria
+
+Deployment is successful when:
+
+- [X] Container created with correct resources
+- [X] Colmena deployment completes without errors
+- [X] All systemd services running (mysql, redis, phpfpm, nginx, syncthing)
+- [X] SOPS secrets decrypted correctly
+- [X] Nextcloud accessible at https://cloud.home.lan
+- [X] Can login to Nextcloud admin panel
+- [X] Can upload/download files
+- [X] Syncthing accessible at https://sync.home.lan
+- [X] SSL certificates valid (from FreeIPA CA)
+- [X] No systemd failed services
+- [X] Server responds after reboot
+
+* Learning Objectives
+
+This deployment will test:
+
+1. *Multi-role pattern* - Can one server run multiple roles?
+2. *Service dependencies* - Do MariaDB → Nextcloud → Nginx work correctly?
+3. *SOPS with multiple owners* - Can secrets be accessed by different users?
+4. *Resource management* - Is our template approach flexible enough?
+5. *Complex service configuration* - Does NixOS module system handle Nextcloud well?
+6. *Real-world deployment* - What issues arise that didn't with simple actual-budget?
+
+* Next Steps After Success
+
+Once Nextcloud is running:
+
+** Configure Nextcloud Apps
+#+begin_src bash
+ssh nixadm@192.168.50.20
+
+# Install apps via CLI
+sudo nextcloud-occ app:install calendar
+sudo nextcloud-occ app:install contacts
+sudo nextcloud-occ app:install mail
+sudo nextcloud-occ app:enable calendar
+sudo nextcloud-occ app:enable contacts
+#+end_src
+
+** Configure Syncthing Folders
+1. Open https://sync.home.lan
+2. Add folders to sync
+3. Connect to other devices
+
+** Configure Backups
+Consider adding backup role:
+#+begin_src bash
+# Future: modules/servers/roles/restic-backup.nix
+#+end_src
+
+** Monitor Performance
+Add to monitoring system (Prometheus/Grafana).
+
+** Document Learnings
+Update this document with actual issues encountered!
+
+* Appendix: Useful Commands
+
+** Nextcloud Management
+#+begin_src bash
+# Run occ commands
+ssh nixadm@192.168.50.20 'sudo nextcloud-occ status'
+ssh nixadm@192.168.50.20 'sudo nextcloud-occ user:list'
+ssh nixadm@192.168.50.20 'sudo nextcloud-occ config:list'
+
+# Maintenance mode
+ssh nixadm@192.168.50.20 'sudo nextcloud-occ maintenance:mode --on'
+ssh nixadm@192.168.50.20 'sudo nextcloud-occ maintenance:mode --off'
+
+# Update apps
+ssh nixadm@192.168.50.20 'sudo nextcloud-occ app:update --all'
+#+end_src
+
+** Database Management
+#+begin_src bash
+# Connect to MySQL
+ssh nixadm@192.168.50.20 'sudo mysql -u root -p'
+
+# Backup database
+ssh nixadm@192.168.50.20 'sudo mysqldump -u root -p nextcloud > /tmp/nextcloud-backup.sql'
+
+# Restore database
+ssh nixadm@192.168.50.20 'sudo mysql -u root -p nextcloud < /tmp/nextcloud-backup.sql'
+#+end_src
+
+** Redis Management
+#+begin_src bash
+# Connect to Redis
+ssh nixadm@192.168.50.20 'redis-cli -p 6379'
+
+# Check stats
+ssh nixadm@192.168.50.20 'redis-cli -p 6379 INFO stats'
+
+# Flush cache (careful!)
+ssh nixadm@192.168.50.20 'redis-cli -p 6379 FLUSHALL'
+#+end_src
+
+Good luck with the deployment! Document any issues you encounter - they'll improve the infrastructure! 🚀
