@@ -7,11 +7,10 @@
 with lib; let
   cfg = config.services.atuin-auto-login;
 
-  # Secure wrapper script that passes password via stdin
+  # Secure wrapper that feeds password via here-string (works in systemd)
   atuin-login-wrapper = pkgs.writeShellScript "atuin-login-wrapper" ''
     set -euo pipefail
 
-    # File descriptors are passed by systemd via LoadCredential
     if [ -z "''${CREDENTIALS_DIRECTORY:-}" ]; then
       echo "ERROR: CREDENTIALS_DIRECTORY not set" >&2
       exit 1
@@ -20,7 +19,6 @@ with lib; let
     PASSWORD_FILE="$CREDENTIALS_DIRECTORY/atuin-password"
     KEY_FILE="$CREDENTIALS_DIRECTORY/atuin-key"
 
-    # Verify credential files exist and are readable
     if [ ! -r "$PASSWORD_FILE" ] || [ ! -r "$KEY_FILE" ]; then
       echo "ERROR: Credential files not accessible" >&2
       exit 1
@@ -34,14 +32,16 @@ with lib; let
 
     echo "Logging in to Atuin server..."
 
-    # Read the encryption key
+    # Read credentials into variables
+    ATUIN_PASSWORD=$(cat "$PASSWORD_FILE")
     ATUIN_KEY=$(cat "$KEY_FILE")
 
-    # Login using stdin for password (secure method)
-    # When -p flag is omitted, atuin reads password from stdin
-    cat "$PASSWORD_FILE" | ${pkgs.atuin}/bin/atuin login \
+    # Use here-string to feed password to stdin
+    # This works even when stdin is closed by systemd
+    ${pkgs.atuin}/bin/atuin login \
       --username "${cfg.username}" \
-      --key "$ATUIN_KEY"
+      --key "$ATUIN_KEY" \
+      <<< "$ATUIN_PASSWORD"
 
     if [ $? -eq 0 ]; then
       echo "Successfully logged in to Atuin"
@@ -69,10 +69,8 @@ in {
   };
 
   config = mkIf cfg.enable {
-    # Ensure atuin package is available
     environment.systemPackages = [pkgs.atuin];
 
-    # Systemd service with secure credential passing
     systemd.services.atuin-auto-login = {
       description = "Auto-login to Atuin server";
       after = ["network-online.target" "sops-nix.service"];
@@ -84,23 +82,21 @@ in {
         User = cfg.user;
         RemainAfterExit = true;
 
-        # Set home directory for atuin config
         Environment = "HOME=/home/${cfg.user}";
 
-        # Use systemd's credential system - most secure method
+        # Use systemd's credential system
         LoadCredential = [
           "atuin-password:/run/secrets/atuin-password"
           "atuin-key:/run/secrets/atuin-key"
         ];
 
-        # Additional security hardening
+        # Security hardening
         NoNewPrivileges = true;
         PrivateTmp = true;
         ProtectSystem = "strict";
-        ProtectHome = false; # Need access to user home for .local/share/atuin
+        ProtectHome = false;
         ReadWritePaths = "/home/${cfg.user}/.local/share/atuin";
 
-        # Prevent credential leakage
         StandardOutput = "journal";
         StandardError = "journal";
 
