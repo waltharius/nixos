@@ -21,7 +21,7 @@ This repository contains a declarative, reproducible NixOS configuration for mul
 | Host          | Type | IP            | Purpose              | Services       |
 |---------------+------+---------------+----------------------+----------------|
 | nixos-test    | LXC  | 192.168.50.6  | Template & Testing   | Base template  |
-| actual-budget | LXC  | 192.168.50.11 | Budget Management    | Actual Budget  |
+| actual-budget | LXC  | 192.168.50.7  | Budget Management    | Actual Budget  |
 
 ** Key Features
 
