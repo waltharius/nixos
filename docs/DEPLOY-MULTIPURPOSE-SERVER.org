@@ -3,6 +3,8 @@
 #+DATE: 2026-01-13
 #+OPTIONS: toc:2 num:nil
 
+*Note:* For Nextcloud version details and upgrade paths, see [[file:NEXTCLOUD-VERSION-NOTES.org][Nextcloud Version Notes]].
+
 * Overview
 
 This guide shows how to deploy a *multipurpose server* running multiple services in one LXC container. This is practical because:
@@ -488,7 +490,9 @@ in {
     # Nextcloud
     services.nextcloud = {
       enable = true;
-      package = pkgs.nextcloud29;
+      package = pkgs.nextcloud31;  # Using Nextcloud 31 (stable)
+      phpPackage = pkgs.php83;     # PHP 8.3 recommended
+      
       hostName = cfg.hostName;
       datadir = cfg.dataDir;
       
@@ -521,7 +525,7 @@ in {
         "opcache.revalidate_freq" = "1";
       };
       
-      # Apps (declarative!)
+      # Apps (declarative!) - use config.services.nextcloud.package for correct version
       extraApps = with config.services.nextcloud.package.packages.apps; {
         # Productivity
         inherit calendar contacts tasks notes;
@@ -547,15 +551,15 @@ in {
         "default_phone_region" = "PL";
         "enable_previews" = true;
         "enabledPreviewProviders" = [
-          "OC\\Preview\\PNG"
-          "OC\\Preview\\JPEG"
-          "OC\\Preview\\GIF"
-          "OC\\Preview\\HEIC"
-          "OC\\Preview\\BMP"
-          "OC\\Preview\\XBitmap"
-          "OC\\Preview\\MP3"
-          "OC\\Preview\\TXT"
-          "OC\\Preview\\MarkDown"
+          "OC\\\\Preview\\\\PNG"
+          "OC\\\\Preview\\\\JPEG"
+          "OC\\\\Preview\\\\GIF"
+          "OC\\\\Preview\\\\HEIC"
+          "OC\\\\Preview\\\\BMP"
+          "OC\\\\Preview\\\\XBitmap"
+          "OC\\\\Preview\\\\MP3"
+          "OC\\\\Preview\\\\TXT"
+          "OC\\\\Preview\\\\MarkDown"
         ];
       };
     };
@@ -596,6 +600,8 @@ in {
   };
 }
 #+end_src
+
+*Note:* This uses Nextcloud 31 (stable). To use version 32 or upgrade later, see [[file:NEXTCLOUD-VERSION-NOTES.org][Nextcloud Version Notes]].
 
 ** 4.2 Create Syncthing Role Module
 
@@ -863,7 +869,6 @@ Create ~hosts/servers/cloud-apps/configuration.nix~:
   environment.systemPackages = with pkgs; [
     mariadb       # mysql client
     redis         # redis-cli
-    nextcloud-occ # Nextcloud CLI
   ];
 
   # Ensure mount points exist in config
@@ -950,7 +955,7 @@ git diff
 
 #+begin_src bash
 git add .
-git commit -m "Add cloud-apps server with Nextcloud and Syncthing"
+git commit -m "Add cloud-apps server with Nextcloud 31 and Syncthing"
 git push
 #+end_src
 
@@ -993,6 +998,10 @@ sudo systemctl status syncthing
 
 # Check for failures
 systemctl --failed
+
+# Check Nextcloud version
+sudo -u nextcloud nextcloud-occ status
+# Should show: version: 31.x.x
 
 # Test MySQL
 sudo mysql -u root -p$(sudo cat /run/secrets/mariadb-root-password) -e "SHOW DATABASES;"
@@ -1375,6 +1384,7 @@ sudo -u nextcloud nextcloud-occ maintenance:mode --off
 - [ ] Added to colmena.nix
 - [ ] Deployment successful (~colmena apply~)
 - [ ] All services running (mysql, redis, phpfpm, nginx, syncthing)
+- [ ] Nextcloud showing version 31.x.x
 - [ ] DNS records point to Caddy (192.168.50.114)
 - [ ] IPA service principals created
 - [ ] Certificates requested on Caddy
@@ -1398,6 +1408,7 @@ You now have:
 ✅ *SSL certificates* from FreeIPA CA  
 ✅ *Reverse proxy* via Caddy  
 ✅ *Declarative apps* in Nextcloud  
+✅ *Nextcloud 31* (stable, with upgrade path to 32)  
 ✅ *Ready for expansion* (Apache, rclone, etc.)
 
 The infrastructure supports:
@@ -1406,6 +1417,7 @@ The infrastructure supports:
 - Centralized deployment (Colmena)
 - Scalable storage (Proxmox mounts)
 - Professional SSL (FreeIPA CA)
+- Version upgrades (31 → 32 when ready)
 
 Next steps:
 - Add more services to the same server
@@ -1413,3 +1425,4 @@ Next steps:
 - Set up Syncthing devices
 - Add backups with rclone
 - Monitor with Grafana
+- Upgrade to Nextcloud 32 when mature (see [[file:NEXTCLOUD-VERSION-NOTES.org][Version Notes]])

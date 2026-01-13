@@ -1,0 +1,534 @@
+#+TITLE: Nextcloud Version Notes for NixOS
+#+AUTHOR: Marcin
+#+DATE: 2026-01-13
+#+OPTIONS: toc:1 num:nil
+
+* Current Status (January 2026)
+
+** Available Versions in NixOS
+
+| Version | Status in NixOS | PHP Version    | Notes                           |
+|---------+-----------------+----------------+---------------------------------|
+| 29      | Available       | 8.1, 8.2, 8.3  | Older but stable                |
+| 30      | EOL - Removed   | 8.1, 8.2, 8.3  | End of Life, removed from NixOS |
+| 31      | Available       | 8.1, 8.2, 8.3  | Current stable                  |
+| 32      | Latest          | 8.2, 8.3, 8.4  | Latest version (8.3 recommended)|
+
+** Recommended Version for New Deployments
+
+*Use Nextcloud 31* for now:
+- Stable and well-tested
+- All apps compatible
+- Easier upgrade path
+- NixOS package mature
+
+*Nextcloud 32* considerations:
+- Very recent (may have initial bugs)
+- Some apps might not be compatible yet
+- NixOS package may be newer/less tested
+- Can upgrade from 31 to 32 later
+
+* Configuration Changes by Version
+
+** Nextcloud 29 → 31
+
+*** Package Name
+#+begin_src nix
+# OLD (Nextcloud 29)
+services.nextcloud = {
+  enable = true;
+  package = pkgs.nextcloud29;
+};
+
+# NEW (Nextcloud 31)
+services.nextcloud = {
+  enable = true;
+  package = pkgs.nextcloud31;  # Changed
+};
+#+end_src
+
+*** Apps Package Path
+#+begin_src nix
+# OLD (Nextcloud 29)
+extraApps = with pkgs.nextcloud29Packages.apps; {
+  inherit calendar contacts;
+};
+
+# NEW (Nextcloud 31)
+extraApps = with pkgs.nextcloud31Packages.apps; {  # Changed
+  inherit calendar contacts;
+};
+#+end_src
+
+*** PHP Version (No Change Required)
+NixOS handles PHP version automatically, but you can specify:
+
+#+begin_src nix
+services.nextcloud = {
+  phpPackage = pkgs.php83;  # Optional: force PHP 8.3
+};
+#+end_src
+
+** Nextcloud 31 → 32
+
+*** Package Name
+#+begin_src nix
+# Nextcloud 31
+services.nextcloud = {
+  package = pkgs.nextcloud31;
+};
+
+# Nextcloud 32
+services.nextcloud = {
+  package = pkgs.nextcloud32;  # Changed
+};
+#+end_src
+
+*** Apps Package Path
+#+begin_src nix
+# Nextcloud 31
+extraApps = with pkgs.nextcloud31Packages.apps; {
+  inherit calendar contacts;
+};
+
+# Nextcloud 32
+extraApps = with pkgs.nextcloud32Packages.apps; {  # Changed
+  inherit calendar contacts;
+};
+#+end_src
+
+*** PHP Version
+PHP 8.3 is recommended for Nextcloud 32:
+
+#+begin_src nix
+services.nextcloud = {
+  package = pkgs.nextcloud32;
+  phpPackage = pkgs.php83;  # Recommended
+};
+#+end_src
+
+* App Availability
+
+** Core Apps (Available in All Versions)
+
+These apps are available in nextcloud29, nextcloud31, and nextcloud32:
+
+#+begin_src nix
+extraApps = with config.services.nextcloud.package.packages.apps; {
+  # Productivity
+  inherit calendar;      # ✅ All versions
+  inherit contacts;      # ✅ All versions
+  inherit tasks;         # ✅ All versions
+  inherit notes;         # ✅ All versions
+  inherit mail;          # ✅ All versions
+  
+  # Files
+  inherit files_markdown;      # ✅ All versions
+  inherit files_texteditor;    # ✅ All versions
+  
+  # Collaboration
+  inherit deck;          # ✅ All versions
+};
+#+end_src
+
+** Checking Available Apps
+
+To see all available apps for a specific version:
+
+#+begin_src bash
+# For Nextcloud 31
+nix-instantiate --eval --expr 'with import <nixpkgs> {}; 
+  builtins.attrNames pkgs.nextcloud31Packages.apps' | tr '"' '\n' | sort
+
+# For Nextcloud 32
+nix-instantiate --eval --expr 'with import <nixpkgs> {}; 
+  builtins.attrNames pkgs.nextcloud32Packages.apps' | tr '"' '\n' | sort
+#+end_src
+
+* Upgrade Path
+
+** Important: Cannot Skip Major Versions!
+
+Nextcloud does NOT allow skipping major versions:
+
+- ❌ 29 → 32 (FAILS - skips 30 and 31)
+- ❌ 30 → 32 (FAILS - skips 31)
+- ✅ 29 → 30 → 31 → 32 (WORKS)
+- ✅ 31 → 32 (WORKS)
+
+** Recommended Upgrade Strategy
+
+*** For New Deployment (January 2026)
+
+Start with Nextcloud 31:
+
+#+begin_src nix
+services.nextcloud = {
+  enable = true;
+  package = pkgs.nextcloud31;
+};
+#+end_src
+
+Why:
+- Stable and tested
+- All apps available
+- Can upgrade to 32 later when it's more mature
+- Easier troubleshooting
+
+*** Upgrade from 31 to 32 (Future)
+
+When ready to upgrade:
+
+#+begin_src nix
+# Change package
+services.nextcloud = {
+  enable = true;
+  package = pkgs.nextcloud32;  # Changed from nextcloud31
+};
+
+# Update apps
+extraApps = with pkgs.nextcloud32Packages.apps; {  # Changed
+  inherit calendar contacts tasks;
+};
+#+end_src
+
+Deploy:
+#+begin_src bash
+# Commit change
+git add hosts/servers/cloud-apps/configuration.nix
+git commit -m "Upgrade Nextcloud from 31 to 32"
+
+# Deploy
+colmena apply --on cloud-apps
+
+# SSH to server and verify
+ssh nixadm@192.168.50.20
+sudo -u nextcloud nextcloud-occ status
+# Should show: version: 32.x.x
+#+end_src
+
+* Updated Role Module for Nextcloud 31
+
+Here's the corrected Nextcloud role module:
+
+#+begin_src nix
+# modules/servers/roles/nextcloud.nix
+{ config, lib, pkgs, ... }:
+
+with lib;
+let
+  cfg = config.services.server-role.nextcloud;
+in {
+  options.services.server-role.nextcloud = {
+    enable = mkEnableOption "Nextcloud with MariaDB and Redis";
+    
+    version = mkOption {
+      type = types.enum [ 29 31 32 ];
+      default = 31;
+      description = "Nextcloud major version to use";
+    };
+    
+    hostName = mkOption {
+      type = types.str;
+      default = "cloud.home.lan";
+      description = "Public hostname for Nextcloud";
+    };
+    
+    dataDir = mkOption {
+      type = types.path;
+      default = "/mnt/nextcloud-data";
+      description = "Nextcloud data directory";
+    };
+    
+    dbDataDir = mkOption {
+      type = types.path;
+      default = "/mnt/databases/mariadb";
+      description = "MariaDB data directory";
+    };
+    
+    maxUploadSize = mkOption {
+      type = types.str;
+      default = "2G";
+      description = "Maximum upload size";
+    };
+    
+    port = mkOption {
+      type = types.port;
+      default = 8080;
+      description = "Port for Nextcloud";
+    };
+  };
+
+  config = mkIf cfg.enable {
+    # SOPS secrets
+    sops.secrets = {
+      nextcloud-admin-password = {
+        sopsFile = ../../../secrets/nextcloud-admin-password.txt;
+        format = "binary";
+        owner = "nextcloud";
+        mode = "0400";
+      };
+      nextcloud-db-password = {
+        sopsFile = ../../../secrets/nextcloud-db-password.txt;
+        format = "binary";
+        owner = "nextcloud";
+        mode = "0400";
+      };
+      mariadb-root-password = {
+        sopsFile = ../../../secrets/mariadb-root-password.txt;
+        format = "binary";
+        owner = "mysql";
+        mode = "0400";
+      };
+    };
+
+    # Create directories
+    systemd.tmpfiles.rules = [
+      "d ${cfg.dbDataDir} 0750 mysql mysql -"
+      "d ${cfg.dataDir} 0750 nextcloud nextcloud -"
+    ];
+
+    # MariaDB
+    services.mysql = {
+      enable = true;
+      package = pkgs.mariadb;
+      dataDir = cfg.dbDataDir;
+      
+      ensureDatabases = [ "nextcloud" ];
+      ensureUsers = [
+        {
+          name = "nextcloud";
+          ensurePermissions = {
+            "nextcloud.*" = "ALL PRIVILEGES";
+          };
+        }
+      ];
+      
+      settings = {
+        mysqld = {
+          innodb_buffer_pool_size = "2G";
+          innodb_log_file_size = "512M";
+          max_connections = 200;
+          query_cache_size = "64M";
+          query_cache_type = 1;
+          tmp_table_size = "64M";
+          max_heap_table_size = "64M";
+        };
+      };
+    };
+
+    # Redis
+    services.redis.servers.nextcloud = {
+      enable = true;
+      port = 6379;
+      bind = "127.0.0.1";
+      maxmemory = "256M";
+      maxmemoryPolicy = "allkeys-lru";
+    };
+
+    # Nextcloud - version-aware package selection
+    services.nextcloud = {
+      enable = true;
+      
+      # Select package based on version option
+      package = 
+        if cfg.version == 29 then pkgs.nextcloud29
+        else if cfg.version == 31 then pkgs.nextcloud31
+        else if cfg.version == 32 then pkgs.nextcloud32
+        else pkgs.nextcloud31;  # Default to 31
+      
+      # Use PHP 8.3 for better compatibility
+      phpPackage = pkgs.php83;
+      
+      hostName = cfg.hostName;
+      datadir = cfg.dataDir;
+      
+      # Database
+      database.createLocally = false;
+      config = {
+        dbtype = "mysql";
+        dbname = "nextcloud";
+        dbuser = "nextcloud";
+        dbhost = "localhost:3306";
+        dbpassFile = config.sops.secrets.nextcloud-db-password.path;
+        
+        adminuser = "admin";
+        adminpassFile = config.sops.secrets.nextcloud-admin-password.path;
+      };
+      
+      https = true;
+      
+      # PHP settings
+      phpOptions = {
+        "upload_max_filesize" = cfg.maxUploadSize;
+        "post_max_size" = cfg.maxUploadSize;
+        "memory_limit" = "512M";
+        "max_execution_time" = "300";
+        "opcache.enable" = "1";
+        "opcache.memory_consumption" = "128";
+        "opcache.interned_strings_buffer" = "16";
+        "opcache.max_accelerated_files" = "10000";
+        "opcache.revalidate_freq" = "1";
+      };
+      
+      # Apps - use config.services.nextcloud.package for correct version
+      extraApps = with config.services.nextcloud.package.packages.apps; {
+        # Productivity
+        inherit calendar contacts tasks notes;
+        # Files  
+        inherit files_markdown files_texteditor;
+        # Collaboration
+        inherit deck;
+      };
+      extraAppsEnable = true;
+      
+      # Redis caching
+      configureRedis = true;
+      
+      # Auto-update apps
+      autoUpdateApps = {
+        enable = true;
+        startAt = "05:00:00";
+      };
+      
+      # Additional settings
+      settings = {
+        "overwriteprotocol" = "https";
+        "default_phone_region" = "PL";
+        "enable_previews" = true;
+        "enabledPreviewProviders" = [
+          "OC\\\\Preview\\\\PNG"
+          "OC\\\\Preview\\\\JPEG"
+          "OC\\\\Preview\\\\GIF"
+          "OC\\\\Preview\\\\HEIC"
+          "OC\\\\Preview\\\\BMP"
+          "OC\\\\Preview\\\\XBitmap"
+          "OC\\\\Preview\\\\MP3"
+          "OC\\\\Preview\\\\TXT"
+          "OC\\\\Preview\\\\MarkDown"
+        ];
+      };
+    };
+
+    # Nginx
+    services.nginx.virtualHosts.${cfg.hostName} = {
+      listen = [
+        { addr = "0.0.0.0"; port = cfg.port; }
+      ];
+    };
+
+    # Firewall
+    networking.firewall.allowedTCPPorts = [ cfg.port ];
+
+    # Background jobs
+    systemd.services.nextcloud-cron = {
+      description = "Nextcloud cron job";
+      after = [ "nextcloud-setup.service" ];
+      requires = [ "nextcloud-setup.service" ];
+      
+      serviceConfig = {
+        Type = "oneshot";
+        User = "nextcloud";
+        ExecStart = "${config.services.nextcloud.package}/bin/nextcloud-occ background:cron";
+      };
+    };
+    
+    systemd.timers.nextcloud-cron = {
+      description = "Run Nextcloud cron every 5 minutes";
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnBootSec = "5m";
+        OnUnitActiveSec = "5m";
+        Unit = "nextcloud-cron.service";
+      };
+    };
+  };
+}
+#+end_src
+
+* Usage in Server Configuration
+
+** Nextcloud 31 (Recommended)
+
+#+begin_src nix
+# hosts/servers/cloud-apps/configuration.nix
+services.server-role.nextcloud = {
+  enable = true;
+  version = 31;  # Explicit version
+  hostName = "cloud.home.lan";
+  dataDir = "/mnt/nextcloud-data";
+  dbDataDir = "/mnt/databases/mariadb";
+  maxUploadSize = "5G";
+  port = 8080;
+};
+#+end_src
+
+** Nextcloud 32 (Latest)
+
+#+begin_src nix
+# hosts/servers/cloud-apps/configuration.nix
+services.server-role.nextcloud = {
+  enable = true;
+  version = 32;  # Latest version
+  hostName = "cloud.home.lan";
+  dataDir = "/mnt/nextcloud-data";
+  dbDataDir = "/mnt/databases/mariadb";
+  maxUploadSize = "5G";
+  port = 8080;
+};
+#+end_src
+
+* Testing After Deployment
+
+#+begin_src bash
+# SSH to server
+ssh nixadm@192.168.50.20
+
+# Check Nextcloud version
+sudo -u nextcloud nextcloud-occ status
+# Should show version 31.x.x or 32.x.x
+
+# Check PHP version
+php --version
+# Should show PHP 8.3.x
+
+# Check installed apps
+sudo -u nextcloud nextcloud-occ app:list
+
+# Check system status
+sudo -u nextcloud nextcloud-occ check
+#+end_src
+
+* Known Issues
+
+** Upgrade Breaking Apps (v29 → v30 → v31)
+
+Some apps became incompatible during major version upgrades:
+- Solution: Apps are disabled automatically during upgrade
+- Re-enable or update after upgrade completes
+- Use `nextcloud-occ app:update --all` after upgrade
+
+** Nextcloud 32 Considerations
+
+- Very recent (December 2024 / January 2025)
+- Some third-party apps may not be compatible yet
+- NixOS package may have initial bugs
+- Wait for 32.0.1 or 32.0.2 for stability
+
+** Recommended: Start with 31
+
+For production deployment in January 2026:
+- Use Nextcloud 31 (stable, tested)
+- Upgrade to 32 in a few months when:
+  - Apps are updated
+  - Initial bugs are fixed
+  - NixOS package is mature
+
+* Summary
+
+- ✅ Use *Nextcloud 31* for new deployments (January 2026)
+- ✅ PHP 8.3 recommended
+- ✅ Apps use `config.services.nextcloud.package.packages.apps`
+- ✅ Can upgrade to 32 later (31 → 32)
+- ❌ Cannot skip versions (e.g., 29 → 32)
+- ⚠️  Nextcloud 30 is EOL and removed from NixOS
