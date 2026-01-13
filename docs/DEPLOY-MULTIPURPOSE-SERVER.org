@@ -1,0 +1,1415 @@
+#+TITLE: Deploying Multipurpose Server - Practical Guide
+#+AUTHOR: Marcin
+#+DATE: 2026-01-13
+#+OPTIONS: toc:2 num:nil
+
+* Overview
+
+This guide shows how to deploy a *multipurpose server* running multiple services in one LXC container. This is practical because:
+
+- NixOS generations allow safe rollback
+- No need to split every service into separate containers
+- Easier resource management
+- Simpler networking (one IP for related services)
+- Shared storage is more efficient
+
+** Example Server: "cloud-apps"
+
+We'll deploy a server for cloud/sync/web services:
+
+*Hostname:* ~cloud-apps~  
+*IP:* ~192.168.50.20~ (example - choose yours)  
+*Container ID:* ~120~ (example - choose yours)
+
+** Services to Deploy
+
+| Service    | Purpose                    | Port | Role Module               |
+|------------+----------------------------+------+---------------------------|
+| Nextcloud  | File sync and collaboration| 8080 | ~roles/nextcloud.nix~     |
+| MariaDB    | Database (for Nextcloud)   | 3306 | (included in nextcloud)   |
+| Redis      | Cache (for Nextcloud)      | 6379 | (included in nextcloud)   |
+| Syncthing  | Alternative file sync      | 8384 | ~roles/syncthing.nix~     |
+| Apache     | Web server (future)        | 8081 | ~roles/apache.nix~        |
+
+** Name Suggestions for Multipurpose Containers
+
+*** By Purpose
+- ~cloud-apps~ - Cloud services (Nextcloud, Syncthing)
+- ~media-server~ - Media (Jellyfin, Sonarr, Radarr)
+- ~home-automation~ - Home Assistant, MQTT, etc.
+- ~dev-tools~ - GitLab, Drone CI, code servers
+- ~monitoring~ - Prometheus, Grafana, Loki
+- ~data-services~ - Databases, caches, queues
+- ~web-apps~ - General web applications
+
+*** By Function
+- ~services-primary~ - Main production services
+- ~services-utility~ - Supporting/utility services
+- ~apps-personal~ - Personal productivity apps
+- ~apps-shared~ - Family/shared applications
+
+*** Recommended Naming Convention
+~<category>-<instance>~ or ~<purpose>-server~
+
+Examples: ~cloud-apps~, ~media-01~, ~web-primary~
+
+* Why Redis and MariaDB for Nextcloud?
+
+** MariaDB (MySQL Database)
+
+*** What It Does
+Stores all Nextcloud metadata:
+- User accounts and passwords
+- File listings and metadata
+- Share information
+- App configurations
+- Activity history
+
+*** Why Not SQLite?
+NixOS Nextcloud module strongly recommends MySQL/MariaDB because:
+- *Performance*: SQLite becomes slow with many files (>10,000)
+- *Concurrency*: SQLite locks database on writes
+- *Scalability*: MariaDB handles multiple users better
+- *Reliability*: Better transaction handling
+- *Official support*: Nextcloud officially supports MySQL
+
+*** Impact
+Without MariaDB:
+- Nextcloud would use SQLite
+- Slow with multiple users
+- File operations would be sluggish
+- Not recommended for production
+
+** Redis (In-Memory Cache)
+
+*** What It Does
+Caches frequently accessed data:
+- File locking information
+- User sessions
+- File metadata
+- Temporary data
+- App cache
+
+*** Why It's Important
+- *Speed*: RAM is 100x faster than disk
+- *Reduced load*: Fewer database queries
+- *File locking*: Prevents corruption with concurrent access
+- *Session handling*: Faster login/authentication
+
+*** Impact
+Without Redis:
+- Every request hits the database
+- Slower page loads (2-3x)
+- Higher database load
+- Potential file corruption with concurrent writes
+- Poor performance with multiple users
+
+*** Nextcloud's Recommendation
+Nextcloud documentation states:
+#+begin_quote
+For optimal performance, use Redis for file locking and APCu for local caching.
+#+end_quote
+
+** Resource Requirements
+
+| Component  | RAM  | Purpose                       |
+|------------+------+-------------------------------|
+| Nextcloud  | 1 GB | PHP processes                 |
+| MariaDB    | 2 GB | Database + buffer pool        |
+| Redis      | 256 MB | Cache storage                 |
+| System     | 512 MB | OS and other processes        |
+| *Total*    | *~4 GB* | Minimum for good performance  |
+
+** Alternative: Simpler Setup
+
+For testing or single-user:
+#+begin_src nix
+# Nextcloud without external DB (not recommended for production)
+services.nextcloud = {
+  enable = true;
+  database.createLocally = true;  # Uses SQLite
+  configureRedis = false;  # No cache
+};
+#+end_src
+
+But expect:
+- Slower performance
+- Not suitable for multiple users
+- Limited scalability
+
+* Phase 1: Planning and Preparation
+
+** 1.1 Choose Server Details
+
+Decide:
+- *Container ID*: e.g., ~120~ (check availability in Proxmox)
+- *IP Address*: e.g., ~192.168.50.20~ (check not in use)
+- *Hostname*: e.g., ~cloud-apps~
+- *Resources*:
+  - RAM: 4-8 GB (for Nextcloud + MariaDB + Redis)
+  - Disk: 20 GB (OS only, data on mounts)
+  - Cores: 2-4
+
+** 1.2 Plan Storage Mounts
+
+Important: Store data on Proxmox storage, not in container!
+
+#+begin_src
+# Proxmox side:
+/mnt/storage/nextcloud-data → mount to → /mnt/nextcloud-data (in LXC)
+/mnt/storage/syncthing-data → mount to → /mnt/syncthing-data (in LXC)
+/mnt/storage/databases      → mount to → /mnt/databases (in LXC)
+#+end_src
+
+Benefits:
+- Container can be small (20 GB)
+- Easy to backup data separately
+- Can recreate container without losing data
+- Can resize storage independently
+
+** 1.3 Plan DNS and SSL
+
+| Service   | DNS Name           | Points To         | Backend           |
+|-----------+--------------------+-------------------+-------------------|
+| Nextcloud | cloud.home.lan     | 192.168.50.114    | 192.168.50.20:8080|
+| Syncthing | sync.home.lan      | 192.168.50.114    | 192.168.50.20:8384|
+
+*Critical*: DNS points to *Caddy* (192.168.50.114), not LXC!
+
+** 1.4 Check Prerequisites
+
+#+begin_src bash
+# 1. Template exists
+ssh root@proxmox.home.lan pct list | grep 9000
+
+# 2. Script exists
+ls -l ~/nixos/scripts/create-proxmox-lxc-from-template.sh
+
+# 3. IP not in use
+ping -c 1 192.168.50.20
+# Should fail
+
+# 4. Container ID available
+ssh root@proxmox.home.lan "pct list | grep 120"
+# Should return nothing
+#+end_src
+
+** 1.5 Create Storage Directories on Proxmox
+
+#+begin_src bash
+# SSH to Proxmox
+ssh root@proxmox.home.lan
+
+# Create data directories
+mkdir -p /mnt/storage/nextcloud-data
+mkdir -p /mnt/storage/syncthing-data
+mkdir -p /mnt/storage/databases
+
+# Set ownership (will be updated after container creation)
+chown -R 100000:100000 /mnt/storage/nextcloud-data
+chown -R 100000:100000 /mnt/storage/syncthing-data
+chown -R 100000:100000 /mnt/storage/databases
+
+exit
+#+end_src
+
+Note: ~100000~ is the default LXC UID mapping offset.
+
+* Phase 2: Create LXC Container
+
+** 2.1 Use Your Script
+
+#+begin_src bash
+cd ~/nixos
+
+# Check script usage
+cat scripts/create-proxmox-lxc-from-template.sh
+
+# Run script
+# Adjust parameters based on your script's syntax
+./scripts/create-proxmox-lxc-from-template.sh cloud-apps 120 192.168.50.20
+#+end_src
+
+** 2.2 Increase Resources (After Creation)
+
+#+begin_src bash
+# SSH to Proxmox
+ssh root@proxmox.home.lan
+
+# Set resources for Nextcloud + MariaDB + Redis
+pct set 120 \
+  --cores 4 \
+  --memory 8192 \
+  --swap 2048
+
+# Resize root disk to 20GB (if needed)
+pct resize 120 rootfs 20G
+
+# Don't start yet - need to add mount points first!
+#+end_src
+
+** 2.3 Add Mount Points
+
+#+begin_src bash
+# Still on Proxmox
+
+# Add Nextcloud data mount
+pct set 120 -mp0 /mnt/storage/nextcloud-data,mp=/mnt/nextcloud-data
+
+# Add Syncthing data mount
+pct set 120 -mp1 /mnt/storage/syncthing-data,mp=/mnt/syncthing-data
+
+# Add database mount
+pct set 120 -mp2 /mnt/storage/databases,mp=/mnt/databases
+
+# Verify mounts
+pct config 120 | grep mp
+
+# Now start container
+pct start 120
+
+exit
+#+end_src
+
+** 2.4 Verify Container
+
+#+begin_src bash
+# Wait for boot
+sleep 15
+
+# Test SSH
+ssh nixadm@192.168.50.20
+
+# Verify mounts
+df -h | grep /mnt
+# Should show:
+# /mnt/nextcloud-data
+# /mnt/syncthing-data
+# /mnt/databases
+
+# Verify resources
+free -h
+# Should show ~8GB RAM
+
+nproc
+# Should show 4 cores
+
+exit
+#+end_src
+
+* Phase 3: Create Secrets
+
+** 3.1 Generate Strong Passwords
+
+#+begin_src bash
+cd ~/nixos
+
+# Generate passwords
+NEXTCLOUD_ADMIN=$(openssl rand -base64 32)
+NEXTCLOUD_DB=$(openssl rand -base64 32)
+MARIADB_ROOT=$(openssl rand -base64 32)
+
+# Display for saving to password manager
+echo "=== SAVE THESE PASSWORDS ==="
+echo "Nextcloud Admin: $NEXTCLOUD_ADMIN"
+echo "Nextcloud DB: $NEXTCLOUD_DB"
+echo "MariaDB Root: $MARIADB_ROOT"
+echo "============================="
+
+# Wait! Save to password manager now!
+read -p "Saved to password manager? (y/N) " -n 1 -r
+echo
+#+end_src
+
+** 3.2 Create SOPS Secrets
+
+#+begin_src bash
+# Create secrets directory if needed
+mkdir -p secrets
+
+# Create secrets (NO trailing newline!)
+echo -n "$NEXTCLOUD_ADMIN" | sops -e /dev/stdin > secrets/nextcloud-admin-password.txt
+echo -n "$NEXTCLOUD_DB" | sops -e /dev/stdin > secrets/nextcloud-db-password.txt
+echo -n "$MARIADB_ROOT" | sops -e /dev/stdin > secrets/mariadb-root-password.txt
+
+# Verify - check for NO extra bytes
+echo "Verifying secrets (should match exactly):"
+sops -d secrets/nextcloud-admin-password.txt | xxd | head -n 2
+echo "Expected: no trailing 0a (newline)"
+
+# Clean up variables
+unset NEXTCLOUD_ADMIN NEXTCLOUD_DB MARIADB_ROOT
+#+end_src
+
+** 3.3 Update .sops.yaml
+
+Edit ~.sops.yaml~:
+
+#+begin_src yaml
+creation_rules:
+  # ... existing rules ...
+
+  # Nextcloud secrets
+  - path_regex: secrets/nextcloud-.*\.txt$
+    key_groups:
+      - age:
+          - *admin
+          - *servers-shared
+  
+  # MariaDB secrets
+  - path_regex: secrets/mariadb-.*\.txt$
+    key_groups:
+      - age:
+          - *admin
+          - *servers-shared
+#+end_src
+
+Commit:
+#+begin_src bash
+git add secrets/ .sops.yaml
+git commit -m "Add secrets for cloud-apps server"
+#+end_src
+
+* Phase 4: Create Role Modules
+
+** 4.1 Create Nextcloud Role Module
+
+Create ~modules/servers/roles/nextcloud.nix~:
+
+#+begin_src nix
+{ config, lib, pkgs, ... }:
+
+with lib;
+let
+  cfg = config.services.server-role.nextcloud;
+in {
+  options.services.server-role.nextcloud = {
+    enable = mkEnableOption "Nextcloud with MariaDB and Redis";
+    
+    hostName = mkOption {
+      type = types.str;
+      default = "cloud.home.lan";
+      description = "Public hostname for Nextcloud";
+    };
+    
+    dataDir = mkOption {
+      type = types.path;
+      default = "/mnt/nextcloud-data";
+      description = "Nextcloud data directory (should be Proxmox mount)";
+    };
+    
+    dbDataDir = mkOption {
+      type = types.path;
+      default = "/mnt/databases/mariadb";
+      description = "MariaDB data directory (should be Proxmox mount)";
+    };
+    
+    maxUploadSize = mkOption {
+      type = types.str;
+      default = "2G";
+      description = "Maximum upload size";
+    };
+    
+    port = mkOption {
+      type = types.port;
+      default = 8080;
+      description = "Port for Nextcloud (behind reverse proxy)";
+    };
+  };
+
+  config = mkIf cfg.enable {
+    # SOPS secrets
+    sops.secrets = {
+      nextcloud-admin-password = {
+        sopsFile = ../../../secrets/nextcloud-admin-password.txt;
+        format = "binary";
+        owner = "nextcloud";
+        mode = "0400";
+      };
+      nextcloud-db-password = {
+        sopsFile = ../../../secrets/nextcloud-db-password.txt;
+        format = "binary";
+        owner = "nextcloud";
+        mode = "0400";
+      };
+      mariadb-root-password = {
+        sopsFile = ../../../secrets/mariadb-root-password.txt;
+        format = "binary";
+        owner = "mysql";
+        mode = "0400";
+      };
+    };
+
+    # Create database directory
+    systemd.tmpfiles.rules = [
+      "d ${cfg.dbDataDir} 0750 mysql mysql -"
+      "d ${cfg.dataDir} 0750 nextcloud nextcloud -"
+    ];
+
+    # MariaDB
+    services.mysql = {
+      enable = true;
+      package = pkgs.mariadb;
+      dataDir = cfg.dbDataDir;
+      
+      ensureDatabases = [ "nextcloud" ];
+      ensureUsers = [
+        {
+          name = "nextcloud";
+          ensurePermissions = {
+            "nextcloud.*" = "ALL PRIVILEGES";
+          };
+        }
+      ];
+      
+      settings = {
+        mysqld = {
+          # Performance for Nextcloud
+          innodb_buffer_pool_size = "2G";
+          innodb_log_file_size = "512M";
+          max_connections = 200;
+          query_cache_size = "64M";
+          query_cache_type = 1;
+          tmp_table_size = "64M";
+          max_heap_table_size = "64M";
+        };
+      };
+    };
+
+    # Redis for Nextcloud
+    services.redis.servers.nextcloud = {
+      enable = true;
+      port = 6379;
+      bind = "127.0.0.1";
+      maxmemory = "256M";
+      maxmemoryPolicy = "allkeys-lru";
+    };
+
+    # Nextcloud
+    services.nextcloud = {
+      enable = true;
+      package = pkgs.nextcloud29;
+      hostName = cfg.hostName;
+      datadir = cfg.dataDir;
+      
+      # Database
+      database.createLocally = false;
+      config = {
+        dbtype = "mysql";
+        dbname = "nextcloud";
+        dbuser = "nextcloud";
+        dbhost = "localhost:3306";
+        dbpassFile = config.sops.secrets.nextcloud-db-password.path;
+        
+        adminuser = "admin";
+        adminpassFile = config.sops.secrets.nextcloud-admin-password.path;
+      };
+      
+      # HTTPS setup (behind Caddy)
+      https = true;
+      
+      # PHP settings
+      phpOptions = {
+        "upload_max_filesize" = cfg.maxUploadSize;
+        "post_max_size" = cfg.maxUploadSize;
+        "memory_limit" = "512M";
+        "max_execution_time" = "300";
+        "opcache.enable" = "1";
+        "opcache.memory_consumption" = "128";
+        "opcache.interned_strings_buffer" = "16";
+        "opcache.max_accelerated_files" = "10000";
+        "opcache.revalidate_freq" = "1";
+      };
+      
+      # Apps (declarative!)
+      extraApps = with config.services.nextcloud.package.packages.apps; {
+        # Productivity
+        inherit calendar contacts tasks notes;
+        # Files
+        inherit files_markdown files_texteditor;
+        # Collaboration
+        inherit deck;
+      };
+      extraAppsEnable = true;
+      
+      # Redis caching
+      configureRedis = true;
+      
+      # Cron jobs
+      autoUpdateApps = {
+        enable = true;
+        startAt = "05:00:00";
+      };
+      
+      # Additional settings
+      settings = {
+        "overwriteprotocol" = "https";
+        "default_phone_region" = "PL";
+        "enable_previews" = true;
+        "enabledPreviewProviders" = [
+          "OC\\Preview\\PNG"
+          "OC\\Preview\\JPEG"
+          "OC\\Preview\\GIF"
+          "OC\\Preview\\HEIC"
+          "OC\\Preview\\BMP"
+          "OC\\Preview\\XBitmap"
+          "OC\\Preview\\MP3"
+          "OC\\Preview\\TXT"
+          "OC\\Preview\\MarkDown"
+        ];
+      };
+    };
+
+    # Nginx (Nextcloud module includes this)
+    services.nginx.virtualHosts.${cfg.hostName} = {
+      listen = [
+        { addr = "0.0.0.0"; port = cfg.port; }
+      ];
+      # Nextcloud module handles the rest
+    };
+
+    # Open firewall
+    networking.firewall.allowedTCPPorts = [ cfg.port ];
+
+    # Background jobs
+    systemd.services.nextcloud-cron = {
+      description = "Nextcloud cron job";
+      after = [ "nextcloud-setup.service" ];
+      requires = [ "nextcloud-setup.service" ];
+      
+      serviceConfig = {
+        Type = "oneshot";
+        User = "nextcloud";
+        ExecStart = "${config.services.nextcloud.package}/bin/nextcloud-occ background:cron";
+      };
+    };
+    
+    systemd.timers.nextcloud-cron = {
+      description = "Run Nextcloud cron every 5 minutes";
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnBootSec = "5m";
+        OnUnitActiveSec = "5m";
+        Unit = "nextcloud-cron.service";
+      };
+    };
+  };
+}
+#+end_src
+
+** 4.2 Create Syncthing Role Module
+
+Create ~modules/servers/roles/syncthing.nix~:
+
+#+begin_src nix
+{ config, lib, pkgs, ... }:
+
+with lib;
+let
+  cfg = config.services.server-role.syncthing;
+in {
+  options.services.server-role.syncthing = {
+    enable = mkEnableOption "Syncthing";
+    
+    user = mkOption {
+      type = types.str;
+      default = "syncthing";
+      description = "User to run Syncthing as";
+    };
+    
+    group = mkOption {
+      type = types.str;
+      default = "syncthing";
+      description = "Group for Syncthing user";
+    };
+    
+    dataDir = mkOption {
+      type = types.path;
+      default = "/mnt/syncthing-data";
+      description = "Syncthing data directory (should be Proxmox mount)";
+    };
+    
+    port = mkOption {
+      type = types.port;
+      default = 8384;
+      description = "Web UI port";
+    };
+  };
+
+  config = mkIf cfg.enable {
+    # Create user/group if using default
+    users.users.${cfg.user} = mkIf (cfg.user == "syncthing") {
+      isSystemUser = true;
+      group = cfg.group;
+      home = cfg.dataDir;
+      createHome = false;  # Created by tmpfiles
+    };
+    
+    users.groups.${cfg.group} = mkIf (cfg.group == "syncthing") {};
+
+    # Create data directory
+    systemd.tmpfiles.rules = [
+      "d ${cfg.dataDir} 0750 ${cfg.user} ${cfg.group} -"
+    ];
+
+    # Syncthing service
+    services.syncthing = {
+      enable = true;
+      user = cfg.user;
+      group = cfg.group;
+      dataDir = cfg.dataDir;
+      configDir = "${cfg.dataDir}/.config/syncthing";
+      
+      guiAddress = "0.0.0.0:${toString cfg.port}";
+      
+      settings = {
+        gui = {
+          insecureSkipHostcheck = true;  # Behind reverse proxy
+        };
+      };
+      
+      overrideDevices = true;
+      overrideFolders = true;
+    };
+
+    # Firewall
+    networking.firewall = {
+      allowedTCPPorts = [ 
+        cfg.port  # Web UI
+        22000     # Sync protocol
+      ];
+      allowedUDPPorts = [ 
+        22000  # Sync protocol
+        21027  # Discovery
+      ];
+    };
+  };
+}
+#+end_src
+
+** 4.3 Security Analysis: Syncthing as Nextcloud User?
+
+*** Option 1: Syncthing as Separate User (RECOMMENDED)
+
+#+begin_src nix
+services.server-role.syncthing = {
+  enable = true;
+  user = "syncthing";  # Separate user
+  group = "syncthing";
+  dataDir = "/mnt/syncthing-data";
+};
+#+end_src
+
+*Pros:*
+- ✅ Security isolation - processes can't access each other's files
+- ✅ Clear ownership - easy to audit permissions
+- ✅ Independent - can disable Nextcloud without affecting Syncthing
+- ✅ Standard practice - each service has its own user
+
+*Cons:*
+- ❌ Can't directly share files between services
+- ❌ Need explicit permissions for sharing
+
+*** Option 2: Syncthing as Nextcloud User (NOT RECOMMENDED)
+
+#+begin_src nix
+services.server-role.syncthing = {
+  enable = true;
+  user = "nextcloud";  # Same as Nextcloud
+  group = "nextcloud";
+  dataDir = "/mnt/nextcloud-data/syncthing";
+};
+#+end_src
+
+*Risks:*
+- ⚠️  *Security*: Syncthing process can access ALL Nextcloud data
+- ⚠️  *Corruption*: Both services writing to same files = potential data loss
+- ⚠️  *Permissions*: If Syncthing compromised, all Nextcloud data exposed
+- ⚠️  *Maintenance*: Hard to separate services later
+- ⚠️  *Database*: Syncthing could accidentally modify Nextcloud database files
+
+*When it might be okay:*
+- Single user only
+- You manage both services
+- You understand the risks
+- Temporary/testing setup
+
+*** Recommendation: Separate Users + Shared Group
+
+Best practice:
+
+#+begin_src nix
+# Create shared group
+users.groups.clouddata = {};
+
+# Add both users to shared group
+users.users.nextcloud.extraGroups = [ "clouddata" ];
+users.users.syncthing.extraGroups = [ "clouddata" ];
+
+# Create shared directory
+systemd.tmpfiles.rules = [
+  "d /mnt/shared-files 0770 nextcloud clouddata -"
+];
+#+end_src
+
+This allows:
+- ✅ Controlled sharing via shared group
+- ✅ Security isolation for main data
+- ✅ Explicit shared directory
+- ✅ Clear intent and permissions
+
+** 4.4 Create Apache Role (Future)
+
+Create ~modules/servers/roles/apache.nix~:
+
+#+begin_src nix
+{ config, lib, pkgs, ... }:
+
+with lib;
+let
+  cfg = config.services.server-role.apache;
+in {
+  options.services.server-role.apache = {
+    enable = mkEnableOption "Apache web server";
+    
+    port = mkOption {
+      type = types.port;
+      default = 8081;
+      description = "Port for Apache";
+    };
+    
+    documentRoot = mkOption {
+      type = types.path;
+      default = "/var/www/html";
+      description = "Document root";
+    };
+  };
+
+  config = mkIf cfg.enable {
+    services.httpd = {
+      enable = true;
+      adminAddr = "admin@home.lan";
+      
+      listen = [
+        { port = cfg.port; }
+      ];
+      
+      virtualHosts."default" = {
+        documentRoot = cfg.documentRoot;
+      };
+    };
+
+    # Create document root
+    systemd.tmpfiles.rules = [
+      "d ${cfg.documentRoot} 0755 wwwrun wwwrun -"
+    ];
+
+    networking.firewall.allowedTCPPorts = [ cfg.port ];
+  };
+}
+#+end_src
+
+* Phase 5: Create Server Configuration
+
+** 5.1 Create Host Directory
+
+#+begin_src bash
+mkdir -p hosts/servers/cloud-apps
+#+end_src
+
+** 5.2 Create configuration.nix
+
+Create ~hosts/servers/cloud-apps/configuration.nix~:
+
+#+begin_src nix
+{...}: {
+  imports = [
+    ./hardware-configuration.nix
+    ../../../modules/servers/base-lxc.nix
+    ../../../modules/servers/roles/nextcloud.nix
+    ../../../modules/servers/roles/syncthing.nix
+    # ../../../modules/servers/roles/apache.nix  # Future
+  ];
+
+  networking.hostName = "cloud-apps";
+  system.stateVersion = "25.11";
+
+  # Nextcloud with MariaDB and Redis
+  services.server-role.nextcloud = {
+    enable = true;
+    hostName = "cloud.home.lan";
+    dataDir = "/mnt/nextcloud-data";
+    dbDataDir = "/mnt/databases/mariadb";
+    maxUploadSize = "5G";  # Adjust as needed
+    port = 8080;
+  };
+
+  # Syncthing (separate user for security)
+  services.server-role.syncthing = {
+    enable = true;
+    user = "syncthing";
+    group = "syncthing";
+    dataDir = "/mnt/syncthing-data";
+    port = 8384;
+  };
+
+  # Future: Apache
+  # services.server-role.apache = {
+  #   enable = true;
+  #   port = 8081;
+  # };
+
+  # Additional packages for database management
+  environment.systemPackages = with pkgs; [
+    mariadb       # mysql client
+    redis         # redis-cli
+    nextcloud-occ # Nextcloud CLI
+  ];
+
+  # Ensure mount points exist in config
+  fileSystems = {
+    "/mnt/nextcloud-data" = {
+      device = "/mnt/nextcloud-data";
+      fsType = "none";
+      options = [ "bind" ];
+    };
+    "/mnt/syncthing-data" = {
+      device = "/mnt/syncthing-data";
+      fsType = "none";
+      options = [ "bind" ];
+    };
+    "/mnt/databases" = {
+      device = "/mnt/databases";
+      fsType = "none";
+      options = [ "bind" ];
+    };
+  };
+}
+#+end_src
+
+** 5.3 Copy Hardware Configuration from Server
+
+#+begin_src bash
+# SSH to server and generate hardware config
+ssh nixadm@192.168.50.20
+
+sudo nixos-generate-config --show-hardware-config > /tmp/hardware-config.nix
+
+exit
+
+# Copy to your repo
+scp nixadm@192.168.50.20:/tmp/hardware-config.nix \
+    hosts/servers/cloud-apps/hardware-configuration.nix
+
+# Edit to remove unnecessary parts
+vim hosts/servers/cloud-apps/hardware-configuration.nix
+#+end_src
+
+Or create minimal hardware config:
+
+#+begin_src nix
+# hosts/servers/cloud-apps/hardware-configuration.nix
+{...}: {
+  # LXC container - minimal config
+  boot.isContainer = true;
+  
+  fileSystems."/" = {
+    device = "/dev/sda";
+    fsType = "ext4";
+  };
+  
+  # Mounts defined in configuration.nix
+}
+#+end_src
+
+** 5.4 Add to Colmena
+
+Edit ~colmena.nix~:
+
+#+begin_src nix
+# Add to servers section
+cloud-apps = mkServerDeployment "cloud-apps" "192.168.50.20" ["production" "lxc" "cloud"];
+#+end_src
+
+* Phase 6: Deploy
+
+** 6.1 Check Configuration
+
+#+begin_src bash
+cd ~/nixos
+
+# Syntax check
+nix flake check
+
+# Review changes
+git status
+git diff
+#+end_src
+
+** 6.2 Commit Changes
+
+#+begin_src bash
+git add .
+git commit -m "Add cloud-apps server with Nextcloud and Syncthing"
+git push
+#+end_src
+
+** 6.3 Deploy with Colmena
+
+#+begin_src bash
+# Deploy to cloud-apps
+colmena apply --on cloud-apps --verbose
+
+# This will:
+# 1. Build configuration
+# 2. Upload to server
+# 3. Activate new generation
+# 4. Start services
+
+# Expected time: 5-10 minutes (MariaDB + Nextcloud compilation)
+#+end_src
+
+** 6.4 Monitor Deployment
+
+In another terminal:
+
+#+begin_src bash
+# Watch logs
+ssh nixadm@192.168.50.20 'sudo journalctl -f'
+#+end_src
+
+** 6.5 Verify Services
+
+#+begin_src bash
+# SSH to server
+ssh nixadm@192.168.50.20
+
+# Check all services
+sudo systemctl status mysql
+sudo systemctl status redis-nextcloud
+sudo systemctl status phpfpm-nextcloud
+sudo systemctl status nginx
+sudo systemctl status syncthing
+
+# Check for failures
+systemctl --failed
+
+# Test MySQL
+sudo mysql -u root -p$(sudo cat /run/secrets/mariadb-root-password) -e "SHOW DATABASES;"
+# Should show 'nextcloud' database
+
+# Test Redis
+redis-cli ping
+# Should return: PONG
+
+# Test Nextcloud
+curl -I http://localhost:8080
+# Should return: HTTP/1.1 302 or 200
+
+# Test Syncthing
+curl -I http://localhost:8384
+# Should return: HTTP/1.1 200 OK
+
+exit
+#+end_src
+
+* Phase 7: Configure External Access
+
+** 7.1 Add DNS Records (on IPA Server)
+
+Follow your documented process:
+
+#+begin_src bash
+# On IPA server or workstation with IPA client
+kinit admin
+
+# Nextcloud DNS (points to Caddy!)
+ipa dnsrecord-add home.lan cloud --a-rec 192.168.50.114
+
+# Syncthing DNS (points to Caddy!)
+ipa dnsrecord-add home.lan sync --a-rec 192.168.50.114
+
+# Verify
+dig cloud.home.lan +short
+# Should return: 192.168.50.114
+
+dig sync.home.lan +short
+# Should return: 192.168.50.114
+#+end_src
+
+** 7.2 Create IPA Service Principals
+
+#+begin_src bash
+# Still on IPA
+
+# Nextcloud
+ipa host-add --force cloud.home.lan
+ipa service-add HTTP/cloud.home.lan
+ipa service-add-host HTTP/cloud.home.lan --hosts=caddy.home.lan
+ipa service-show HTTP/cloud.home.lan
+# Verify: Managed by: caddy.home.lan
+
+# Syncthing
+ipa host-add --force sync.home.lan
+ipa service-add HTTP/sync.home.lan
+ipa service-add-host HTTP/sync.home.lan --hosts=caddy.home.lan
+ipa service-show HTTP/sync.home.lan
+# Verify: Managed by: caddy.home.lan
+#+end_src
+
+** 7.3 Request Certificates on Caddy
+
+#+begin_src bash
+# SSH to Caddy server
+ssh root@caddy.home.lan
+
+# Request Nextcloud certificate
+ipa-getcert request -r \
+  -f /etc/ssl/local/cloud.crt \
+  -k /etc/ssl/local/cloud.key \
+  -K HTTP/cloud.home.lan \
+  -N CN=cloud.home.lan \
+  -D cloud.home.lan \
+  -U id-kp-serverAuth \
+  -C "chown root:caddy /etc/ssl/local/cloud.crt /etc/ssl/local/cloud.key && chmod 640 /etc/ssl/local/cloud.crt /etc/ssl/local/cloud.key && systemctl reload caddy"
+
+# Request Syncthing certificate
+ipa-getcert request -r \
+  -f /etc/ssl/local/sync.crt \
+  -k /etc/ssl/local/sync.key \
+  -K HTTP/sync.home.lan \
+  -N CN=sync.home.lan \
+  -D sync.home.lan \
+  -U id-kp-serverAuth \
+  -C "chown root:caddy /etc/ssl/local/sync.crt /etc/ssl/local/sync.key && chmod 640 /etc/ssl/local/sync.crt /etc/ssl/local/sync.key && systemctl reload caddy"
+
+# Verify certificates
+sleep 5
+ipa-getcert list -f /etc/ssl/local/cloud.crt
+ipa-getcert list -f /etc/ssl/local/sync.crt
+# Both should show: status: MONITORING
+#+end_src
+
+** 7.4 Configure Caddy
+
+#+begin_src bash
+# Still on Caddy server
+vim /etc/caddy/Caddyfile
+#+end_src
+
+Add:
+
+#+begin_src caddyfile
+# Nextcloud
+cloud.home.lan:443 {
+    tls /etc/ssl/local/cloud.crt /etc/ssl/local/cloud.key
+    
+    reverse_proxy 192.168.50.20:8080 {
+        # Nextcloud-specific headers
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+    
+    # Nextcloud requires these
+    header {
+        Strict-Transport-Security "max-age=31536000;"
+    }
+}
+
+# Syncthing
+sync.home.lan:443 {
+    tls /etc/ssl/local/sync.crt /etc/ssl/local/sync.key
+    reverse_proxy 192.168.50.20:8384
+}
+#+end_src
+
+Reload:
+
+#+begin_src bash
+# Validate
+caddy validate --config /etc/caddy/Caddyfile
+
+# Reload
+systemctl reload caddy
+
+# Check status
+systemctl status caddy
+
+exit
+#+end_src
+
+** 7.5 Configure Nextcloud Trusted Domains
+
+#+begin_src bash
+# SSH to cloud-apps
+ssh nixadm@192.168.50.20
+
+# Add trusted domain
+sudo -u nextcloud nextcloud-occ config:system:set trusted_domains 0 --value=localhost
+sudo -u nextcloud nextcloud-occ config:system:set trusted_domains 1 --value=cloud.home.lan
+sudo -u nextcloud nextcloud-occ config:system:set trusted_domains 2 --value=192.168.50.20
+
+# Verify
+sudo -u nextcloud nextcloud-occ config:system:get trusted_domains
+
+exit
+#+end_src
+
+* Phase 8: Testing and Validation
+
+** 8.1 Test HTTPS Access
+
+#+begin_src bash
+# Test DNS
+dig cloud.home.lan +short
+# Returns: 192.168.50.114 (Caddy)
+
+dig sync.home.lan +short
+# Returns: 192.168.50.114 (Caddy)
+
+# Test HTTPS
+curl -I https://cloud.home.lan
+# Should return: HTTP/2 200 or 302
+
+curl -I https://sync.home.lan
+# Should return: HTTP/2 200
+#+end_src
+
+** 8.2 Test in Browser
+
+Open Firefox/Chrome:
+
+1. Navigate to ~https://cloud.home.lan~
+2. Should see Nextcloud login page
+3. Login with: ~admin~ / (password from SOPS secret)
+4. Verify you can access Nextcloud
+
+5. Navigate to ~https://sync.home.lan~
+6. Should see Syncthing dashboard
+
+** 8.3 Test Nextcloud Functionality
+
+#+begin_src bash
+# Upload test file via web UI
+# Download test file
+# Create folder
+# Share file
+#+end_src
+
+** 8.4 Test Resource Usage
+
+#+begin_src bash
+ssh nixadm@192.168.50.20
+
+# Check memory
+free -h
+# Should use ~3-4 GB
+
+# Check CPU
+uptime
+# Load should be reasonable
+
+# Check disk
+df -h
+# Root should have space
+# Mounts should show correct sizes
+
+exit
+#+end_src
+
+* Future Additions
+
+** rclone for Cloud Backups
+
+Create ~modules/servers/roles/rclone.nix~:
+
+#+begin_src nix
+{ config, lib, pkgs, ... }:
+
+with lib;
+let
+  cfg = config.services.server-role.rclone;
+in {
+  options.services.server-role.rclone = {
+    enable = mkEnableOption "rclone backup service";
+    
+    sourceDir = mkOption {
+      type = types.path;
+      description = "Directory to back up";
+    };
+    
+    remote = mkOption {
+      type = types.str;
+      description = "rclone remote (e.g., gdrive:backup)";
+    };
+    
+    schedule = mkOption {
+      type = types.str;
+      default = "daily";
+      description = "Backup schedule (systemd timer format)";
+    };
+  };
+
+  config = mkIf cfg.enable {
+    # SOPS secret for rclone config
+    sops.secrets.rclone-config = {
+      sopsFile = ../../../secrets/rclone-config.conf;
+      format = "binary";
+      owner = "root";
+      mode = "0400";
+    };
+
+    # rclone package
+    environment.systemPackages = [ pkgs.rclone ];
+
+    # Backup service
+    systemd.services.rclone-backup = {
+      description = "rclone backup to cloud";
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = ''
+          ${pkgs.rclone}/bin/rclone sync \
+            --config ${config.sops.secrets.rclone-config.path} \
+            ${cfg.sourceDir} \
+            ${cfg.remote} \
+            --verbose
+        '';
+      };
+    };
+
+    # Timer
+    systemd.timers.rclone-backup = {
+      description = "Run rclone backup";
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnCalendar = cfg.schedule;
+        Persistent = true;
+      };
+    };
+  };
+}
+#+end_src
+
+Usage:
+
+#+begin_src nix
+# In configuration.nix
+services.server-role.rclone = {
+  enable = true;
+  sourceDir = "/mnt/nextcloud-data";
+  remote = "gdrive:nextcloud-backup";
+  schedule = "daily";
+};
+#+end_src
+
+** Central Management UI
+
+Consider:
+- *Cockpit*: Web-based server management
+- *Portainer*: If you add Docker later
+- *Netdata*: Real-time performance monitoring
+- *Grafana*: Dashboards for all services
+
+* Troubleshooting
+
+** Service Won't Start
+
+#+begin_src bash
+# Check service status
+ssh nixadm@192.168.50.20 'sudo systemctl status SERVICE'
+
+# View logs
+ssh nixadm@192.168.50.20 'sudo journalctl -u SERVICE -n 100'
+
+# Check dependencies
+ssh nixadm@192.168.50.20 'systemctl list-dependencies SERVICE'
+#+end_src
+
+** Mount Points Not Available
+
+#+begin_src bash
+# On Proxmox
+ssh root@proxmox.home.lan
+
+# Check container config
+pct config 120 | grep mp
+
+# Verify directories exist
+ls -la /mnt/storage/
+
+# Restart container
+pct stop 120
+pct start 120
+#+end_src
+
+** Database Issues
+
+#+begin_src bash
+# Check MariaDB logs
+ssh nixadm@192.168.50.20 'sudo journalctl -u mysql -n 100'
+
+# Test database
+ssh nixadm@192.168.50.20 'sudo mysql -u root -p$(sudo cat /run/secrets/mariadb-root-password)'
+# Then:
+USE nextcloud;
+SHOW TABLES;
+EXIT;
+#+end_src
+
+** Nextcloud Maintenance Mode Stuck
+
+#+begin_src bash
+ssh nixadm@192.168.50.20
+sudo -u nextcloud nextcloud-occ maintenance:mode --off
+#+end_src
+
+* Success Checklist
+
+- [ ] Container created with correct resources (4-8 GB RAM, 2-4 cores)
+- [ ] Mount points configured in Proxmox
+- [ ] All mount points visible in container (~df -h~)
+- [ ] Secrets created and encrypted
+- [ ] Role modules created (nextcloud.nix, syncthing.nix)
+- [ ] Server configuration created
+- [ ] Added to colmena.nix
+- [ ] Deployment successful (~colmena apply~)
+- [ ] All services running (mysql, redis, phpfpm, nginx, syncthing)
+- [ ] DNS records point to Caddy (192.168.50.114)
+- [ ] IPA service principals created
+- [ ] Certificates requested on Caddy
+- [ ] Caddy configured and reloaded
+- [ ] Nextcloud accessible at https://cloud.home.lan
+- [ ] Syncthing accessible at https://sync.home.lan
+- [ ] Can login to Nextcloud
+- [ ] Can upload/download files
+- [ ] SSL certificates valid
+- [ ] No systemd failed services
+
+* Summary
+
+You now have:
+
+✅ *Multipurpose server* running multiple services  
+✅ *Separate role modules* for reusability  
+✅ *Persistent storage* on Proxmox mounts  
+✅ *Proper security* with separate service users  
+✅ *High performance* with MariaDB and Redis  
+✅ *SSL certificates* from FreeIPA CA  
+✅ *Reverse proxy* via Caddy  
+✅ *Declarative apps* in Nextcloud  
+✅ *Ready for expansion* (Apache, rclone, etc.)
+
+The infrastructure supports:
+- Easy addition of new services (new role modules)
+- Safe rollback (NixOS generations)
+- Centralized deployment (Colmena)
+- Scalable storage (Proxmox mounts)
+- Professional SSL (FreeIPA CA)
+
+Next steps:
+- Add more services to the same server
+- Configure Nextcloud apps
+- Set up Syncthing devices
+- Add backups with rclone
+- Monitor with Grafana
