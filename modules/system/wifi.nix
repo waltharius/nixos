@@ -31,7 +31,7 @@
   # Entire wifi.env file containing all WiFi passwords
   sops.secrets."wifi-env-file" = {
     sopsFile = ../../secrets/wifi.env;
-    format = "dotenv";
+    format = "binary";
     restartUnits = ["NetworkManager.service"];
     mode = "0600";
     owner = "root";
