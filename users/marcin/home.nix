@@ -167,6 +167,7 @@ in {
       rclone
       rclone-ui
       dig
+      netcat
 
       # Nix tools
       nix-prefetch-github

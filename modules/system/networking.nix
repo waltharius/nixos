@@ -1,10 +1,5 @@
 # Network configuration
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: {
+{...}: {
   # Enable NetworkManager for easy network management
   networking.networkmanager.enable = true;
 
