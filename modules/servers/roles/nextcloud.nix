@@ -68,6 +68,7 @@ in {
     systemd.tmpfiles.rules = [
       "d ${cfg.dbDataDir} 0750 mysql mysql - "
       "d ${cfg.dataDir} 0750 nextcloud nextcloud - "
+      "d ${cfg.dataDir}/config 0750 nextcloud nextcloud - "
     ];
 
     # MariaDB
