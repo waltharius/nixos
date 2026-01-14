@@ -188,7 +188,7 @@ in {
         "maintenance_window_start" = 3;
         "log_type" = "file";
         "logfile" = "${cfg.dataDir}/nextcloud.log";
-        "loglevel" = 0;
+        "loglevel" = 2;
         "log_rotate_size" = "104857600";
 
         "app_api.enabled" = false;
