@@ -188,6 +188,7 @@ in {
         "loglevel" = 2;
         "log_rotate_size" = "104857600";
 
+        "app_api.enabled" = false;
         "default_phone_region" = "PL";
         "enable_previews" = true;
         "enabledPreviewProviders" = [
