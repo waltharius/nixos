@@ -1,0 +1,695 @@
+#+TITLE: Troubleshooting Nextcloud Deployment
+#+AUTHOR: Marcin
+#+DATE: 2026-01-14
+#+OPTIONS: toc:2 num:nil
+
+* Common Issues and Solutions
+
+** Issue 1: LXC Container Starts Automatically
+
+*** Problem
+When creating container from template, it starts immediately before you can:
+- Configure mount points
+- Set resources (CPU, RAM)
+- Configure other settings
+
+*** Solution
+Updated ~scripts/create-proxmox-lxc-from-template.sh~ to:
+1. Create container (stopped)
+2. Regenerate SSH host keys (see Issue 2)
+3. Leave container stopped
+4. Instructions tell you to configure mounts THEN start
+
+*** New Workflow
+#+begin_src bash
+# 1. Create container (will be STOPPED)
+./scripts/create-proxmox-lxc-from-template.sh cloud-apps 111 192.168.50.8
+
+# 2. SSH to Proxmox and configure
+ssh root@pve.home.lan
+
+# Add mount points
+pct set 111 -mp0 /mnt/bigstorage/nextcloud-data,mp=/mnt/nextcloud-data
+pct set 111 -mp1 /mnt/bigstorage/databases,mp=/mnt/databases
+
+# Set resources
+pct set 111 --cores 4 --memory 8192 --swap 2048
+
+# Resize disk if needed
+pct resize 111 rootfs 20G
+
+# NOW start it
+pct start 111
+
+exit
+#+end_src
+
+** Issue 2: Duplicate SSH Fingerprints
+
+*** Problem
+All containers cloned from template have IDENTICAL SSH host keys:
+- SSH warns about "Remote host identification has changed"
+- Security risk - same keys on multiple hosts
+- Can't distinguish between hosts
+
+*** Root Cause
+Template contains SSH host keys in ~/etc/ssh/ssh_host_*~
+When cloned, these files are copied to new container.
+
+*** Solution (Automated)
+Updated script regenerates SSH keys automatically:
+#+begin_src bash
+# In create-proxmox-lxc-from-template.sh (now automatic)
+pct start $CTID
+sleep 10
+pct exec $CTID -- rm -f /etc/ssh/ssh_host_*
+pct exec $CTID -- ssh-keygen -A
+pct stop $CTID
+#+end_src
+
+*** Solution (Manual - If Already Created)
+For containers already created with duplicate keys:
+
+#+begin_src bash
+# SSH to Proxmox
+ssh root@pve.home.lan
+
+# For container 111
+pct start 111
+sleep 10
+
+# Regenerate keys
+pct exec 111 -- rm -f /etc/ssh/ssh_host_*
+pct exec 111 -- ssh-keygen -A
+
+# Restart SSH service
+pct exec 111 -- systemctl restart sshd
+
+# Or reboot
+pct stop 111
+pct start 111
+
+exit
+
+# Remove old fingerprint from your machine
+ssh-keygen -R 192.168.50.8
+
+# Connect (will ask to verify NEW fingerprint)
+ssh nixadm@192.168.50.8
+#+end_src
+
+*** Verification
+Each host should have unique fingerprints:
+
+#+begin_src bash
+# Check fingerprints
+ssh nixadm@192.168.50.8 'sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub'
+ssh nixadm@192.168.50.11 'sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub'
+# Should be DIFFERENT
+#+end_src
+
+** Issue 3: Mount Points Not Showing in Container
+
+*** Problem
+You configured mount points on Proxmox:
+#+begin_src bash
+pct set 111 -mp0 /mnt/bigstorage/nextcloud-data,mp=/mnt/nextcloud-data
+pct set 111 -mp1 /mnt/bigstorage/databases,mp=/mnt/databases
+#+end_src
+
+But inside container, only one shows in ~df -h~:
+#+begin_src
+/dev/sda   13T  521G  13T   4% /mnt/databases
+# Missing: /mnt/nextcloud-data
+#+end_src
+
+*** Root Cause
+Proxmox mount points are visible in container, but:
+1. Directory might not exist
+2. Nothing is mounted to it
+3. It's empty so not shown by ~df -h~
+
+*** Diagnosis
+#+begin_src bash
+# SSH to container
+ssh nixadm@192.168.50.8
+
+# Check if directories exist
+ll /mnt/
+# Should show:
+# drwxr-xr-x - 100000 13 Jan 23:36  databases/
+# drwxr-xr-x - 100000 13 Jan 23:36  nextcloud-data/
+
+# Check mounts (shows ALL mounts)
+mount | grep /mnt
+# Should show:
+# /dev/sda on /mnt/nextcloud-data type btrfs (rw,noatime,...)
+# /dev/sda on /mnt/databases type btrfs (rw,noatime,...)
+
+# Check what Proxmox configured
+exit
+ssh root@pve.home.lan
+pct config 111 | grep mp
+# Should show:
+# mp0: /mnt/bigstorage/nextcloud-data,mp=/mnt/nextcloud-data
+# mp1: /mnt/bigstorage/databases,mp=/mnt/databases
+#+end_src
+
+*** Why df -h Might Not Show All Mounts
+~df -h~ only shows mounted filesystems. If Proxmox mount points share the SAME underlying device (~pve/bigstorage~), they appear as ONE filesystem:
+
+#+begin_src bash
+# This is NORMAL for BTRFS with subvolumes
+/dev/sda   13T  521G  13T   4% /mnt/databases
+# Both /mnt/databases and /mnt/nextcloud-data are on /dev/sda
+#+end_src
+
+Use ~mount | grep /mnt~ instead to see individual mount points.
+
+*** Solution: Verify Mounts Work
+#+begin_src bash
+ssh nixadm@192.168.50.8
+
+# Create test file in each mount
+sudo touch /mnt/nextcloud-data/test-nextcloud.txt
+sudo touch /mnt/databases/test-db.txt
+
+# Verify on Proxmox host
+exit
+ssh root@pve.home.lan
+
+ls -la /mnt/bigstorage/nextcloud-data/
+# Should show: test-nextcloud.txt
+
+ls -la /mnt/bigstorage/databases/
+# Should show: test-db.txt
+
+# Cleanup
+rm /mnt/bigstorage/nextcloud-data/test-nextcloud.txt
+rm /mnt/bigstorage/databases/test-db.txt
+#+end_src
+
+If files appear on Proxmox host, mounts are working correctly!
+
+*** BTRFS Subvolumes Explanation
+Your Proxmox storage uses BTRFS, which uses subvolumes:
+
+#+begin_src
+Proxmox: /mnt/bigstorage (BTRFS)
+  ├── nextcloud-data/  (subvolume)
+  └── databases/        (subvolume)
+
+LXC sees:
+  /dev/sda → /mnt/nextcloud-data (bind mount to subvolume)
+  /dev/sda → /mnt/databases      (bind mount to subvolume)
+#+end_src
+
+Both mount points share ~/dev/sda~, so ~df -h~ shows them as one.
+This is normal and expected for BTRFS!
+
+** Issue 4: SOPS Encryption with /dev/stdin
+
+*** Problem
+Documentation suggested:
+#+begin_src bash
+echo -n "$PASSWORD" | sops -e /dev/stdin > secrets/file.txt
+# Error: no matching creation rules found
+#+end_src
+
+*** Root Cause
+SOPS matches file paths against ~path_regex~ in ~.sops.yaml~:
+#+begin_src yaml
+- path_regex: secrets/nextcloud-.*\.txt$
+#+end_src
+
+Path ~/dev/stdin~ doesn't match ~secrets/nextcloud-.*\.txt$~!
+
+*** Correct Procedure (Your Solution)
+#+begin_src bash
+# 1. Create plaintext file
+echo -n "$NEXTCLOUD_ADMIN" > secrets/nextcloud-admin-password.txt
+
+# 2. Encrypt in place
+sops -e -i secrets/nextcloud-admin-password.txt
+
+# 3. Verify decryption
+sops -d secrets/nextcloud-admin-password.txt
+# Should show password (no trailing newline)
+
+# 4. Clean up variable
+unset NEXTCLOUD_ADMIN
+#+end_src
+
+*** Why ~echo -n~ Is Critical
+#+begin_src bash
+# WRONG - adds newline
+echo "password" > file.txt
+# File contains: "password\n" (8 bytes)
+
+# CORRECT - no newline
+echo -n "password" > file.txt
+# File contains: "password" (7 bytes)
+#+end_src
+
+Nextcloud/MariaDB will fail if passwords have trailing newlines!
+
+*** Verification
+#+begin_src bash
+# Check for newlines
+sops -d secrets/nextcloud-admin-password.txt | xxd
+# Should NOT end with 0a (newline)
+
+# Check byte count
+sops -d secrets/nextcloud-admin-password.txt | wc -c
+# Should match password length (e.g., 44 for base64)
+#+end_src
+
+** Issue 5: hostname for Local vs Public Access
+
+*** Question
+Should I change ~hostName~ when making Nextcloud available publicly via Cloudflare Tunnel?
+
+#+begin_src nix
+services.server-role.nextcloud = {
+  hostName = "cloud.home.lan";  # Local only?
+  # or
+  hostName = "cloud.example.com";  # Public domain?
+};
+#+end_src
+
+*** Answer: Keep Local, Configure Both
+Keep ~hostName = "cloud.home.lan"~ in NixOS config.
+Configure BOTH local and public access in Caddy.
+
+*** Nextcloud trusted_domains
+Nextcloud validates ~Host~ header for security.
+Add BOTH domains:
+
+#+begin_src bash
+ssh nixadm@192.168.50.8
+
+sudo -u nextcloud nextcloud-occ config:system:set trusted_domains 0 --value=localhost
+sudo -u nextcloud nextcloud-occ config:system:set trusted_domains 1 --value=cloud.home.lan
+sudo -u nextcloud nextcloud-occ config:system:set trusted_domains 2 --value=cloud.example.com
+sudo -u nextcloud nextcloud-occ config:system:set trusted_domains 3 --value=192.168.50.8
+
+# Verify
+sudo -u nextcloud nextcloud-occ config:system:get trusted_domains
+#+end_src
+
+*** Caddy Configuration
+#+begin_src caddyfile
+# Local access (FreeIPA cert)
+cloud.home.lan:443 {
+    tls /etc/ssl/local/cloud.crt /etc/ssl/local/cloud.key
+    reverse_proxy 192.168.50.8:8080 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up Host {host}
+    }
+    header {
+        Strict-Transport-Security "max-age=31536000;"
+    }
+}
+
+# Public access (Let's Encrypt automatic)
+cloud.example.com:443 {
+    # Caddy gets Let's Encrypt cert automatically
+    reverse_proxy 192.168.50.8:8080 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up Host {host}
+    }
+    header {
+        Strict-Transport-Security "max-age=31536000;"
+    }
+}
+#+end_src
+
+*** Cloudflare Tunnel Alternative
+If using Cloudflare Tunnel instead of Caddy for public:
+
+#+begin_src yaml
+# cloudflared config.yml
+ingress:
+  - hostname: cloud.example.com
+    service: https://cloud.home.lan
+    originRequest:
+      noTLSVerify: false  # Verify Caddy's FreeIPA cert
+  - service: http_status:404
+#+end_src
+
+Traffic flow:
+#+begin_src
+Public:  Internet → Cloudflare → Cloudflared Tunnel → Caddy (cloud.home.lan) → Nextcloud
+Local:   LAN → Caddy (cloud.home.lan) → Nextcloud
+#+end_src
+
+*** Summary
+- Keep ~hostName = "cloud.home.lan"~ in NixOS
+- Add both domains to Nextcloud ~trusted_domains~
+- Configure both in Caddy (or Caddy + Cloudflare Tunnel)
+- Both will work simultaneously
+
+** Issue 6: extraApps Syntax - Which to Use?
+
+*** Question
+Documentation shows two different syntaxes:
+
+Option A (from nextcloud.nix role):
+#+begin_src nix
+extraApps = with config.services.nextcloud.package.packages.apps; {
+  inherit calendar contacts;
+};
+#+end_src
+
+Option B (from version notes):
+#+begin_src nix
+extraApps = with pkgs.nextcloud31Packages.apps; {
+  inherit calendar contacts;
+};
+#+end_src
+
+*** Answer: Use Option A (Version-Agnostic)
+
+*Option A is better* because:
+- ✅ Version-agnostic - works with any Nextcloud version
+- ✅ Automatically matches your ~package = pkgs.nextcloud31~
+- ✅ Easy to upgrade - change package version, apps update automatically
+- ✅ No need to remember to update apps path when upgrading
+
+*Option B requires manual updates:*
+#+begin_src nix
+# If you upgrade Nextcloud
+services.nextcloud.package = pkgs.nextcloud32;  # Changed to 32
+
+# You must ALSO update apps path
+extraApps = with pkgs.nextcloud32Packages.apps; {  # Must change
+  inherit calendar contacts;
+};
+#+end_src
+
+*** Recommended Configuration
+#+begin_src nix
+# modules/servers/roles/nextcloud.nix
+services.nextcloud = {
+  enable = true;
+  package = pkgs.nextcloud31;  # Or nextcloud32
+  
+  # This automatically uses correct version
+  extraApps = with config.services.nextcloud.package.packages.apps; {
+    # Productivity
+    inherit calendar contacts tasks notes;
+    # Files
+    inherit files_markdown files_texteditor;
+    # Collaboration
+    inherit deck;
+  };
+  extraAppsEnable = true;
+};
+#+end_src
+
+*** Why Version Notes Showed Option B
+Version notes showed explicit versions to illustrate what CHANGES between versions.
+But in your actual configuration, use Option A for flexibility.
+
+*** Using Nextcloud 32
+You said you want Nextcloud 32 (available in NixOS 25.11):
+
+#+begin_src nix
+services.nextcloud = {
+  package = pkgs.nextcloud32;
+  phpPackage = pkgs.php83;  # Recommended for 32
+  
+  # Apps automatically use nextcloud32Packages
+  extraApps = with config.services.nextcloud.package.packages.apps; {
+    inherit calendar contacts tasks notes;
+  };
+};
+#+end_src
+
+No need to change anything else!
+
+** Issue 7: Cannot Generate hardware-configuration.nix
+
+*** Problem
+#+begin_src bash
+ssh nixadm@192.168.50.8
+sudo nixos-generate-config --show-hardware-config > /tmp/hardware-config.nix
+# Error: Cannot determine filesystem info for /mnt/nextcloud-data
+#+end_src
+
+*** Root Cause
+LXC bind mounts confuse ~nixos-generate-config~:
+- Proxmox mounts BTRFS subvolumes
+- LXC sees them as bind mounts
+- ~nixos-generate-config~ can't detect filesystem type
+
+*** Solution: Manual Hardware Config
+For LXC containers with Proxmox mounts, create hardware-configuration.nix manually:
+
+#+begin_src nix
+# hosts/servers/cloud-apps/hardware-configuration.nix
+{ config, lib, pkgs, modulesPath, ... }:
+
+{
+  imports = [ ];
+
+  # LXC container
+  boot.isContainer = true;
+  
+  # Root filesystem (LXC container disk)
+  fileSystems."/" = {
+    device = "/dev/mapper/pve-vm--111--disk--0";
+    fsType = "ext4";
+  };
+  
+  # Proxmox mount points - defined in configuration.nix
+  # Don't duplicate here!
+  
+  swapDevices = [ ];
+
+  # Networking (handled by LXC)
+  networking.useDHCP = lib.mkDefault false;
+  
+  nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
+}
+#+end_src
+
+*** Important: Don't Duplicate Mounts
+Define Proxmox mounts in ~configuration.nix~, NOT ~hardware-configuration.nix~:
+
+#+begin_src nix
+# hosts/servers/cloud-apps/configuration.nix
+{
+  # ... other config ...
+  
+  # Proxmox mount points
+  fileSystems = {
+    "/mnt/nextcloud-data" = {
+      device = "/mnt/nextcloud-data";
+      fsType = "none";
+      options = [ "bind" ];
+    };
+    "/mnt/databases" = {
+      device = "/mnt/databases";
+      fsType = "none";
+      options = [ "bind" ];
+    };
+  };
+}
+#+end_src
+
+*** Why This Works
+- ~boot.isContainer = true~ - tells NixOS it's a container
+- Root filesystem - LXC virtual disk (managed by Proxmox)
+- Bind mounts - Proxmox handles actual mounting
+- NixOS just needs to know they exist
+
+*** Alternative: Copy from Working Container
+If you have another working LXC (like nixos-test):
+
+#+begin_src bash
+# Copy hardware config from working container
+scp nixadm@nixos-test.home.lan:/etc/nixos/hardware-configuration.nix \
+    hosts/servers/cloud-apps/hardware-configuration.nix
+
+# Edit to change device name
+vim hosts/servers/cloud-apps/hardware-configuration.nix
+
+# Change:
+# device = "/dev/mapper/pve-vm--104--disk--0";
+# to:
+# device = "/dev/mapper/pve-vm--111--disk--0";
+#+end_src
+
+** Issue 8: nix flake check Warnings - Git Options Renamed
+
+*** Problem
+Warnings during ~nix flake check~:
+#+begin_src
+evaluation warning: The option 'programs.git.userEmail' defined in '/nix/store/.../flake.nix' 
+                    has been renamed to 'programs.git.settings.user.email'
+evaluation warning: The option 'programs.git.userName' defined in '/nix/store/.../flake.nix' 
+                    has been renamed to 'programs.git.settings.user.name'
+evaluation warning: The option 'programs.git.extraConfig' defined in '/nix/store/.../flake.nix' 
+                    has been renamed to 'programs.git.settings'
+#+end_src
+
+*** Root Cause
+NixOS 25.11 renamed git module options for consistency.
+Old names still work (with warnings) but deprecated.
+
+*** Solution: Update Git Configuration
+
+Find your git configuration:
+#+begin_src bash
+# Search for old options
+grep -r "programs.git.userName" .
+grep -r "programs.git.userEmail" .
+grep -r "programs.git.extraConfig" .
+#+end_src
+
+Update to new format:
+
+#+begin_src nix
+# OLD (deprecated)
+programs.git = {
+  enable = true;
+  userName = "Marcin";
+  userEmail = "marcin@example.com";
+  extraConfig = {
+    init.defaultBranch = "main";
+    pull.rebase = true;
+  };
+};
+
+# NEW (NixOS 25.11+)
+programs.git = {
+  enable = true;
+  
+  settings = {
+    user.name = "Marcin";
+    user.email = "marcin@example.com";
+    init.defaultBranch = "main";
+    pull.rebase = true;
+  };
+};
+#+end_src
+
+*** Common Locations to Check
+- ~modules/home/shared/git.nix~
+- ~modules/home/users/*/default.nix~
+- ~hosts/*/home.nix~
+- Any file importing git configuration
+
+*** Fix Now or Later?
+*Fix now:* Warnings gone, future-proof
+*Fix later:* Works fine with warnings
+
+Your choice, but I recommend fixing now while you remember.
+
+*** After Fixing
+#+begin_src bash
+# Verify no warnings
+nix flake check
+# Should complete without git warnings
+#+end_src
+
+* Quick Reference
+
+** Container Creation Checklist
+#+begin_src bash
+# 1. Create container (STOPPED)
+./scripts/create-proxmox-lxc-from-template.sh hostname 111 192.168.50.8
+
+# 2. Configure on Proxmox
+ssh root@pve.home.lan
+pct set 111 -mp0 /mnt/bigstorage/data,mp=/mnt/data
+pct set 111 --cores 4 --memory 8192
+pct start 111
+exit
+
+# 3. Verify
+ssh nixadm@192.168.50.8
+mount | grep /mnt
+#+end_src
+
+** SOPS Secret Creation
+#+begin_src bash
+# 1. Generate password
+PASSWORD=$(openssl rand -base64 32)
+
+# 2. Create file
+echo -n "$PASSWORD" > secrets/service-password.txt
+
+# 3. Encrypt
+sops -e -i secrets/service-password.txt
+
+# 4. Verify
+sops -d secrets/service-password.txt | xxd
+
+# 5. Clean up
+unset PASSWORD
+#+end_src
+
+** Verify Nextcloud Setup
+#+begin_src bash
+ssh nixadm@192.168.50.8
+
+# Check version
+sudo -u nextcloud nextcloud-occ status
+
+# Check trusted domains
+sudo -u nextcloud nextcloud-occ config:system:get trusted_domains
+
+# Check services
+sudo systemctl status mysql redis-nextcloud phpfpm-nextcloud nginx
+
+# Check mounts
+mount | grep /mnt
+df -h
+#+end_src
+
+** Common nextcloud-occ Commands
+#+begin_src bash
+# System status
+sudo -u nextcloud nextcloud-occ status
+
+# List apps
+sudo -u nextcloud nextcloud-occ app:list
+
+# Enable app
+sudo -u nextcloud nextcloud-occ app:enable calendar
+
+# Update apps
+sudo -u nextcloud nextcloud-occ app:update --all
+
+# Maintenance mode
+sudo -u nextcloud nextcloud-occ maintenance:mode --on
+sudo -u nextcloud nextcloud-occ maintenance:mode --off
+
+# Add trusted domain
+sudo -u nextcloud nextcloud-occ config:system:set trusted_domains 4 --value=new.domain.com
+
+# Database maintenance
+sudo -u nextcloud nextcloud-occ db:add-missing-indices
+sudo -u nextcloud nextcloud-occ db:convert-filecache-bigint
+#+end_src
+
+* Summary
+
+All issues resolved:
+
+1. ✅ Script updated - container stays stopped for configuration
+2. ✅ Script auto-regenerates SSH keys - unique fingerprints
+3. ✅ BTRFS subvolumes normal - use ~mount | grep /mnt~ not ~df -h~
+4. ✅ SOPS procedure - create file first, then encrypt
+5. ✅ hostname - keep local, add both to trusted_domains
+6. ✅ extraApps - use ~config.services.nextcloud.package.packages.apps~
+7. ✅ hardware-configuration - create manually for LXC
+8. ✅ Git warnings - update to ~programs.git.settings.*~
+
+Your deployment is solid and follows best practices!
