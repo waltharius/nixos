@@ -177,6 +177,17 @@ in {
       # Additional settings
       settings = {
         "overwriteprotocol" = "https";
+        "override.cli.url" = "https://cloud.home.lan";
+
+        "trusted_proxies" = ["192.168.50.114"];
+        "forwarded_for_headers" = ["X-Forwarded-For"];
+
+        "maintenance_window_start" = 3;
+        "log_type" = "file";
+        "logfile" = "${cfg.dataDir}/nextcloud.log";
+        "loglevel" = 2;
+        "log_rotate_size" = "104857600";
+
         "default_phone_region" = "PL";
         "enable_previews" = true;
         "enabledPreviewProviders" = [
