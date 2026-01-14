@@ -828,7 +828,7 @@ mkdir -p hosts/servers/cloud-apps
 Create ~hosts/servers/cloud-apps/configuration.nix~:
 
 #+begin_src nix
-{...}: {
+{pkgs, ...}: {
   imports = [
     ./hardware-configuration.nix
     ../../../modules/servers/base-lxc.nix
