@@ -8,6 +8,9 @@
   # Hostname
   networking.hostName = hostname;
 
+  # Enable universal secrets management
+  services.secrets.enable = true;
+
   # Import host-specific modules
   imports = [
     ../../modules/laptop/tlp.nix

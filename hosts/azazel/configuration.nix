@@ -8,6 +8,9 @@
   # Hostname
   networking.hostName = hostname;
 
+  # Enable universal secrets management
+  services.secrets.enable = true;
+
   # Fingerprint reader
   services.fprintd.enable = true;
 
