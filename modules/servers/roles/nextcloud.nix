@@ -41,7 +41,7 @@ in {
     };
   };
 
-  config = mkIF cfg.enable {
+  config = mkIf cfg.enable {
     # SOPS secrets
     sops.secrets = {
       nextcloud-admin-password = {
