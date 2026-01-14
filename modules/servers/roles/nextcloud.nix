@@ -138,17 +138,17 @@ in {
       # HTTPS setup (behind the proxy [CADDY])
       https = true;
 
-      # PHP settings
+      # PHP settings - use mkForce to override NixOS defaults
       phpOptions = {
-        "upload_max_filesize" = cfg.maxUploadSize;
-        "post_max_size" = cfg.maxUploadSize;
-        "memory_limit" = "512M";
-        "max_execution_time" = "300";
-        "opcache.enable" = "1";
-        "opcache.memory_consumption" = "128";
-        "opcache.interned_strings_buffer" = "16";
-        "opcache.max_accelerated_files" = "10000";
-        "opcache.revalidate_freq" = "1";
+        "upload_max_filesize" = mkForce cfg.maxUploadSize;
+        "post_max_size" = mkForce cfg.maxUploadSize;
+        "memory_limit" = mkForce "512M";
+        "max_execution_time" = mkForce "300";
+        "opcache.enable" = mkForce "1";
+        "opcache.memory_consumption" = mkForce "128";
+        "opcache.interned_strings_buffer" = mkForce "16";
+        "opcache.max_accelerated_files" = mkForce "10000";
+        "opcache.revalidate_freq" = mkForce "1";
       };
 
       # Nextcloud Apps setup declaratively
