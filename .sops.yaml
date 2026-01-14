@@ -77,6 +77,7 @@ creation_rules:
     key_groups:
       - age:
           - *admin
+          - *sukkub
           - *servers-shared
 
   # MariaDB secrets
@@ -84,4 +85,5 @@ creation_rules:
     key_groups:
       - age:
           - *admin
+          - *sukkub
           - *servers-shared
