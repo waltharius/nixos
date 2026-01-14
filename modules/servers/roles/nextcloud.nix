@@ -177,7 +177,7 @@ in {
       # Additional settings
       settings = {
         "overwriteprotocol" = "https";
-        "override.cli.url" = "https://cloud.home.lan";
+        "overwrite.cli.url" = "https://cloud.home.lan";
 
         "trusted_proxies" = ["192.168.50.114"];
         "forwarded_for_headers" = ["X-Forwarded-For"];
