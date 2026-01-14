@@ -105,8 +105,12 @@ in {
       enable = true;
       port = 6379;
       bind = "127.0.0.1";
-      maxmemory = "256M";
-      maxmemoryPolicy = "allkeys-lru";
+      
+      # Memory and eviction policy in settings
+      settings = {
+        maxmemory = "256M";
+        maxmemory-policy = "allkeys-lru";
+      };
     };
 
     # Nextcloud
@@ -184,7 +188,7 @@ in {
       };
     };
 
-    # Nginx - FIXED: virtualHosts (plural!)
+    # Nginx - virtualHosts (plural!)
     services.nginx.virtualHosts.${cfg.hostname} = {
       listen = [
         {
@@ -215,7 +219,7 @@ in {
       description = "Run Nextcloud cron every 5 minutes";
       wantedBy = ["timers.target"];
       timerConfig = {
-        OnBootSec = "5m";  # FIXED: was OnBoorSec
+        OnBootSec = "5m";
         OnUnitActiveSec = "5m";
         Unit = "nextcloud-cron.service";
       };
