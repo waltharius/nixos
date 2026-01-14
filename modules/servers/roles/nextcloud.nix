@@ -105,7 +105,7 @@ in {
       enable = true;
       port = 6379;
       bind = "127.0.0.1";
-      
+
       # Memory and eviction policy in settings
       settings = {
         maxmemory = "256M";
@@ -117,7 +117,7 @@ in {
     services.nextcloud = {
       enable = true;
       package = pkgs.nextcloud32;
-      phpPackage = pkgs.php83;  # PHP 8.3 recommended for Nextcloud 32
+      phpPackage = pkgs.php83; # PHP 8.3 recommended for Nextcloud 32
 
       hostName = cfg.hostname;
       datadir = cfg.dataDir;
@@ -156,9 +156,9 @@ in {
       # To find available apps: nix repl -> :l <nixpkgs> -> pkgs.nextcloud32Packages.apps.<TAB>
       extraApps = with config.services.nextcloud.package.packages.apps; {
         # Productivity apps
-        inherit calendar contacts tasks notes;
+        inherit bookmarks qownnotesapi calendar contacts tasks notes;
         # Collaboration
-        inherit deck;
+        inherit deck onlyoffice;
         # Additional apps can be installed via web UI
       };
       extraAppsEnable = true;
