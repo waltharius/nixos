@@ -71,3 +71,17 @@ creation_rules:
       - age:
           - *admin
           - *azazel
+
+  # Nextcloud secrets
+  - path_regex: secrets/nextcloud-.*\.txt$
+    key_groups:
+      - age:
+          - *admin
+          - *servers-shared
+
+  # MariaDB secrets
+  - path_regex: secrets/mariadb-.*\.txt$
+    key_groups:
+      - age:
+          - *admin
+          - *servers-shared
