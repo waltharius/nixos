@@ -36,7 +36,7 @@ in {
 
     port = mkOption {
       type = types.port;
-      default = "8080";
+      default = 8080;
       description = "Port for Nextcloud (behind the proxy)";
     };
   };
@@ -113,7 +113,7 @@ in {
     services.nextcloud = {
       enable = true;
       package = pkgs.nextcloud32;
-      phpPackage = pkgs.php84;
+      phpPackage = pkgs.php83;  # PHP 8.3 recommended for Nextcloud 32
 
       hostName = cfg.hostname;
       datadir = cfg.dataDir;
@@ -184,8 +184,8 @@ in {
       };
     };
 
-    # Nginx (Nextcloud module include this)
-    services.nginx.virtualHost.${cfg.hostname} = {
+    # Nginx - FIXED: virtualHosts (plural!)
+    services.nginx.virtualHosts.${cfg.hostname} = {
       listen = [
         {
           addr = "0.0.0.0";
@@ -201,8 +201,8 @@ in {
     # Background jobs
     systemd.services.nextcloud-cron = {
       description = "Nextcloud cron job";
-      after = ["nextcloud-setup-service"];
-      requires = ["nextcloud-setup-service"];
+      after = ["nextcloud-setup.service"];
+      requires = ["nextcloud-setup.service"];
 
       serviceConfig = {
         Type = "oneshot";
@@ -215,7 +215,7 @@ in {
       description = "Run Nextcloud cron every 5 minutes";
       wantedBy = ["timers.target"];
       timerConfig = {
-        OnBoorSec = "5m";
+        OnBootSec = "5m";  # FIXED: was OnBoorSec
         OnUnitActiveSec = "5m";
         Unit = "nextcloud-cron.service";
       };
