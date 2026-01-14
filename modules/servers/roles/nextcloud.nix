@@ -179,7 +179,7 @@ in {
         "overwriteprotocol" = "https";
         "overwrite.cli.url" = "https://cloud.home.lan";
 
-        "trusted_proxies" = ["192.168.50.114" "caddy.home.lan"];
+        "trusted_proxies" = ["192.168.50.114"];
         "forwarded_for_headers" = ["X-Forwarded-For"];
 
         "maintenance_window_start" = 3;
