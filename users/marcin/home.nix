@@ -120,6 +120,7 @@ in {
       customPkgs.track-package-simple
 
       # GUI Applications
+      nextcloud-client
       blanket
       signal-desktop
       brave
