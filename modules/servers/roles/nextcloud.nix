@@ -115,7 +115,7 @@ in {
       package = pkgs.nextcloud32;
       phpPackage = pkgs.php84;
 
-      hostName = cfg.hostName;
+      hostName = cfg.hostname;
       datadir = cfg.dataDir;
 
       # Database
@@ -185,7 +185,7 @@ in {
     };
 
     # Nginx (Nextcloud module include this)
-    services.nginx.virtualHost.${cfg.hostName} = {
+    services.nginx.virtualHost.${cfg.hostname} = {
       listen = [
         {
           addr = "0.0.0.0";
