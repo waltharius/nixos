@@ -153,10 +153,13 @@ in {
 
       # Nextcloud Apps setup declaratively
       # Use config.services.nextcloud.package for correct version
+      # To find available apps: nix repl -> :l <nixpkgs> -> pkgs.nextcloud32Packages.apps.<TAB>
       extraApps = with config.services.nextcloud.package.packages.apps; {
+        # Productivity apps
         inherit calendar contacts tasks notes;
-        inherit files_markdown files_texteditor;
+        # Collaboration
         inherit deck;
+        # Additional apps can be installed via web UI
       };
       extraAppsEnable = true;
 
