@@ -166,7 +166,8 @@ in {
       # Redis caching
       configureRedis = true;
 
-      # Cron jobs
+      # Cron jobs - NixOS Nextcloud module handles this automatically!
+      # No need to create custom cron service/timer
       autoUpdateApps = {
         enable = true;
         startAt = "05:00:00";
@@ -205,27 +206,10 @@ in {
     # Firewall
     networking.firewall.allowedTCPPorts = [cfg.port];
 
-    # Background jobs
-    systemd.services.nextcloud-cron = {
-      description = "Nextcloud cron job";
-      after = ["nextcloud-setup.service"];
-      requires = ["nextcloud-setup.service"];
-
-      serviceConfig = {
-        Type = "oneshot";
-        User = "nextcloud";
-        ExecStart = "${config.services.nextcloud.package}/bin/nextcloud-occ background:cron";
-      };
-    };
-
-    systemd.timers.nextcloud-cron = {
-      description = "Run Nextcloud cron every 5 minutes";
-      wantedBy = ["timers.target"];
-      timerConfig = {
-        OnBootSec = "5m";
-        OnUnitActiveSec = "5m";
-        Unit = "nextcloud-cron.service";
-      };
-    };
+    # Note: NixOS Nextcloud module automatically creates:
+    # - systemd.services.nextcloud-cron.service
+    # - systemd.timers.nextcloud-cron.timer
+    # These run every 5 minutes to handle background jobs.
+    # You don't need to create them manually!
   };
 }
