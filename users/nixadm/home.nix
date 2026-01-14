@@ -96,10 +96,9 @@
 
   # Git configuration for servers
   programs.git = {
-    enable = true;
-    userName = "nixadm";
-    userEmail = "nixadm@home.lan";
-    extraConfig = {
+    settings = {
+      user.name = "nixadm";
+      user.email = "nixadm@home.lan";
       init.defaultBranch = "main";
     };
   };
