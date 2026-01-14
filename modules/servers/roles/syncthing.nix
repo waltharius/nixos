@@ -40,7 +40,7 @@ in {
     users.users.${cfg.user} = mkIf (cfg.user == "syncthing") {
       isSystemUser = true;
       group = cfg.group;
-      home = cfg.dataDir;
+      home = mkForce cfg.dataDir;
       createHome = false; # Created by tmpfiles
     };
 
