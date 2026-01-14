@@ -180,7 +180,10 @@ in {
         "overwrite.cli.url" = "https://cloud.home.lan";
 
         "trusted_proxies" = ["192.168.50.114"];
-        "forwarded_for_headers" = ["X-Forwarded-For"];
+        "forwarded_for_headers" = [
+          "HTTP_X_FORWARDED_FOR"
+          "HTTP_X_REAL_IP"
+        ];
 
         "maintenance_window_start" = 3;
         "log_type" = "file";
