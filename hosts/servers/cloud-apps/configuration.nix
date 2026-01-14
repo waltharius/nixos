@@ -13,7 +13,7 @@
   # Nextcloud with MariaDB and Redis
   services.server-role.nextcloud = {
     enable = true;
-    hostName = "cloud.home.lan";
+    hostname = "cloud.home.lan";
     dataDir = "/mnt/nextcloud-data";
     dbDataDir = "/mnt/databases/mariadb";
     maxUploadSize = "5G"; # Adjust as needed
