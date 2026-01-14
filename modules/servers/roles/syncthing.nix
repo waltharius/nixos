@@ -40,13 +40,13 @@ in {
     users.users.${cfg.user} = mkIf (cfg.user == "syncthing") {
       isSystemUser = true;
       group = cfg.group;
-      home = mkForce cfg.dataDir;
-      createHome = false; # Created by tmpfiles
+      home = mkForce cfg.dataDir;  # Force home to be mounted data directory
+      createHome = mkForce false;  # Don't auto-create, use tmpfiles instead
     };
 
     users.groups.${cfg.group} = mkIf (cfg.group == "syncthing") {};
 
-    # Create data directory
+    # Create data directory with proper permissions
     systemd.tmpfiles.rules = [
       "d ${cfg.dataDir} 0750 ${cfg.user} ${cfg.group} -"
     ];
