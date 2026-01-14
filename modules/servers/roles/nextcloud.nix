@@ -139,7 +139,7 @@ in {
       # HTTPS setup (behind the proxy [CADDY])
       https = true;
 
-      # PHP settings - use mkForce to override NixOS defaults
+      # PHP settings - use mkForce to overwrite NixOS defaults
       phpOptions = {
         "upload_max_filesize" = mkForce cfg.maxUploadSize;
         "post_max_size" = mkForce cfg.maxUploadSize;
@@ -179,7 +179,7 @@ in {
         "overwriteprotocol" = "https";
         "overwrite.cli.url" = "https://cloud.home.lan";
 
-        "trusted_proxies" = ["192.168.50.114"];
+        "trusted_proxies" = ["192.168.50.114" "caddy.home.lan"];
         "forwarded_for_headers" = ["X-Forwarded-For"];
 
         "maintenance_window_start" = 3;
