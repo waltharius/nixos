@@ -23,9 +23,6 @@ in {
   config = mkIf cfg.enable {
     # Global sops configuration
     sops = {
-      # Default format for all secrets
-      defaultSopsFormat = "yaml";
-
       # Age key file location (per-host)
       age.keyFile = "/var/lib/sops-nix/key.txt";
 
