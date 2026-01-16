@@ -64,10 +64,10 @@
           ./hosts/${hostname}/hardware-configuration.nix
 
           # Shared system modules
+          ./modules/system/user-roles.nix
           ./modules/system/boot.nix
           ./modules/system/networking.nix
           ./modules/system/locale.nix
-          ./modules/system/gnome.nix
           ./modules/system/secrets.nix
           ./modules/system/sshd.nix # SSH server for remote access
           ./modules/system/wifi.nix # WiFi with encrypted passwords
