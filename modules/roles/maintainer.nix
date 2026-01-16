@@ -10,9 +10,11 @@
   hasMaintainerRole = builtins.elem "maintainer" userConfig.roles;
   isServer = userConfig.isServer or false;
 in {
-  config = lib.mkIf hasMaintainerRole {
-    # Shell & terminal environment
-    imports = [
+  # ==========================================
+  # Imports - MUST be at top level!
+  # ==========================================
+  imports =
+    lib.optionals hasMaintainerRole [
       ../home/shell/bash.nix
       ../home/shell/starship.nix # Handles server/laptop variants automatically
       ../home/terminal/tmux.nix
@@ -30,6 +32,10 @@ in {
       (../../users + "/${username}/preferences.nix")
     ];
 
+  # ==========================================
+  # Configuration
+  # ==========================================
+  config = lib.mkIf hasMaintainerRole {
     # CLI tools for maintenance
     home.packages = with pkgs;
       [
