@@ -95,7 +95,8 @@
                   config.allowUnfree = true;
                 };
               };
-              users.marcin = import ./users/marcin/home.nix;
+              # UPDATED: Now uses modular config
+              users.marcin = import ./users/marcin/desktop.nix;
               backupFileExtension = "backup";
 
               sharedModules = [
