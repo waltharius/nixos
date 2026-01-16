@@ -19,6 +19,18 @@
       userAssignments)
   );
 in {
+  # ==========================================
+  # Conditional imports - MUST be at top level!
+  # ==========================================
+  imports =
+    lib.optional (builtins.elem "gnome" requestedDEs)
+    ./desktop-environments/gnome.nix
+    ++ lib.optional (builtins.elem "kde" requestedDEs)
+    ./desktop-environments/kde.nix;
+
+  # ==========================================
+  # Options
+  # ==========================================
   options.hostUsers = lib.mkOption {
     type = lib.types.attrsOf (lib.types.submodule ({name, ...}: {
       options = {
@@ -58,14 +70,10 @@ in {
     description = "User assignments for this host";
   };
 
+  # ==========================================
+  # Configuration
+  # ==========================================
   config = {
-    # Install requested DEs at system level (only if users need them)
-    imports =
-      lib.optional (builtins.elem "gnome" requestedDEs)
-      ./desktop-environments/gnome.nix
-      ++ lib.optional (builtins.elem "kde" requestedDEs)
-      ./desktop-environments/kde.nix;
-
     # Create system users
     users.users =
       lib.mapAttrs (username: userCfg: {
