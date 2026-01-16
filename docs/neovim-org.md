@@ -2,13 +2,13 @@
 
 ## Overview
 
-This is an **optional, modular** extension for Neovim that adds org-mode and denote-style note-taking capabilities. It's designed to work seamlessly alongside Emacs without modifying your existing org files.
+This is an **optional, modular** extension for Neovim that adds org-mode and denote-style note-taking capabilities. It's designed to work seamlessly alongside Emacs without modifying my existing org files.
 
 ### Key Features
 
-- ✅ **100% Emacs-compatible** - No changes to your org file format
+- ✅ **100% Emacs-compatible** - No changes to my org file format
 - ✅ **Denote-style naming** - `YYYYMMDDTHHMMSS--title__tags.org`
-- ✅ **Journal workflow** - Exactly like your Emacs setup
+- ✅ **Journal workflow** - Exactly like my Emacs setup
 - ✅ **Spell checking** - English + Polish support
 - ✅ **Easy to disable** - Just comment one line and rebuild
 - ✅ **No impact on code editing** - Only loads for org files
@@ -19,7 +19,7 @@ This is an **optional, modular** extension for Neovim that adds org-mode and den
 
 ### Enable the Module
 
-Add this import to your `modules/utils/neovim.nix`:
+Add this import to `modules/utils/neovim.nix`:
 
 ```nix
 # At the top of the file with other imports
