@@ -1,15 +1,12 @@
 # modules/system/desktop-environments/gnome.nix
 # System-level GNOME desktop environment configuration
 # Based on existing modules/system/gnome.nix
-
-{ config, lib, pkgs, ... }:
-
-{
+{pkgs, ...}: {
   # Enable X11 windowing system
   services.xserver = {
     enable = true;
 
-    # Keyboard repeat rate (from your config)
+    # Keyboard repeat rate
     autoRepeatDelay = 200;
     autoRepeatInterval = 35;
   };
@@ -21,15 +18,15 @@
   services.desktopManager.gnome = {
     enable = true;
 
-    # Enable fractional scaling (from your config)
-    extraGSettingsOverridePackages = [ pkgs.mutter ];
+    # Enable fractional scaling
+    extraGSettingsOverridePackages = [pkgs.mutter];
     extraGSettingsOverrides = ''
       [org.gnome.mutter]
       experimental-features=['scale-monitor-framebuffer']
     '';
   };
 
-  # Enable GNOME Keyring with SSH agent support (from your config)
+  # Enable GNOME Keyring with SSH agent support
   services.gnome.gnome-keyring.enable = true;
 
   # Enable PAM integration to auto-unlock keyring with login password
@@ -44,12 +41,13 @@
   # Ensure system-wide SSH agent doesn't conflict
   programs.ssh.startAgent = false;
 
-  # Remove unwanted GNOME packages (from your config)
+  # Remove unwanted GNOME packages
   environment.gnome.excludePackages = with pkgs; [
     geary
     epiphany
     gnome-tour
     gnome-maps
+    gnome-music
     cheese
   ];
 
@@ -59,7 +57,7 @@
   # XDG portal for Flatpak integration
   xdg.portal = {
     enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+    extraPortals = [pkgs.xdg-desktop-portal-gtk];
   };
 
   # Enable CUPS for printing
