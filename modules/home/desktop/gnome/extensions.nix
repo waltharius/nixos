@@ -1,7 +1,11 @@
 # modules/home/desktop/gnome/extensions.nix
 # GNOME extensions management
 
-{lib, ...}: let
+{
+  config,
+  lib,
+  ...
+}: let
   cfg = config.programs.gnome-extensions;
 in {
   options.programs.gnome-extensions = {
