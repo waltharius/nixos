@@ -13,6 +13,7 @@
 
   # Import host-specific modules
   imports = [
+    ./users.nix
     ../../modules/laptop/tlp.nix
     ../../modules/laptop/hibernate.nix
     ../../modules/laptop/acpi-suspend.nix
