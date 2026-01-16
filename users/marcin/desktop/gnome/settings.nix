@@ -1,15 +1,14 @@
 # users/marcin/desktop/gnome/settings.nix
 # Marcin's personal GNOME settings (theme, hot corners, etc.)
-
 {...}: {
   dconf.settings = {
     # ==========================================
     # Interface settings - YOUR preferences
     # ==========================================
     "org/gnome/desktop/interface" = {
-      color-scheme = "default"; # LIGHT theme (you love it!)
+      color-scheme = "default";
       clock-show-weekday = true;
-      enable-hot-corners = true; # You use hot corners constantly!
+      enable-hot-corners = true;
     };
 
     # ==========================================

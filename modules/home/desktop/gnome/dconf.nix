@@ -1,9 +1,8 @@
 # modules/home/desktop/gnome/dconf.nix
 # GNOME dconf settings - shared base settings
-
 {...}: {
   dconf.settings = {
-    # Power settings - from your config
+    # Power settings
     "org/gnome/settings-daemon/plugins/power" = {
       # Allow suspend even when external monitors connected
       lid-close-suspend-with-external-monitor = true;

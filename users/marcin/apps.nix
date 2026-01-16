@@ -1,7 +1,6 @@
 # users/marcin/apps.nix
 # Marcin's personal applications (used with "regular" role)
 # Preserves your exact package selection from home.nix
-
 {
   pkgs,
   customPkgs ? {},

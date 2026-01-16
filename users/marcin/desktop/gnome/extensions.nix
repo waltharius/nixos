@@ -2,9 +2,8 @@
 # Marcin's GNOME extensions configuration
 #
 # NOTE: This file defines GNOME extensions.
-# Keyboard shortcuts that depend on these extensions are in shortcuts.nix
-# Autostart configs that depend on packages are in autostart.nix
-
+# NOTE: Keyboard shortcuts that depend on these extensions are in shortcuts.nix
+# NOTE: Autostart configs that depend on packages are in autostart.nix
 {
   pkgs,
   customPkgs ? {},

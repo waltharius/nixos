@@ -1,6 +1,5 @@
 # modules/home/desktop/gnome/extensions.nix
 # GNOME extensions management
-
 {
   config,
   lib,

@@ -1,14 +1,11 @@
 # modules/home/desktop/gnome/base.nix
 # Core GNOME packages and basic configuration
-
 {pkgs, ...}: {
   # Core GNOME user packages
   home.packages = with pkgs; [
     gnome-tweaks
     dconf-editor
     nautilus
-    eog
-    file-roller
     gnome-system-monitor
     gnome-screenshot
   ];

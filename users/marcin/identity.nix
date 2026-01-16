@@ -1,6 +1,5 @@
 # users/marcin/identity.nix
 # Marcin's personal identity (git, SSH, SOPS)
-
 {config, ...}: let
   nixos-fonts = "${config.home.homeDirectory}/nixos/fonts";
   create_symlink = path: config.lib.file.mkOutOfStoreSymlink path;

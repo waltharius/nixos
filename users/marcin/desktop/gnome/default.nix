@@ -1,6 +1,5 @@
 # users/marcin/desktop/gnome/default.nix
 # Marcin's complete GNOME configuration
-
 {...}: {
   imports = [
     ./extensions.nix # GNOME extensions list

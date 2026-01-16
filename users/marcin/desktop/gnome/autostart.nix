@@ -3,7 +3,6 @@
 #
 # DEPENDENCY: Only creates autostart entries for installed packages
 # Packages are defined in users/marcin/apps.nix
-
 {
   config,
   pkgs,

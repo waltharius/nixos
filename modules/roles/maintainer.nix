@@ -56,6 +56,8 @@ in {
 
         # File utilities
         yazi
+        eza
+        blesh
 
         # Nix ecosystem tools
         nixpkgs-fmt

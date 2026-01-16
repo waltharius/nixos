@@ -1,6 +1,5 @@
 # modules/home/desktop/kde/base.nix
 # Core KDE packages
-
 {pkgs, ...}: {
   home.packages = with pkgs; [
     # KDE applications

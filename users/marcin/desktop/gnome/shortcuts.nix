@@ -1,9 +1,9 @@
 # users/marcin/desktop/gnome/shortcuts.nix
 # Marcin's GNOME keyboard shortcuts
 #
+# NOTE:
 # DEPENDENCY: This file requires run-or-raise extension
 # defined in extensions.nix
-
 {
   config,
   pkgs,
