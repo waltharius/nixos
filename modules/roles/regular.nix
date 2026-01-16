@@ -10,9 +10,11 @@
   hasRegularRole = builtins.elem "regular" userConfig.roles;
   desktopPref = userConfig.desktopPreference;
 in {
-  config = lib.mkIf hasRegularRole {
-    # Also import maintainer tools (if user has both roles)
-    imports =
+  # ==========================================
+  # Imports - MUST be at top level!
+  # ==========================================
+  imports =
+    lib.optionals hasRegularRole (
       [
         # Desktop environment configuration
       ]
@@ -27,6 +29,14 @@ in {
         # Desktop-specific customizations
       ]
       ++ lib.optional (desktopPref != null)
-      (../../users + "/${username}/desktop/${desktopPref}");
+      (../../users + "/${username}/desktop/${desktopPref}")
+    );
+
+  # ==========================================
+  # Configuration (empty for now, all done via imports)
+  # ==========================================
+  config = lib.mkIf hasRegularRole {
+    # All configuration is handled by imported modules
+    # This section is here for future role-specific settings
   };
 }
