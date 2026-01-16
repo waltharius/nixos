@@ -14,6 +14,7 @@
 
   # Define GNOME extensions
   myGnomeExtensions = with pkgs.gnomeExtensions; [
+    appindicator
     run-or-raise
     gsconnect
     just-perfection
@@ -107,6 +108,58 @@ in {
   };
 
   # ========================================
+  # Nextcloud Client config
+  # ========================================
+  # Declarative sync exclusions
+  xdg.configFile."Nextcloud/sync-exclude.lst" = {
+    text = ''
+      *.part
+      .~lock.*
+      ~$*
+      .*.sw?
+      .*~
+      Desktop.ini
+      Thumbs.db
+      .dropbox
+      .dropbox.attr
+
+      .stfolder
+      .stignore
+      .stversions/
+
+      .stfolder/
+      .stversions/
+      */.stfolder
+      */.stignore
+      */.stversions/
+
+      .git/
+      */.git/
+      *.orig
+      *.rej
+      .git/index.lock
+
+      node_modules/
+      */node_modules/
+      __pycache__/
+      */__pycache__/
+      .pytest_cache/
+      */.pytest_cache/
+      target/
+      */target/
+      build/
+      */build/
+      dist/
+      */dist/
+
+      *.tmp
+      *.temp
+      *.log
+      .DS_Store
+    '';
+  };
+
+  # ========================================
   # HOME PACKAGES
   # ========================================
   home.packages = with pkgs;
@@ -120,13 +173,13 @@ in {
       customPkgs.track-package-simple
 
       # GUI Applications
-      nextcloud-client
       blanket
       signal-desktop
       brave
       gnome-secrets
       vivaldi
       shotwell
+      nextcloud-client
 
       # Productivity & Office
       libreoffice-fresh # Office suite
