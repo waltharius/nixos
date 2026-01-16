@@ -1,3 +1,4 @@
+# modules/servers/roles/nextcloud.nix
 {
   config,
   lib,
@@ -176,6 +177,10 @@ in {
 
       # Additional settings
       settings = {
+        trusted_domains = [
+          "cloud.home.lan"
+          "stuff.deranged.cc"
+        ];
         "overwriteprotocol" = "https";
         "overwrite.cli.url" = "https://cloud.home.lan";
 
