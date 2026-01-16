@@ -11,29 +11,24 @@
   isServer = userConfig.isServer or false;
 in {
   # ==========================================
-  # Imports - MUST be at top level!
+  # Imports - ALWAYS import, activation is conditional
   # ==========================================
-  imports =
-    lib.optionals hasMaintainerRole [
-      ../home/shell/bash.nix
-      ../home/shell/starship.nix # Handles server/laptop variants automatically
-      ../home/terminal/tmux.nix
-      ../home/tools/atuin.nix
-      ../home/tools/zoxide.nix
-      ../utils/yazi.nix
-      ../utils/nixvim
-
-      # Services
-      ../services/syncthing.nix
-      ../services/ssh.nix
-      ../services/ssh-askpass.nix
-
-      # User's personal preferences
-      (../../users + "/${username}/preferences.nix")
-    ];
+  imports = [
+    ../home/shell/bash.nix
+    ../home/shell/starship.nix
+    ../home/terminal/tmux.nix
+    ../home/tools/atuin.nix
+    ../home/tools/zoxide.nix
+    ../utils/yazi.nix
+    ../utils/nixvim
+    ../services/syncthing.nix
+    ../services/ssh.nix
+    ../services/ssh-askpass.nix
+    (../../users + "/${username}/preferences.nix")
+  ];
 
   # ==========================================
-  # Configuration
+  # Configuration - Activate only if user has maintainer role
   # ==========================================
   config = lib.mkIf hasMaintainerRole {
     # CLI tools for maintenance
@@ -76,18 +71,13 @@ in {
 
         # Text processing
         fastfetch
-
-        # Minimal GUI (only on laptops where you do maintenance)
-        # Colmena is laptop-only - servers don't deploy other machines
       ]
       ++ lib.optionals (!isServer) [
         # GUI apps for maintenance on laptops
         brave # Browser for debugging
         ptyxis # Terminal
         nextcloud-client # For accessing files
-
-        # DEPLOYMENT TOOL - only on laptops!
-        colmena # For deploying to other machines
+        colmena # DEPLOYMENT TOOL - only on laptops!
       ];
   };
 }
