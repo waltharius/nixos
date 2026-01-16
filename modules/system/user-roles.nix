@@ -4,29 +4,14 @@
   config,
   lib,
   ...
-}: let
-  userAssignments = config.hostUsers or {};
-
-  # Collect all requested DEs from users with "regular" role
-  requestedDEs = lib.unique (
-    lib.filter (de: de != null)
-    (lib.mapAttrsToList (
-        name: cfg:
-          if builtins.elem "regular" cfg.roles
-          then cfg.desktopPreference
-          else null
-      )
-      userAssignments)
-  );
-in {
+}: {
   # ==========================================
-  # Conditional imports - MUST be at top level!
+  # Always import both DEs - they'll conditionally activate
   # ==========================================
-  imports =
-    lib.optional (builtins.elem "gnome" requestedDEs)
+  imports = [
     ./desktop-environments/gnome.nix
-    ++ lib.optional (builtins.elem "kde" requestedDEs)
-    ./desktop-environments/kde.nix;
+    ./desktop-environments/kde.nix
+  ];
 
   # ==========================================
   # Options
@@ -73,7 +58,24 @@ in {
   # ==========================================
   # Configuration
   # ==========================================
-  config = {
+  config = let
+    userAssignments = config.hostUsers;
+
+    # Collect all requested DEs from users with "regular" role
+    requestedDEs = lib.unique (
+      lib.filter (de: de != null)
+      (lib.mapAttrsToList (
+          name: cfg:
+            if builtins.elem "regular" cfg.roles
+            then cfg.desktopPreference
+            else null
+        )
+        userAssignments)
+    );
+  in {
+    # Pass requestedDEs to desktop environment modules
+    _module.args.requestedDEs = requestedDEs;
+
     # Create system users
     users.users =
       lib.mapAttrs (username: userCfg: {
