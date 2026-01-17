@@ -1,6 +1,6 @@
 # Multi-User Configuration Guide
 
-This guide explains how to add new users to NixOS laptops while maintaining your admin access.
+This guide explains how to add new users to NixOS laptops while maintaining admin access.
 
 ## Current Structure
 
@@ -21,17 +21,21 @@ users/
 ## Marcin's Three Configurations
 
 ### 1. `core.nix` - Identity Only
+
 Contains:
+
 - Git config
-- SSH keys  
+- SSH keys
 - SOPS setup
 - Basic settings
 
 Used by: `maintainer.nix` and `desktop.nix`
 
 ### 2. `maintainer.nix` - CLI Admin Access
+
 Imports: `core.nix` +  
 Adds:
+
 - CLI tools (ripgrep, fd, tree, etc.)
 - Shell config (bash, starship, tmux)
 - Nixvim, yazi, atuin, zoxide
@@ -40,14 +44,16 @@ Adds:
 Use this when: You need admin access to family laptops via SSH
 
 ### 3. `desktop.nix` - Full Desktop
+
 Imports: `maintainer.nix` (gets all CLI tools) +  
 Adds:
+
 - GNOME apps (Brave, Signal, Spotify, etc.)
 - Office apps (LibreOffice, Zotero, Obsidian)
 - GNOME extensions and settings
 - Logitech device configs
 
-Use this when: Your personal laptop with full GUI
+Use this when: Configuring personal laptop with full GUI
 
 ---
 
@@ -64,6 +70,7 @@ vim users/mum/default.nix
 ```
 
 Edit `users/mum/default.nix`:
+
 ```nix
 { pkgs, ... }: {
   home.username = "mum";
@@ -74,7 +81,7 @@ Edit `users/mum/default.nix`:
 
   # Simple packages for mum
   home.packages = with pkgs; [
-    firefox
+    brave
     libreoffice-fresh
     thunderbird
     nextcloud-client
@@ -90,7 +97,7 @@ Edit `hosts/mums-laptop/configuration.nix`:
 { ... }: {
   # ... existing system config ...
 
-  # Define TWO users: mum (primary) and marcin (admin)
+  # Define TWO users: mum (primary) and yours user (admin)
   users.users = {
     # Mum - primary user, no sudo
     mum = {
@@ -120,10 +127,10 @@ Edit `flake.nix` in the `mkHost` function:
 ```nix
 home-manager = {
   # ... existing config ...
-  
+
   # CHANGE THIS from single user:
   # users.marcin = import ./users/marcin/desktop.nix;
-  
+
   # TO multiple users:
   users = {
     mum = import ./users/mum;  # Her config
@@ -146,13 +153,15 @@ colmena apply --on mums-laptop
 
 ## Common Patterns
 
-### Your Personal Laptop (sukkub)
+### Your Personal laptop
+
 ```nix
 users.marcin = import ./users/marcin/desktop.nix;
 # Gets: CLI tools + Full GUI
 ```
 
-### Family Member's Laptop (mums-laptop)
+### Family Member's Laptop (e.g. mums-laptop)
+
 ```nix
 users = {
   mum = import ./users/mum;
@@ -161,7 +170,8 @@ users = {
 # Mum gets GUI, you get SSH access for maintenance
 ```
 
-### Server (nixos-test)
+### Server (e.g. nixos-test)
+
 ```nix
 users.nixadm = import ./users/nixadm/home.nix;
 # NO laptop users on servers!
@@ -174,29 +184,33 @@ users.nixadm = import ./users/nixadm/home.nix;
 1. **Laptop users go in `users/`** (not in a subdirectory)
 2. **Server users stay in `users/nixadm/`** (separate!)
 3. **One config per user** - keep it simple
-4. **Marcin has two modes:**
+4. **Marcin (FAMILY ADMIN GUY) has two modes:**
    - `desktop.nix` = your personal laptops
    - `maintainer.nix` = family laptops (SSH admin only)
-5. **Never use `desktop.nix` on family laptops** - they don't need your personal tools!
+5. **rather don't use your `desktop.nix` on family laptops** - they don't need your personal tools!
 
 ---
 
 ## Troubleshooting
 
 ### "How do I SSH into mum's laptop?"
+
 ```bash
 ssh marcin@mums-laptop  # Your SSH key is configured
 sudo nixos-rebuild switch  # You have sudo (wheel group)
 ```
 
 ### "How do I deploy from my laptop?"
+
 ```bash
 colmena apply --on mums-laptop  # Deploy to one laptop
 colmena apply  # Deploy to all configured hosts
 ```
 
 ### "What if I need GUI on a family laptop?"
+
 You probably don't! Use SSH + terminal. But if you must:
+
 ```nix
 # In flake.nix, for that host only:
 users.marcin = import ./users/marcin/desktop.nix;

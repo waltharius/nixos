@@ -3,11 +3,13 @@
 ## What Changed
 
 ### Before (main branch)
+
 ```
 users/marcin/home.nix  # One giant file (290 lines)
 ```
 
-### After (multi-user-config branch)  
+### After (multi-user-config branch)
+
 ```
 users/marcin/
 ├── core.nix         # Identity (git, SSH, SOPS)
@@ -36,7 +38,7 @@ On sukkub after switching to new branch:
 - [ ] All apps available (Brave, Signal, etc.)
 - [ ] CLI tools work (nixvim, yazi, etc.)
 - [ ] Git config correct
-- [ ] SSH keys work  
+- [ ] SSH keys work
 - [ ] SOPS secrets accessible
 - [ ] Starship prompt shows
 - [ ] Solaar works with Logitech devices
