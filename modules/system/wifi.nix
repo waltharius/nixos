@@ -1,3 +1,4 @@
+#./modules/system/wifi.nix
 # WiFi Configuration with NetworkManager
 # Hybrid approach: Declarative permanent networks + Imperative ad-hoc networks
 #
