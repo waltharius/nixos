@@ -8,8 +8,18 @@
   config,
   lib,
   pkgs,
+  hostname,
   ...
-}: {
+}: let
+  # Host-specific IP addresses
+  hostIP =
+    {
+      azazel = "192.168.50.80";
+      sukkub = "192.168.50.81";
+    }.${
+      hostname
+    } or "192.168.50.99"; # Fallback IP if host unknown
+in {
   # Disable wpa_supplicant (conflicts with NetworkManager)
   networking.wireless.enable = lib.mkForce false;
 
@@ -63,7 +73,7 @@
       psk-flags=0
 
       [ipv4]
-      address1=192.168.50.81/24
+      address1=${hostIP}/24
       dns=192.168.50.1;
       dns-search=home.lan;
       gateway=192.168.50.1
@@ -95,7 +105,7 @@
       psk-flags=0
 
       [ipv4]
-      address1=192.168.50.81/24
+      address1=${hostIP}/24
       dns=192.168.50.1;
       dns-search=home.lan;
       gateway=192.168.50.1
@@ -127,7 +137,7 @@
       psk-flags=0
 
       [ipv4]
-      address1=192.168.50.81/24
+      address1=${hostIP}/24
       dns=192.168.50.1;
       dns-search=home.lan;
       gateway=192.168.50.1
