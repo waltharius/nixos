@@ -54,15 +54,15 @@ in {
     ../../modules/home/shell/bash.nix
     ../../modules/home/shell/starship.nix
     ../../modules/home/terminal/tmux.nix
-    ../../modules/home/tools/hugo.nix
+#    ../../modules/home/tools/hugo.nix
     ../../modules/home/tools/buku.nix
   ];
 
-  programs.hugo = {
-    enable = true;
-    baseURL = "http://localhost:1313";
-  };
-
+#  programs.hugo = {
+#    enable = true;
+#    baseURL = "http://localhost:1313";
+#  };
+#
   # ========================================
   # USER-SPECIFIC OVERRIDES
   # ========================================
