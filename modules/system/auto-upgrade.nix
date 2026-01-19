@@ -16,7 +16,12 @@
     flags = [
       "--update-input"
       "nixpkgs"
-      "--commit-lock-file"
+      "--update-input"
+      "nixpkgs-unstable"
+      "--update-input"
+      "home-manager"
+      "--update-input"
+      "sops-nix"
     ];
 
     # When to run
