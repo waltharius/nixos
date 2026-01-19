@@ -1,14 +1,20 @@
 # ./modules/laptop/fingerprint.nix
 # Fingerprint authentication module for laptops with fingerprint readers
 # Configures PAM to use fprintd for GNOME login, sudo, polkit, and keyring unlock
-{pkgs, ...}: {
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: {
   # Enable fprintd service
   services.fprintd.enable = true;
 
   # Configure PAM to use fingerprint authentication
   # Using 'sufficient' means fingerprint OR password works (safer fallback)
+  # Note: We use lib.mkForce to override GDM's default false value for login.fprintAuth
   security.pam.services = {
-    # GNOME Display Manager (login screen)
+    # GDM login screen - these should work without mkForce
     gdm.fprintAuth = true;
     gdm-fingerprint.fprintAuth = true;
 
@@ -18,9 +24,9 @@
     # Polkit authentication (for system settings, package installation, etc.)
     polkit-1.fprintAuth = true;
 
-    # GNOME Keyring unlock (for stored passwords, SSH keys, etc.)
+    # GNOME Keyring unlock - needs mkForce because GDM module sets it to false
     # This is crucial for automatic keyring unlock after fingerprint login
-    login.fprintAuth = true;
+    login.fprintAuth = lib.mkForce true;
 
     # Screen lock authentication
     gnome-keyring.fprintAuth = true;
