@@ -176,9 +176,9 @@ in {
       # GUI Applications
       blanket
       signal-desktop
-      pkgs-unstable.brave
+      brave
       gnome-secrets
-      pkgs-unstable.vivaldi
+      vivaldi
       shotwell
       nextcloud-client
 
