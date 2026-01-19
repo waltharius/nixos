@@ -1,5 +1,9 @@
 # Automatic system updates with meaningful generation names
-{config, ...}: {
+{
+  config,
+  lib,
+  ...
+}: {
   # Automatic system upgrades
   system.autoUpgrade = {
     enable = true;
@@ -8,7 +12,11 @@
     flake = "/home/marcin/nixos#${config.networking.hostName}";
 
     # Update inputs (nixpkgs, etc.) before upgrading
-    flags = [];
+    flags = [
+      "--update-input"
+      "nixpkgs"
+      "--commit-lock-file"
+    ];
 
     # When to run
     dates = "weekly"; # or "Sun *-*-* 03:00:00" for Sundays at 3 AM
@@ -21,6 +29,20 @@
 
     # Randomize upgrade time within 1 hour window (reduces server load)
     randomizedDelaySec = "1h";
+  };
+
+  # Notify on upgrade failure
+  systemd.services.nixos-upgrade = {
+    onFailure = ["notify-upgrade-failure.service"];
+  };
+
+  systemd.services.notify-upgrade-failure = {
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${lib.getBin pkgs.libnotify}/bin/notify-send 'NixOS upgrade Failed!' 'Check journalctl -u nixos-upgrade'";
+      User = "marcin";
+      Environment = "DISPLAY=:0";
+    };
   };
 
   # Keep more generations for safety
