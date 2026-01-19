@@ -65,7 +65,7 @@
     options = ["subvol=@log"];
   };
 
-  fileSystems = {
+  fileSystems."/swap" = {
     device = "/dev/disk/by-uuid/569b4de6-df68-4287-80c0-824dcb3c1e84";
     fsType = "btrfs";
     options = ["subvol=@swap" "noatime"];
