@@ -228,7 +228,9 @@ in {
     networking.firewall.allowedTCPPorts = [cfg.port];
 
     systemd.services.nextcloud-update-db.enable = mkForce false;
-    systemd.services.nextcloud-setup = mkForce false;
+    systemd.services.nextcloud-setup = {
+      wantedBy = mkForce [];
+    };
 
     # Note: NixOS Nextcloud module automatically creates:
     # - systemd.services.nextcloud-cron.service
