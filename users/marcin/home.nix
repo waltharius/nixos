@@ -5,6 +5,7 @@
   pkgs,
   lib,
   customPkgs ? {}, # Optional with empty default
+  pkgs-unstable,
   ...
 }: let
   # Dotfiles symlink helper
