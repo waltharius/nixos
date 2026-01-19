@@ -37,6 +37,13 @@
     randomizedDelaySec = "1h";
   };
 
+  # Allow root access to confiuration repository from user home folder for root
+  systemd.services.nixos-upgrade = {
+    preStart = ''
+      ${pkgs.git}/bin/git config --global --add safe.directory /home/marcin/nixos
+    '';
+  };
+
   # Notify on upgrade failure
   systemd.services.nixos-upgrade = {
     onFailure = ["notify-upgrade-failure.service"];
