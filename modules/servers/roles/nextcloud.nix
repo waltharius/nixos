@@ -130,7 +130,7 @@ in {
         dbtype = "mysql";
         dbname = "nextcloud";
         dbuser = "nextcloud";
-        dbhost = "localhost:3306";
+        dbhost = "127.0.0.1:3306";
         dbpassFile = config.sops.secrets.nextcloud-db-password.path;
 
         adminuser = "admin";
