@@ -15,21 +15,21 @@
   # Note: We use lib.mkForce to override GDM's default false value for login.fprintAuth
   security.pam.services = {
     # GDM login screen - these should work without mkForce
-    gdm.fprintAuth = true;
-    gdm-fingerprint.fprintAuth = true;
+    gdm.fprintAuthorized = true;
+    gdm-fingerprint.fprintAuthorized = true;
 
     # Sudo authentication
-    sudo.fprintAuth = true;
+    sudo.fprintAuthorized = true;
 
     # Polkit authentication (for system settings, package installation, etc.)
-    polkit-1.fprintAuth = true;
+    polkit-1.fprintAuthorized = true;
 
     # GNOME Keyring unlock - needs mkForce because GDM module sets it to false
     # This is crucial for automatic keyring unlock after fingerprint login
-    login.fprintAuth = lib.mkForce true;
+    login.fprintAuthorized = lib.mkForce true;
 
     # Screen lock authentication
-    gnome-keyring.fprintAuth = true;
+    gnome-keyring.fprintAuthorized = true;
   };
 
   # Add fprintd package to system for enrolling fingerprints
