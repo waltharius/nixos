@@ -194,6 +194,7 @@ in {
       spotify-player # Terminal Spotify client
       gnome-mahjongg
       gnome-podcasts
+      gnome-solanum
 
       # Emacs (simple installation - manages its own packages from ~/.emacs.d)
       # NOTE: doom-emacs is installed via programs.doom-emacs module
