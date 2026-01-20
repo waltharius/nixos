@@ -50,7 +50,6 @@
 
       # UI/UX
       "BookmarkBarEnabled" = true;
-      "DownloadDirectory" = "${config.homeDirectory}/Downloads";
     };
   };
 
