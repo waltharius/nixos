@@ -77,6 +77,7 @@
           ./modules/services/solaar.nix
           ./modules/system/plymouth.nix
           ./modules/system/sudo.nix
+          ./modules/system/brave.nix
 
           # SOPS for system-level secrets
           sops-nix.nixosModules.sops

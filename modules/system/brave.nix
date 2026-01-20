@@ -1,12 +1,10 @@
-{
-  config,
-  pkgs,
-  pkgs-unstable,
-  ...
-}: {
+# ./modules/system/brave.nix
+# Module for system-wide Brave configuration for all users
+# Brave is from "unstable" branch.
+# It has support for Polish language
+{pkgs-unstable, ...}: {
   programs.chromium = {
     enable = true;
-    package = pkgs-unstable.brave; # If not explicitely stated Chromium will be installed
 
     # Chromium policiec applyied tto Brave
     extraOpts = {
@@ -53,9 +51,6 @@
     };
   };
 
-  # Install spellcheck dictionaries (it might be duplicated by home.nix or flake.nix)
-  home.packages = with pkgs; [
-    hunspellDicts.en_US
-    hunspellDicts.pl_PL
-  ];
+  # Install Brave system-wide
+  environment.systemPackages = [pkgs-unstable.brave];
 }
