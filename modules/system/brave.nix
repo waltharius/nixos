@@ -8,13 +8,6 @@
 
     # Chromium policiec applyied tto Brave
     extraOpts = {
-      # Set browser UI language to English
-      "ApplicationLocaleValue" = "en";
-
-      # Languages list for content (first on list is default)
-      # Affects: Site's content language preferences, HTTP Accept-Language header
-      "AcceptLanguageList" = "en-US,en, pl";
-
       # Enable spellcheck
       "SpellcheckEnabled" = true;
 
@@ -39,9 +32,6 @@
       # Note: This hides Leo but Brave may not have a complete policy yet
       # You may need to manually disable it in brave://settings/leo-ai
       "BraveAIChatEnabled" = false;
-
-      # Wide address bar
-      "BraveWideAddressBarEnabled" = true;
 
       # Privacy & Security stuff
       "MetricsReportingEnabled" = false;
