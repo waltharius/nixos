@@ -182,8 +182,7 @@ in {
       pkgs-unstable.vivaldi
       shotwell
       nextcloud-client
-      koreader
-      readest
+      foliate
 
       # Productivity & Office
       libreoffice-fresh # Office suite
