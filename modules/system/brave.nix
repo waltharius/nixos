@@ -2,17 +2,24 @@
 # Module for system-wide Brave configuration for all users
 # Brave is from "unstable" branch.
 # It has support for Polish language
+# More policies descriptions can be find at https://chromeenterprise.google/policies/
 {pkgs-unstable, ...}: {
   programs.chromium = {
     enable = true;
 
-    # Chromium policiec applyied tto Brave
+    # Chromium policies applyied tto Brave
     extraOpts = {
       # Enable spellcheck
       "SpellcheckEnabled" = true;
 
       # Language to check spelling for
       "SpellcheckLanguage" = [
+        "en-US"
+        "pl"
+      ];
+
+      # Configure the content and order of preferred languages
+      "ForcedLanguages" = [
         "en-US"
         "pl"
       ];
@@ -35,6 +42,7 @@
 
       # Privacy & Security stuff
       "MetricsReportingEnabled" = false;
+      "BrowserGuestModeEnabled" = false;
 
       # UI/UX
       "BookmarkBarEnabled" = true;
