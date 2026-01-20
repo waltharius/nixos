@@ -57,6 +57,7 @@ in {
     ../../modules/home/terminal/tmux.nix
     #    ../../modules/home/tools/hugo.nix
     ../../modules/home/tools/buku.nix
+    ../../modules/home/desktop/gnome.nix
   ];
 
   #  programs.hugo = {
