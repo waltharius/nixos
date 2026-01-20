@@ -32,3 +32,6 @@ secrets/*.env.dec
 # Local testing
 .direnv/
 .envrc
+
+# Other stuff
+fonts/.uuid
