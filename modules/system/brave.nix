@@ -13,10 +13,10 @@
 
       # Languages list for content (first on list is default)
       # Affects: Site's content language preferences, HTTP Accept-Language header
-      "AcceptLanguages" = "en-US,en, pl";
+      "AcceptLanguageList" = "en-US,en, pl";
 
       # Enable spellcheck
-      "SpellcheckEnable" = true;
+      "SpellcheckEnabled" = true;
 
       # Language to check spelling for
       "SpellcheckLanguage" = [
@@ -26,7 +26,7 @@
 
       # Disable automatic page translation prompt
       # This prevents "Translate this page?" pupups
-      "TranslateEnables" = false;
+      "TranslateEnabled" = false;
 
       # Default Search Engine
       "DefaultSearchProviderEnabled" = true;
