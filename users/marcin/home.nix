@@ -178,6 +178,7 @@ in {
       blanket
       signal-desktop
       pkgs-unstable.brave
+      pkgs-unstable.koodo-reader
       gnome-secrets
       pkgs-unstable.vivaldi
       shotwell
