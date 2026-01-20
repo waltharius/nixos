@@ -178,11 +178,12 @@ in {
       blanket
       signal-desktop
       pkgs-unstable.brave
-      pkgs-unstable.koodo-reader
       gnome-secrets
       pkgs-unstable.vivaldi
       shotwell
       nextcloud-client
+      koreader
+      readest
 
       # Productivity & Office
       libreoffice-fresh # Office suite
