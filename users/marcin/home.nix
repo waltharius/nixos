@@ -183,7 +183,6 @@ in {
       shotwell
       nextcloud-client
       foliate
-      bookworm
 
       # Productivity & Office
       libreoffice-fresh # Office suite
