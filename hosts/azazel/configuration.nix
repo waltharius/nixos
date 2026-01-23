@@ -16,7 +16,8 @@
   imports = [
     ../../modules/laptop/tlp.nix
     ../../modules/laptop/hibernate.nix
-    ../../modules/laptop/acpi-suspend.nix
+    #../../modules/laptop/acpi-suspend.nix
+    ../../modules/laptop/acpi-fix.nix
     ../../modules/laptop/thunderbolt.nix
     ../../modules/system/gaming.nix
     ../../modules/laptop/fingerprint.nix

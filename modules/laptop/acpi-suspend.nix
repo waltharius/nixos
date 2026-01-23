@@ -1,11 +1,6 @@
 # ACPI daemon for hardware-level lid and power button handling
 # Bypasses desktop environment inhibitors completely
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: {
+{...}: {
   # Enable ACPI daemon
   services.acpid = {
     enable = true;
