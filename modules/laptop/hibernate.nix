@@ -32,7 +32,7 @@
     SuspendState=mem
   '';
 
-    # Logind configuration for lid and power button
+  # Logind configuration for lid and power button
   services.logind = {
     settings = {
       Login = {
@@ -54,7 +54,7 @@
         LidSwitchIgnoreInhibited = "yes";
       };
     };
-
+  };
 
   # Enable hibernate target
   systemd.targets = {
