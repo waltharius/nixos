@@ -11,6 +11,7 @@
 
   # Enable universal secrets management
   services.secrets.enable = true;
+  services.fwupd.enable = true;
 
   # Import host-specific modules
   imports = [
