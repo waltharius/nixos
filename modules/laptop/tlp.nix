@@ -1,3 +1,4 @@
+# ../modules/laptop/tlp.nix
 # TLP power management for laptops
 # Optimizes battery life and CPU performance based on AC/battery state
 {
@@ -32,7 +33,7 @@
 
       # Battery charge thresholds (prevents battery degradation)
       # Only charge when below START_THRESHOLD, stop at STOP_THRESHOLD
-      START_CHARGE_THRESH_BAT0 = 75;
+      START_CHARGE_THRESH_BAT0 = 85;
       STOP_CHARGE_THRESH_BAT0 = 90;
 
       # Disk settings
