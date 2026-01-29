@@ -189,6 +189,7 @@ in {
       zotero # Reference manager
       obsidian # Knowledge management
       thunderbird-latest
+      gtg
 
       # Media & Entertainment
       spotify # Music streaming
@@ -226,6 +227,13 @@ in {
       rclone-ui
       dig
       openssl
+      hledger
+      hledger-ui
+      hledger-fmt
+      hledger-web
+      hledger-utils
+      hledger-interest
+      hledger-check-fancyassertions
 
       # Nix tools
       nix-prefetch-github

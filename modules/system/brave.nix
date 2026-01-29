@@ -30,10 +30,11 @@
 
       # Default Search Engine
       "DefaultSearchProviderEnabled" = true;
-      "DefaultSearchProviderName" = "DuckDuckGo";
-      "DefaultSearchProviderKeyword" = "ddg";
-      "DefaultSearchProviderSearchURL" = "https://duckduckgo.com/?q={searchTerms}";
-      "DefaultSearchProviderSuggestURL" = "https://duckduckgo.com/ac/?q={searchTerms}&type=list";
+      "DefaultSearchProviderName" = "Ecosia";
+      "DefaultSearchProviderKeyword" = "ec";
+      "DefaultSearchProviderSearchURL" = "https://ecosia.org/search?q={searchTerms}";
+      "DefaultSearchProviderSuggestURL" = "https://ac.ecosia.org/autocomplete?q={searchTerms}";
+      "DefaultSearchProviderIconURL" = "https://www.ecosia.org/favicon.ico";
 
       # Diable Leo AI Assistant
       # Note: This hides Leo but Brave may not have a complete policy yet
