@@ -33,8 +33,8 @@
 
       # Battery charge thresholds (prevents battery degradation)
       # Only charge when below START_THRESHOLD, stop at STOP_THRESHOLD
-      START_CHARGE_THRESH_BAT0 = 85;
-      STOP_CHARGE_THRESH_BAT0 = 90;
+      START_CHARGE_THRESH_BAT0 = 70;
+      STOP_CHARGE_THRESH_BAT0 = 85;
 
       # Disk settings
       DISK_IDLE_SECS_ON_AC = 0;
