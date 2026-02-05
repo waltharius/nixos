@@ -203,6 +203,8 @@ in {
       emacs
 
       # Development tools
+      zip
+      unzip
       ripgrep
       fd
       tree
