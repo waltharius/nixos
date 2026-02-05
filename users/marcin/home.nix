@@ -189,6 +189,7 @@ in {
       zotero # Reference manager
       obsidian # Knowledge management
       thunderbird-latest
+      onlyoffice-desktopeditors
 
       # Media & Entertainment
       spotify # Music streaming
