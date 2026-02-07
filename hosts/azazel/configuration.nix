@@ -50,6 +50,7 @@
     btop
     alacritty
     ptyxis
+    killall
   ];
 
   # Enable Syncthing
