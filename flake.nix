@@ -109,7 +109,7 @@
         ];
       };
 
-    mkServer = hostname:
+    mkServer = hostname: system:
       nixpkgs.lib.nixosSystem {
         inherit system;
         modules = [
@@ -138,9 +138,13 @@
     # Define all hosts here
     nixosConfigurations = {
       # Workstations: ThinkPad laptops with GNOME
-      # Note: Physical location is hosts/sukkub/, not hosts/workstations/sukkub/
       sukkub = mkHost "sukkub" "x86_64-linux";
       azazel = mkHost "azazel" "x86_64-linux";
+
+      # Servers: LXC containers, VMs, and physical servers
+      nixos-test = mkServer "nixos-test" "x86_64-linux";
+      cloud-apps = mkServer "cloud-apps" "x86_64-linux";
+      walthpi = mkServer "walthpi" "aarch64-linux"; # Raspberry Pi 5
     };
 
     # Colmena deployment configuration for servers

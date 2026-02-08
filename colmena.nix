@@ -1,6 +1,5 @@
 # colmena.nix
 # Colmena deployment configuration for all servers
-# colmena.nix
 {
   inputs,
   system,
@@ -49,4 +48,5 @@ in {
   nixos-test = mkServerDeployment "nixos-test" "192.168.50.6" ["test" "container" "lxc"];
   #  actual-budget = mkServerDeployment "actual-budget" "192.168.50.7" ["prod" "container" "lxc" "web"];
   cloud-apps = mkServerDeployment "cloud-apps" "192.168.50.8" ["prod" "lxc" "cloud"];
+  walthpi = mkServerDeployment "walthpi" "192.168.50.47" ["prod" "physical" "arm" "calibre"];
 }
