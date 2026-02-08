@@ -26,6 +26,7 @@
 
   # Allow automatic hibernation. It automaticly handles offset calcukation and setup via EFI variables
   boot.initrd.systemd.enable = true;
+  boot.binfmt.emulatedSystems = ["aarch64-linux"];
 
   # User configuration
   users.users.marcin = {
