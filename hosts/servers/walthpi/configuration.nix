@@ -54,7 +54,7 @@
 
   # Check_MK monitoring
   services.server-role.checkmk-agent = {
-    enable = true;
+    enable = false;
     allowedIPs = ["192.168.50.0/24"]; # Your Proxmox network
   };
 
