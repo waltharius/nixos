@@ -141,10 +141,6 @@
       # Note: Physical location is hosts/sukkub/, not hosts/workstations/sukkub/
       sukkub = mkHost "sukkub" "x86_64-linux";
       azazel = mkHost "azazel" "x86_64-linux";
-
-      # Servers: LXC containers and VMs
-      nixos-test = mkServer "nixos-test";
-      actual-budget = mkServer "actual-budget";
     };
 
     # Colmena deployment configuration for servers
