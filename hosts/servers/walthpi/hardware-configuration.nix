@@ -4,7 +4,10 @@
   modulesPath,
   ...
 }: {
-  imports = [(modulesPath + "/installer/scan/not-detected.nix")];
+  imports = [
+    (modulesPath + "/installer/scan/not-detected.nix")
+    (modulesPath + "/installer/sd-card/sd-image-aarch64.nix")
+  ];
 
   boot = {
     initrd.availableKernelModules = ["xhci_pci" "usbhid" "usb_storage"];
