@@ -12,7 +12,11 @@
   # Issue: buku 5.1 requires flask-admin with 'theme' module
   # but nixpkgs has flask-admin 1.6.1 which doesn't have it
   # Tracking: nixpkgs update from 41e216c → 23d72da broke this
-  bukuPackage = pkgs.buku.overridePythonAttrs (old: rec {
+  # First: override buku with server support enabled
+  bukuWithServer = pkgs.buku.override {withServer = true;};
+
+  # Then: pin to version 5.0 and skip problematic tests
+  bukuServer = bukuWithServer.overridePythonAttrs (old: rec {
     version = "5.0";
     src = pkgs.fetchFromGitHub {
       owner = "jarun";
@@ -20,19 +24,12 @@
       rev = "v${version}";
       hash = "sha256-b3j3WLMXl4sXZpIObC+F7RRpo07cwJpAK7lQ7+yIzro=";
     };
-  });
 
-  # Custom buku with server support
-  bukuWithServer = bukuPackage.override {withServer = true;};
-
-  # Override to skip problematic server tests
-  bukuServer = bukuWithServer.overridePythonAttrs (old: {
+    # Skip server tests that have dependency issues
     preCheck = ''
-      # Skip all server-related tests to avoid lxml dependency issues
       rm -f tests/test_server.py tests/test_views.py
     '';
 
-    # Don't run pytest on these tests
     pytestFlagsArray =
       old.pytestFlagsArray or []
       ++ [
