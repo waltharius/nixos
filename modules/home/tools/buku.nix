@@ -1,36 +1,50 @@
+# modules/home/tools/buku.nix
 # Buku bookmark manager with Syncthing synchronization
 # Safe sync strategy: export/import workflow to prevent database corruption
 # Uses HTML format - the most reliable and portable bookmark format
 # Includes bukuserver web GUI on localhost:5001
 {
   config,
-  lib,
   pkgs,
   ...
-}:
-let
-  # Custom buku with server support and tests disabled to avoid build issues
-  bukuWithServer = pkgs.buku.override { withServer = true; };
-  
-  # Override to skip problematic server tests that require lxml
+}: let
+  # Pin buku to 5.0 until flask-admin compatibility is fixed
+  # Issue: buku 5.1 requires flask-admin with 'theme' module
+  # but nixpkgs has flask-admin 1.6.1 which doesn't have it
+  # Tracking: nixpkgs update from 41e216c → 23d72da broke this
+  bukuPackage = pkgs.buku.overridePythonAttrs (old: rec {
+    version = "5.0";
+    src = pkgs.fetchFromGitHub {
+      owner = "jarun";
+      repo = "buku";
+      rev = "v${version}";
+      hash = "sha256-b3j3WLMXl4sXZpIObC+F7RRpo07cwJpAK7lQ7+yIzro=";
+    };
+  });
+
+  # Custom buku with server support
+  bukuWithServer = bukuPackage.override {withServer = true;};
+
+  # Override to skip problematic server tests
   bukuServer = bukuWithServer.overridePythonAttrs (old: {
     preCheck = ''
       # Skip all server-related tests to avoid lxml dependency issues
       rm -f tests/test_server.py tests/test_views.py
     '';
-    
+
     # Don't run pytest on these tests
-    pytestFlagsArray = old.pytestFlagsArray or [] ++ [
-      "--ignore=tests/test_server.py"
-      "--ignore=tests/test_views.py"
-    ];
+    pytestFlagsArray =
+      old.pytestFlagsArray or []
+      ++ [
+        "--ignore=tests/test_server.py"
+        "--ignore=tests/test_views.py"
+      ];
   });
-in
-{
+in {
   # Buku with server support + helper scripts
   home.packages = with pkgs; [
-    bukuServer        # Buku with web GUI
-    bukubrow          # Browser extension host
+    bukuServer # Buku with web GUI
+    bukubrow # Browser extension host
 
     # Helper script: Export bookmarks to Syncthing folder
     (writeShellScriptBin "buku-export" ''
@@ -49,10 +63,10 @@ in
 
       # Export to HTML (most reliable format for bookmark interchange)
       ${bukuServer}/bin/buku --export "$HTML_FILE"
-      
+
       # Also export as Markdown (human readable)
       ${bukuServer}/bin/buku --export "$MARKDOWN_FILE"
-      
+
       # Backup the raw database too
       if [ -f "$HOME/.local/share/buku/bookmarks.db" ]; then
         cp -f "$HOME/.local/share/buku/bookmarks.db" "$DB_FILE"
@@ -99,9 +113,9 @@ in
       bookmark_count=$(grep -c "<DT>" "$HTML_FILE" || echo "0")
       echo "Found $bookmark_count bookmarks from $SOURCE_HOST"
       echo "Importing..."
-      
+
       ${bukuServer}/bin/buku --import "$HTML_FILE"
-      
+
       echo "✓ Import complete"
     '')
 
