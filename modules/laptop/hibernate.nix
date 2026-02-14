@@ -60,6 +60,6 @@
   # This prevents power state corruption on resume
   boot.kernelParams = [
     # Exclude Thunderbolt from runtime PM during hibernate
-    "thunderbolt.dyndbg=+p" # Enable Thunderbolt debugging
+    #    "thunderbolt.dyndbg=+p" # Enable Thunderbolt debugging
   ];
 }

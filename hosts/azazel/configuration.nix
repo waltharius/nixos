@@ -20,7 +20,8 @@
     ../../modules/laptop/suspend-fix.nix
     ../../modules/laptop/acpi-fix.nix
     ../../modules/laptop/thunderbolt.nix
-    ../../modules/laptop/thunderbolt-hibernate-fix.nix
+    ../../modules/laptop/thunderbolt-coldboot-fix.nix
+    #    ../../modules/laptop/thunderbolt-hibernate-fix.nix
     ../../modules/system/gaming.nix
     ../../modules/laptop/fingerprint.nix
   ];
