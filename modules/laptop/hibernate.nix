@@ -61,5 +61,6 @@
   boot.kernelParams = [
     # Exclude Thunderbolt from runtime PM during hibernate
     #    "thunderbolt.dyndbg=+p" # Enable Thunderbolt debugging
+    "thunderbolt.host_reset=0" # Prevent host controller to reset during boot
   ];
 }
