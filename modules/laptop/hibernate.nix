@@ -1,13 +1,8 @@
+# modules/laptop/hiberante.nix
 # Suspend-then-hibernate configuration
 # System suspends to RAM, then automatically hibernates to disk after delay
 # This saves battery while maintaining fast resume from suspend
-{
-  config,
-  lib,
-  pkgs,
-  hostname,
-  ...
-}: {
+{hostname, ...}: {
   # Swap configuration for hibernation
   # Swap size should be larger than maximum expected RAM usage
   # For 128GB RAM with ~25GB typical usage: 45GB provides safe margin
@@ -46,9 +41,6 @@
 
         # Suspend-then-hibernate when lid is closed
         HandleLidSwitch = "suspend-then-hibernate";
-
-        IdleAction = "suspend-then-hibernate";
-        IdleActionSec = "30min";
 
         # Ignore applications trying to block suspend (good on laptops)
         LidSwitchIgnoreInhibited = "yes";
