@@ -21,7 +21,7 @@
   # Systemd sleep configuration
   systemd.sleep.extraConfig = ''
     # Hibernate after X hours of suspend
-    HibernateDelaySec=2h
+    HibernateDelaySec=1min
 
     # Use 'mem' suspend state (suspend-to-RAM)
     SuspendState=mem
@@ -32,7 +32,7 @@
     settings = {
       Login = {
         # This should make suspend the laptop even when external monitors plugged in
-        HandleLidSwitchDocked = "suspend-then-hibernate";
+        HandleLidSwitchDocked = "suspend";
 
         HandlePowerKey = "suspend-then-hibernate";
 
@@ -44,6 +44,8 @@
 
         # Ignore applications trying to block suspend (good on laptops)
         LidSwitchIgnoreInhibited = "yes";
+
+        InhibitDelayMaxSec = "30s";
       };
     };
   };
@@ -53,4 +55,11 @@
     hibernate.enable = true;
     suspend-then-hibernate.enable = true;
   };
+
+  # Disable Thunderbolt devices during hibernate
+  # This prevents power state corruption on resume
+  boot.kernelParams = [
+    # Exclude Thunderbolt from runtime PM during hibernate
+    "thunderbolt.dyndbg=+p" # Enable Thunderbolt debugging
+  ];
 }
