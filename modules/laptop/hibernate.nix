@@ -64,5 +64,6 @@
     #    "thunderbolt.host_reset=0" # Prevent host controller to reset during boot
     #    "video.use_native_backlight=1" # Ensure proper GPU/DP init order
     #    "i915.enable_dp_mst=1" # Force DisplayPort MST support
+    #    "reboot=acpi"
   ];
 }
