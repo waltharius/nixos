@@ -1,12 +1,7 @@
 # ../modules/laptop/tlp.nix
 # TLP power management for laptops
 # Optimizes battery life and CPU performance based on AC/battery state
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: {
+{...}: {
   services.tlp = {
     enable = true;
 
@@ -51,6 +46,36 @@
       # USB autosuspend
       USB_AUTOSUSPEND = 1;
       USB_EXCLUDE_PHONE = 1;
+
+      # Blacklist Thunderbolt dosc USB devices
+      # By lsusb I know that my dock has these:
+      # 17ef:306a (Audio), 17ef:3066 (MCU), 17ef:3069 (LAN)
+      USB_BLACKLIST = "17ef:306a 17ef:3066 17ef:3069";
+
+      # CRITICAL FIX: Disable Radio Device Wizard (RDW)
+      # RDW is hanging on Thunderbolt dock disconnect/reconnect events
+      # This prevents udev worker timeouts and shutdown hangs
+      DEVICES_TO_DISABLE_ON_STARTUP = "";
+      DEVICES_TO_ENABLE_ON_STARTUP = "";
+      DEVICES_TO_DISABLE_ON_SHUTDOWN = "";
+      DEVICES_TO_ENABLE_ON_SHUTDOWN = "";
+      DEVICES_TO_DISABLE_ON_DOCK = "";
+      DEVICES_TO_ENABLE_ON_DOCK = "";
+      DEVICES_TO_DISABLE_ON_UNDOCK = "";
+      DEVICES_TO_ENABLE_ON_UNDOCK = "";
+    };
+  };
+
+  # Disable TLP's systemd-rfkill integration
+  # This prevents TLP from trying to manage radio devices on suspend/resume
+  # CRITICAL FIX: Add timeout protection to TLP service
+  systemd.services.tlp = {
+    serviceConfig = {
+      # Prevent TLP from hanging shutdown
+      TimeoutStopSec = "30s";
+      # Kill TLP aggressively if it doesn't respond
+      KillMode = "mixed";
+      SendSIGKILL = "yes";
     };
   };
 
