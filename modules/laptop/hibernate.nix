@@ -60,7 +60,9 @@
   # This prevents power state corruption on resume
   boot.kernelParams = [
     # Exclude Thunderbolt from runtime PM during hibernate
-    #    "thunderbolt.dyndbg=+p" # Enable Thunderbolt debugging
+    "thunderbolt.dyndbg=+p" # Enable Thunderbolt debugging
     "thunderbolt.host_reset=0" # Prevent host controller to reset during boot
+    "video.use_native_backlight=1" # Ensure proper GPU/DP init order
+    "i915.enable_dp_mst=1" # Force DisplayPort MST support
   ];
 }
