@@ -54,9 +54,15 @@
     };
   };
 
+  # Completely disable TLP's RDW by masking its udev rules
+  # This is the nuclear option - creates an empty file that overrides TLP's rules
+  environment.etc."udev/rules.d/85-tlp.rules" = {
+    text = "# TLP RDW disabled - Thunderbolt dock causes udev worker timeouts\n";
+  };
+
   # Disable TLP's systemd-rfkill integration
   # This prevents TLP from trying to manage radio devices on suspend/resume
-  # CRITICAL FIX: Add timeout protection to TLP service
+  # Add timeout protection to TLP service
   systemd.services.tlp = {
     serviceConfig = {
       # Prevent TLP from hanging shutdown
