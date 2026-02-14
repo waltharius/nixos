@@ -1,50 +1,44 @@
 # modules/laptop/thunderbolt-coldboot-fix.nix
 {pkgs, ...}: {
-  systemd.services.thunderbolt-coldboot-fix = {
-    description = "Wake up Thunderbolt dock DisplayPort after boot";
-    wantedBy = ["multi-user.target"];
-    after = ["multi-user.target" "bolt.service" "display-manager.service"];
+  # Udev rule to fix cold boot DP issue
+  services.udev.extraRules = ''
+    # When Thunderbolt dock connects during boot without DP tunnel, force reset
+    ACTION=="add", SUBSYSTEM=="thunderbolt", ENV{DEVTYPE}=="thunderbolt_device", \
+    ATTR{vendor}=="0x108", ATTR{device}=="0x1630", \
+    RUN+="${pkgs.bash}/bin/bash -c 'sleep 3 && /run/current-system/sw/bin/thunderbolt-dp-coldboot-fix'"
+  '';
 
-    script = ''
-      # Wait for system to stabilize
-      sleep 8
+  # Script that checks and fixes DP tunnel
+  environment.systemPackages = [
+    (pkgs.writeScriptBin "thunderbolt-dp-coldboot-fix" ''
+      #!/usr/bin/env bash
 
-      # Check if we're on port 0 (the problematic one)
+      # Wait for initialization to complete
+      sleep 5
+
+      # Check if this is port 0 and DP tunnel failed
       if [ -d "/sys/bus/thunderbolt/devices/0-1" ]; then
-        echo "Thunderbolt dock detected on port 0"
+        # Check for torn-down DP tunnel in recent dmesg
+        if dmesg | tail -100 | grep -q "not active, tearing down"; then
+          echo "Cold boot DP tunnel failure detected, forcing controller reset..."
 
-        # Check if DP tunnel exists
-        DP_ACTIVE=$(find /sys/bus/thunderbolt/devices -path "*/0-*/type" -exec grep -l "DP" {} \; 2>/dev/null | wc -l)
+          # Method 1: Unbind/rebind the Thunderbolt controller
+          TB_CONTROLLER=$(readlink -f /sys/bus/thunderbolt/devices/0-0)
+          PCI_DEVICE=$(basename "$TB_CONTROLLER")
 
-        if [ "$DP_ACTIVE" -eq 0 ]; then
-          echo "No DisplayPort tunnel found, forcing wake-up cycle..."
+          echo "$PCI_DEVICE" > /sys/bus/pci/drivers/thunderbolt/unbind
+          sleep 2
+          echo "$PCI_DEVICE" > /sys/bus/pci/drivers/thunderbolt/bind
 
-          # Cycle the Thunderbolt authorization to force DP negotiation
-          if [ -f "/sys/bus/thunderbolt/devices/0-1/authorized" ]; then
-            echo 0 > /sys/bus/thunderbolt/devices/0-1/authorized
-            sleep 3
-            echo 1 > /sys/bus/thunderbolt/devices/0-1/authorized
-            sleep 5
+          # Wait for re-enumeration
+          sleep 8
 
-            # Trigger xrandr refresh for running sessions
-            for session in $(loginctl list-sessions --no-legend | awk '{print $1}'); do
-              USER=$(loginctl show-session "$session" -p Name --value)
-              DISPLAY=$(loginctl show-session "$session" -p Display --value)
-
-              if [ -n "$DISPLAY" ]; then
-                su - "$USER" -c "DISPLAY=$DISPLAY ${pkgs.xorg.xrandr}/bin/xrandr --auto" 2>/dev/null || true
-              fi
-            done
-          fi
-        else
-          echo "DisplayPort tunnel already active"
+          # Trigger display rescan
+          for drm in /sys/class/drm/card*/device/drm_dp_aux_dev; do
+            [ -d "$drm" ] && echo 1 > /sys/class/drm/card*/device/driver/rescan || true
+          done
         fi
       fi
-    '';
-
-    serviceConfig = {
-      Type = "oneshot";
-      TimeoutStartSec = "30s";
-    };
-  };
+    '')
+  ];
 }
