@@ -6,10 +6,12 @@
 # configuration deployment, preventing path conflicts during Nextcloud upgrades.
 #
 # Usage:
-#   ./scripts/deploy-cloud-apps.sh [--no-reboot]
+#   ./scripts/deploy-cloud-apps.sh [OPTIONS]
 #
 # Options:
-#   --no-reboot    Skip automatic reboot (not recommended for major upgrades)
+#   --no-reboot      Skip automatic reboot (not recommended for major upgrades)
+#   --skip-checks    Skip pre-flight connectivity checks
+#   --help, -h       Show this help message
 
 set -e  # Exit on error
 
@@ -25,6 +27,7 @@ SERVER_NAME="cloud-apps"
 SERVER_IP="192.168.50.8"
 SERVER_USER="nixadm"
 REBOOT=true
+SKIP_CHECKS=false
 
 # Parse arguments
 for arg in "$@"; do
@@ -33,12 +36,17 @@ for arg in "$@"; do
             REBOOT=false
             shift
             ;;
+        --skip-checks)
+            SKIP_CHECKS=true
+            shift
+            ;;
         --help|-h)
-            echo "Usage: $0 [--no-reboot]"
+            echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --no-reboot    Skip automatic reboot (not recommended for major upgrades)"
-            echo "  --help, -h     Show this help message"
+            echo "  --no-reboot      Skip automatic reboot (not recommended for major upgrades)"
+            echo "  --skip-checks    Skip pre-flight connectivity checks"
+            echo "  --help, -h       Show this help message"
             exit 0
             ;;
         *)
@@ -68,17 +76,32 @@ log_error() {
 
 check_connectivity() {
     log_info "Checking connectivity to ${SERVER_NAME} (${SERVER_IP})..."
+    
+    # Check network connectivity
     if ! ping -c 1 -W 2 "${SERVER_IP}" &> /dev/null; then
         log_error "Cannot reach ${SERVER_NAME} at ${SERVER_IP}"
-        exit 1
+        log_error "Please check network connectivity"
+        return 1
     fi
     
-    if ! ssh -o ConnectTimeout=5 "${SERVER_USER}@${SERVER_IP}" 'exit' &> /dev/null; then
+    # Check SSH connectivity with proper key handling
+    # Using BatchMode=yes to use only keys (no password prompts)
+    # Using ConnectTimeout for faster failure
+    if ! ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "${SERVER_USER}@${SERVER_IP}" 'exit' 2>/dev/null; then
         log_error "Cannot SSH to ${SERVER_NAME}"
-        exit 1
+        log_error "Possible issues:"
+        echo "  1. SSH key not loaded in ssh-agent (run: ssh-add)"
+        echo "  2. SSH key not authorized on server"
+        echo "  3. Firewall blocking SSH port"
+        echo "  4. Server is down"
+        echo ""
+        log_info "Try manually: ssh ${SERVER_USER}@${SERVER_IP}"
+        log_info "Or skip this check with: $0 --skip-checks"
+        return 1
     fi
     
     log_success "Connectivity check passed"
+    return 0
 }
 
 deploy_config() {
@@ -97,10 +120,11 @@ reboot_server() {
     log_info "🔄 Rebooting ${SERVER_NAME} for clean activation..."
     
     # Send reboot command
+    # The connection will drop, so we ignore the error
     if ssh "${SERVER_USER}@${SERVER_IP}" 'sudo reboot' &> /dev/null; then
         log_success "Reboot command sent"
     else
-        log_warning "Reboot command may have failed, but this is expected"
+        log_warning "Connection closed (expected during reboot)"
     fi
     
     # Wait for server to go down
@@ -113,7 +137,9 @@ reboot_server() {
     
     while [ $attempt -lt $max_attempts ]; do
         if ping -c 1 -W 2 "${SERVER_IP}" &> /dev/null; then
-            if ssh -o ConnectTimeout=5 "${SERVER_USER}@${SERVER_IP}" 'exit' &> /dev/null; then
+            # Try SSH with BatchMode to avoid hanging
+            if ssh -o BatchMode=yes -o ConnectTimeout=5 "${SERVER_USER}@${SERVER_IP}" 'exit' 2>/dev/null; then
+                echo ""  # New line after dots
                 log_success "Server is back online"
                 sleep 10  # Give services time to start
                 return 0
@@ -125,7 +151,10 @@ reboot_server() {
         sleep 5
     done
     
+    echo ""  # New line after dots
     log_error "Server did not come back online within 2 minutes"
+    log_info "Server might still be booting. Check manually:"
+    echo "  ssh ${SERVER_USER}@${SERVER_IP}"
     return 1
 }
 
@@ -144,12 +173,12 @@ check_services() {
     local failed_services=()
     
     for service in "${services[@]}"; do
-        if ssh "${SERVER_USER}@${SERVER_IP}" "sudo systemctl is-active --quiet ${service}"; then
+        if ssh "${SERVER_USER}@${SERVER_IP}" "sudo systemctl is-active --quiet ${service}" 2>/dev/null; then
             log_success "${service} is active"
         else
-            local status=$(ssh "${SERVER_USER}@${SERVER_IP}" "sudo systemctl is-active ${service}" || true)
+            local status=$(ssh "${SERVER_USER}@${SERVER_IP}" "sudo systemctl is-active ${service}" 2>/dev/null || echo "unknown")
             if [ "${status}" == "inactive" ] && [[ "${service}" == "nextcloud-setup.service" || "${service}" == "nextcloud-update-db.service" ]]; then
-                log_warning "${service} is ${status} (this is expected after successful run)"
+                log_warning "${service} is ${status} (expected after successful run)"
             else
                 log_error "${service} is ${status}"
                 failed_services+=("${service}")
@@ -199,7 +228,15 @@ main() {
     echo ""
     
     # Pre-flight checks
-    check_connectivity
+    if [ "${SKIP_CHECKS}" = false ]; then
+        if ! check_connectivity; then
+            log_error "Pre-flight checks failed. Aborting."
+            log_info "To skip checks, use: $0 --skip-checks"
+            exit 1
+        fi
+    else
+        log_warning "Skipping pre-flight checks (--skip-checks flag used)"
+    fi
     
     # Deploy configuration
     if ! deploy_config; then
@@ -211,11 +248,14 @@ main() {
     if [ "${REBOOT}" = true ]; then
         if ! reboot_server; then
             log_error "Server reboot failed or timed out"
+            log_warning "Check server status manually:"
+            echo "  ssh ${SERVER_USER}@${SERVER_IP}"
             exit 1
         fi
     else
         log_warning "Skipping reboot (--no-reboot flag used)"
-        log_warning "Manual reboot recommended for major version upgrades"
+        log_warning "Manual reboot recommended for major version upgrades:"
+        echo "  ssh ${SERVER_USER}@${SERVER_IP} 'sudo reboot'"
     fi
     
     # Verify services
