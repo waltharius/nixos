@@ -121,40 +121,59 @@ reboot_server() {
     
     # Send reboot command
     # The connection will drop, so we ignore the error
-    if ssh "${SERVER_USER}@${SERVER_IP}" 'sudo reboot' &> /dev/null; then
-        log_success "Reboot command sent"
-    else
-        log_warning "Connection closed (expected during reboot)"
-    fi
+    ssh "${SERVER_USER}@${SERVER_IP}" 'sudo reboot' &> /dev/null || true
+    log_success "Reboot command sent"
     
     # Wait for server to go down
     log_info "⏳ Waiting for server to shut down..."
-    sleep 5
+    sleep 10
     
-    # Wait for server to come back up (max 2 minutes)
-    local max_attempts=24
+    # Wait for server to come back up (max 5 minutes for LXC containers)
+    local max_attempts=60  # 5 minutes (60 * 5 seconds)
     local attempt=0
     
+    log_info "Waiting for server to come back online (max 5 minutes)..."
+    
     while [ $attempt -lt $max_attempts ]; do
+        attempt=$((attempt + 1))
+        local elapsed=$((attempt * 5))
+        
+        # First check if network is reachable
         if ping -c 1 -W 2 "${SERVER_IP}" &> /dev/null; then
-            # Try SSH with BatchMode to avoid hanging
-            if ssh -o BatchMode=yes -o ConnectTimeout=5 "${SERVER_USER}@${SERVER_IP}" 'exit' 2>/dev/null; then
+            # Then try SSH - don't use BatchMode here since we already established connection before
+            # Use PasswordAuthentication=no instead to prevent password prompts
+            if timeout 5 ssh -o ConnectTimeout=5 -o PasswordAuthentication=no -o StrictHostKeyChecking=no "${SERVER_USER}@${SERVER_IP}" 'echo ok' &> /dev/null; then
                 echo ""  # New line after dots
-                log_success "Server is back online"
-                sleep 10  # Give services time to start
+                log_success "Server is back online (after ${elapsed}s)"
+                
+                # Give systemd more time to start all services
+                log_info "Waiting for services to initialize..."
+                sleep 15
                 return 0
             fi
         fi
         
-        attempt=$((attempt + 1))
-        echo -n "."
+        # Show progress every 15 seconds
+        if [ $((attempt % 3)) -eq 0 ]; then
+            echo -ne "\r  Waiting... ${elapsed}s elapsed (${attempt}/${max_attempts} attempts)"
+        else
+            echo -n "."
+        fi
+        
         sleep 5
     done
     
     echo ""  # New line after dots
-    log_error "Server did not come back online within 2 minutes"
-    log_info "Server might still be booting. Check manually:"
+    log_error "Server did not come back online within 5 minutes"
+    log_warning "This could mean:"
+    echo "  1. Server is still booting (LXC containers can take time)"
+    echo "  2. Network issue occurred"
+    echo "  3. SSH service failed to start"
+    echo ""
+    log_info "Check server status manually:"
+    echo "  ping ${SERVER_IP}"
     echo "  ssh ${SERVER_USER}@${SERVER_IP}"
+    echo "  # If server is up but SSH doesn't work, check on Proxmox console"
     return 1
 }
 
@@ -247,9 +266,17 @@ main() {
     # Reboot if requested
     if [ "${REBOOT}" = true ]; then
         if ! reboot_server; then
-            log_error "Server reboot failed or timed out"
-            log_warning "Check server status manually:"
-            echo "  ssh ${SERVER_USER}@${SERVER_IP}"
+            log_error "Server reboot detection timed out"
+            log_warning "The server might still be booting. Manual verification recommended:"
+            echo ""
+            echo "  1. Wait a bit longer and try SSH:"
+            echo "     ssh ${SERVER_USER}@${SERVER_IP}"
+            echo ""
+            echo "  2. Check service status:"
+            echo "     ssh ${SERVER_USER}@${SERVER_IP} 'sudo systemctl status nextcloud-setup.service'"
+            echo ""
+            echo "  3. If needed, check from Proxmox console"
+            echo ""
             exit 1
         fi
     else
