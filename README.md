@@ -11,6 +11,7 @@ Multi-host NixOS configuration with flakes, home-manager, and sops-nix for secur
 - **WiFi**: NetworkManager with encrypted passwords + ad-hoc network support
 - **Modern Development Setup**: Neovim with LSP, Git, Shell tools
 - **GNOME Desktop**: Pre-configured with useful extensions
+- **Server Deployment**: Automated deployment with Colmena for remote servers
 
 ## 📁 Repository Structure
 
@@ -18,15 +19,20 @@ Multi-host NixOS configuration with flakes, home-manager, and sops-nix for secur
 nixos/
 ├── flake.nix                  # Main flake configuration
 ├── flake.lock                 # Locked dependencies
+├── colmena.nix                # Colmena deployment configuration
 ├── .sops.yaml                 # SOPS encryption rules
 │
 ├── hosts/                     # Host-specific configurations
 │   ├── sukkub/               # ThinkPad P50 (test host)
 │   │   ├── configuration.nix
 │   │   └── hardware-configuration.nix
-│   └── azazel/               # ThinkPad T16 (production)
-│       ├── configuration.nix
-│       └── hardware-configuration.nix
+│   ├── azazel/               # ThinkPad T16 (production)
+│   │   ├── configuration.nix
+│   │   └── hardware-configuration.nix
+│   └── servers/              # Remote servers (LXC containers)
+│       ├── cloud-apps/       # Nextcloud + Syncthing
+│       ├── nixos-test/       # Test server
+│       └── actual-budget/    # Budget app
 │
 ├── users/                     # User configurations
 │   └── marcin/
@@ -42,9 +48,19 @@ nixos/
 │   │   ├── sshd.nix         # SSH server
 │   │   └── wifi.nix         # WiFi with encrypted passwords
 │   │
-│   └── services/             # User services
-│       ├── ssh.nix          # SSH client + encrypted keys
-│       └── syncthing.nix    # File synchronization
+│   ├── services/             # User services
+│   │   ├── ssh.nix          # SSH client + encrypted keys
+│   │   └── syncthing.nix    # File synchronization
+│   │
+│   └── servers/              # Server-specific modules
+│       ├── base-lxc.nix     # Base LXC container config
+│       └── roles/           # Server roles
+│           ├── nextcloud.nix
+│           └── syncthing.nix
+│
+├── scripts/                   # Deployment and utility scripts
+│   ├── deploy-cloud-apps.sh  # Safe deployment for cloud-apps
+│   └── create-proxmox-lxc-from-template.sh
 │
 ├── secrets/                   # Encrypted secrets (SAFE to commit!)
 │   ├── ssh.yaml              # Encrypted SSH keys
@@ -157,6 +173,41 @@ sudo nixos-rebuild switch --flake ~/nixos#sukkub
 nrs  # alias for the above command
 ```
 
+### Server Deployment
+
+For remote servers (LXC containers), use the deployment scripts:
+
+```bash
+# Deploy to cloud-apps server with automatic reboot (RECOMMENDED)
+./scripts/deploy-cloud-apps.sh
+
+# Deploy without reboot (NOT recommended for major upgrades)
+./scripts/deploy-cloud-apps.sh --no-reboot
+
+# Deploy to other servers using colmena directly
+colmena apply --on nixos-test
+colmena apply --on actual-budget
+
+# Deploy to all servers with specific tags
+colmena apply --on @prod  # All production servers
+colmena apply --on @test  # All test servers
+```
+
+#### Why Automatic Reboot?
+
+The `deploy-cloud-apps.sh` script includes automatic reboot because:
+
+- **Prevents activation conflicts**: During NixOS configuration switches, services may reference old paths from `/nix/store/`
+- **Ensures clean state**: Especially important for Nextcloud and database services during major version upgrades
+- **Avoids boot failures**: Services started during activation can fail if they try to use files that are being updated
+
+The script will:
+1. ✅ Deploy configuration via Colmena
+2. 🔄 Reboot the server automatically
+3. ⏳ Wait for server to come back online
+4. 🔍 Verify all critical services are running
+5. 📊 Show deployment summary
+
 ### WiFi Management
 
 ```bash
@@ -210,7 +261,9 @@ y               # yazi with cd on exit
 
 ## 🖥️ Hosts
 
-### Sukkub (Test/POC)
+### Workstations
+
+#### Sukkub (Test/POC)
 
 - **Hardware**: Lenovo ThinkPad P50
 - **CPU**: Intel (no specific optimizations)
@@ -218,7 +271,7 @@ y               # yazi with cd on exit
 - **Special**: No battery, no TLP
 - **Purpose**: Testing new configurations
 
-### Azazel (Production)
+#### Azazel (Production)
 
 - **Hardware**: Lenovo ThinkPad T16 Gen 3
 - **CPU**: AMD (optimized for Zen)
@@ -226,6 +279,28 @@ y               # yazi with cd on exit
 - **Storage**: NVMe with LUKS encryption
 - **Special**: TLP for battery, hibernate support
 - **Purpose**: Daily driver
+
+### Servers (LXC Containers on Proxmox)
+
+#### cloud-apps (Production)
+
+- **IP**: 192.168.50.8
+- **Services**: Nextcloud 32, Syncthing
+- **Database**: MariaDB with Redis cache
+- **Storage**: Bind-mounted directories from Proxmox
+- **Deployment**: Use `./scripts/deploy-cloud-apps.sh`
+
+#### nixos-test (Testing)
+
+- **IP**: 192.168.50.6
+- **Purpose**: Test new server configurations before production
+- **Deployment**: `colmena apply --on nixos-test`
+
+#### actual-budget (Production)
+
+- **IP**: 192.168.50.7
+- **Services**: Actual Budget (budgeting app)
+- **Deployment**: `colmena apply --on actual-budget`
 
 ## 🔄 Update System
 
@@ -262,6 +337,23 @@ cat ~/nixos/.sops.yaml
 
 # Test manual decryption
 sudo SOPS_AGE_KEY_FILE=/var/lib/sops-nix/key.txt sops -d ~/nixos/secrets/ssh.yaml
+```
+
+### Server Deployment Issues
+
+```bash
+# If deployment fails, check connectivity
+ping 192.168.50.8
+ssh nixadm@192.168.50.8
+
+# Check server logs
+ssh nixadm@192.168.50.8 'sudo journalctl -u nextcloud-setup.service -n 100'
+
+# Manually reboot if needed
+ssh nixadm@192.168.50.8 'sudo reboot'
+
+# Check service status after reboot
+ssh nixadm@192.168.50.8 'sudo systemctl status nextcloud-setup.service'
 ```
 
 ### WiFi Not Connecting
@@ -322,6 +414,7 @@ MIT License - Use freely, no warranty provided.
 - [NixOS](https://nixos.org/) - The purely functional Linux distribution
 - [Home Manager](https://github.com/nix-community/home-manager) - Declarative user environment
 - [SOPS-nix](https://github.com/Mic92/sops-nix) - Secrets management
+- [Colmena](https://github.com/zhaofengli/colmena) - Simple, stateless NixOS deployment tool
 - [nixd](https://github.com/nix-community/nixd) - Nix language server
 - [NetworkManager](https://networkmanager.dev/) - Network connection manager
 
@@ -332,10 +425,11 @@ MIT License - Use freely, no warranty provided.
 - [Nix Pills](https://nixos.org/guides/nix-pills/) - Deep dive into Nix
 - [NixOS Wiki](https://nixos.wiki/)
 - [SOPS Documentation](https://github.com/getsops/sops)
+- [Colmena Documentation](https://colmena.cli.rs/)
 - [NetworkManager Documentation](https://networkmanager.dev/docs/)
 
 ---
 
-**Last Updated**: December 2025  
+**Last Updated**: February 2026  
 **NixOS Version**: 25.11  
 **Status**: ✅ Production Ready
