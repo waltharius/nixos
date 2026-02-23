@@ -297,7 +297,7 @@ in {
     <Super>f,${pkgs.brave}/bin/brave,,
     <Super>e,nautilus,org.gnome.Nautilus
     <Super>t,ptyxis,org.gnome.Ptyxis
-    <Control>p,${pkgs.signal-desktop}/bin/signal-desktop,signal
+    <Control>q,${pkgs.signal-desktop}/bin/signal-desktop,signal
   '';
 
   xdg.configFile."solaar/rules.yaml".text = ''
