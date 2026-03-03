@@ -183,7 +183,6 @@ in {
       shotwell
       nextcloud-client
       foliate
-      kdePackages.ktouch
 
       # Productivity & Office
       libreoffice-fresh # Office suite
