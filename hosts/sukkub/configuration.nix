@@ -10,7 +10,6 @@
 
   # Enable universal secrets management
   services.secrets.enable = true;
-  hardware.keyboard.uhk.enable = true;
 
   # Import host-specific modules
   imports = [
@@ -60,7 +59,6 @@
     #mesa-demos
     #vulkan-tools
     texlive.combined.scheme-medium
-    uhk-agent
   ]
 
   # State version - DO NOT CHANGE after initial installation

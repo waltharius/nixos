@@ -12,7 +12,6 @@
   # Enable universal secrets management
   services.secrets.enable = true;
   services.fwupd.enable = true;
-  hardware.keyboard.uhk.enable = true;
 
   # Import host-specific modules
   imports = [
@@ -52,7 +51,6 @@
     alacritty
     ptyxis
     killall
-    uhk-agent
   ];
 
   # Enable Syncthing
