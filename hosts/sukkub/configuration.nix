@@ -59,7 +59,7 @@
     #mesa-demos
     #vulkan-tools
     texlive.combined.scheme-medium
-  ]
+  ];
 
   # State version - DO NOT CHANGE after initial installation
   system.stateVersion = "25.11";
