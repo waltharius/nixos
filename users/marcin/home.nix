@@ -167,6 +167,7 @@ in {
   home.packages = with pkgs;
     [
       # My custom packages
+      customPkgs.nixdiff          # compare NixOS generations: nixdiff [FROM TO]
       customPkgs.rebuild-and-diff
       customPkgs.solaar-stable
       customPkgs.track-package
