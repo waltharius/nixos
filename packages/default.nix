@@ -9,6 +9,7 @@
   # 2. https://nix.dev/tutorials/callpackage.html
   # 3. https://book.divnix.com/ch05-03-imports-and-callpackage.html
 
+  nixdiff = pkgs.callPackage ./nixdiff {};
   rebuild-and-diff = pkgs.callPackage ./rebuild-and-diff {};
   solaar-extension = pkgs.callPackage ./solaar-extension {};
   solaar-stable = pkgs.callPackage ./solaar {};
