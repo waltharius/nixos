@@ -96,7 +96,7 @@ in {
   # ========================================
   # FONTS
   # ========================================
-  fonts.fontconfig.enable = true;
+  fonts.fontconfig.enable = false;
 
   # ========================================
   # HOME FILE CONFIGURATION
