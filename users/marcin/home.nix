@@ -96,7 +96,7 @@ in {
   # ========================================
   # FONTS
   # ========================================
-  fonts.fontconfig.enable = false;
+  fonts.fontconfig.enable = true;
 
   # ========================================
   # HOME FILE CONFIGURATION
@@ -167,7 +167,6 @@ in {
   home.packages = with pkgs;
     [
       # My custom packages
-      customPkgs.nixdiff # compare NixOS generations: nixdiff [FROM TO]
       customPkgs.rebuild-and-diff
       customPkgs.solaar-stable
       customPkgs.track-package
@@ -252,8 +251,9 @@ in {
       yazi
 
       # Fonts
-      pkgs-unstable.nerd-fonts.hack
-      pkgs-unstable.nerd-fonts.jetbrains-mono
+      nerd-fonts.hack
+      nerd-fonts.jetbrains-mono
+      google-fonts
       liberation_ttf
 
       # Language tools (for Emacs spell/grammar checking)
