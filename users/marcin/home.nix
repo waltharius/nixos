@@ -254,7 +254,6 @@ in {
       # Fonts
       pkgs-unstable.nerd-fonts.hack
       pkgs-unstable.nerd-fonts.jetbrains-mono
-      google-fonts
       liberation_ttf
 
       # Language tools (for Emacs spell/grammar checking)
