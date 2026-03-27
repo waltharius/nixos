@@ -26,10 +26,14 @@
           "<C-p>" = "cmp.mapping.select_prev_item()";
         };
 
+        # Allow LSP completion to trigger without any prefix text
+        completion.keyword_length = 0;
+
         sources = [
           {
             name = "nvim_lsp";
             priority = 1000;
+            keyword_length = 0;
           }
           {
             name = "luasnip";
