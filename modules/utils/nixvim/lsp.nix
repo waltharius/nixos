@@ -2,9 +2,7 @@
 { pkgs, config, ... }:
 
 let
-  # Get home directory path for flake location
   homeDir = config.home.homeDirectory or "$HOME";
-  flakePath = "${homeDir}/nixos";
 in
 {
   plugins.lsp = {
@@ -53,7 +51,7 @@ in
     local home = vim.fn.expand('$HOME')
     local flakeDir = home .. '/nixos'
     local hostname = vim.fn.hostname()
-    
+
     -- Update nixd settings after LSP starts
     vim.api.nvim_create_autocmd('LspAttach', {
       callback = function(args)
@@ -65,8 +63,18 @@ in
           }
           client.config.settings.nixd.options = {
             nixos = {
-              expr = string.format('(builtins.getFlake "%s").nixosConfigurations.%s.options', flakeDir, hostname)
-            }
+              expr = string.format(
+                '(builtins.getFlake "%s").nixosConfigurations.%s.options',
+                flakeDir, hostname
+              )
+            },
+            -- home-manager is embedded in nixosConfigurations (not standalone homeConfigurations)
+            home_manager = {
+              expr = string.format(
+                '(builtins.getFlake "%s").nixosConfigurations.%s.options.home-manager.users.marcin',
+                flakeDir, hostname
+              )
+            },
           }
           -- Notify the server of config changes
           client.notify('workspace/didChangeConfiguration', { settings = client.config.settings })
