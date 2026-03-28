@@ -29,13 +29,9 @@
 #   3. read -rs PASS; echo -n "$PASS" > /tmp/disk-password
 #   4. nix run github:nix-community/disko -- --mode disko /tmp/nixos/hosts/physical/altair/disko.nix
 #   5. nixos-install --flake /tmp/nixos#altair
-
-{ ... }:
-
-{
+{...}: {
   disko.devices = {
     disk = {
-
       # ==========================================================================
       # MAIN DISK — WD Black SN850X 2TB NVMe
       # Slot: M.2_1 (PCIe 5.0 x4, CPU-direct lanes)
@@ -47,7 +43,6 @@
         content = {
           type = "gpt";
           partitions = {
-
             # EFI System Partition — 1 GB
             ESP = {
               size = "1G";
@@ -75,33 +70,40 @@
                   bypassWorkqueues = true;
                 };
                 extraFormatArgs = [
-                  "--type"           "luks2"
-                  "--cipher"         "aes-xts-plain64"
-                  "--key-size"       "512"
-                  "--pbkdf"          "argon2id"
-                  "--pbkdf-memory"   "524288"
-                  "--pbkdf-parallel" "4"
-                  "--label"          "cryptroot"
+                  "--type"
+                  "luks2"
+                  "--cipher"
+                  "aes-xts-plain64"
+                  "--key-size"
+                  "512"
+                  "--pbkdf"
+                  "argon2id"
+                  "--pbkdf-memory"
+                  "524288"
+                  "--pbkdf-parallel"
+                  "4"
+                  "--label"
+                  "cryptroot"
                 ];
                 content = {
                   type = "btrfs";
-                  extraArgs = [ "-L" "nixos" "-f" ];
+                  extraArgs = ["-L" "nixos" "-f"];
                   subvolumes = {
                     "@" = {
                       mountpoint = "/";
-                      mountOptions = [ "compress=zstd" "noatime" "space_cache=v2" "subvol=@" ];
+                      mountOptions = ["compress=zstd" "noatime" "space_cache=v2" "subvol=@"];
                     };
                     "@home" = {
                       mountpoint = "/home";
-                      mountOptions = [ "compress=zstd" "noatime" "space_cache=v2" "subvol=@home" ];
+                      mountOptions = ["compress=zstd" "noatime" "space_cache=v2" "subvol=@home"];
                     };
                     "@nix" = {
                       mountpoint = "/nix";
-                      mountOptions = [ "compress=zstd" "noatime" "space_cache=v2" "subvol=@nix" ];
+                      mountOptions = ["compress=zstd" "noatime" "space_cache=v2" "subvol=@nix"];
                     };
                     "@snapshots" = {
                       mountpoint = "/.snapshots";
-                      mountOptions = [ "compress=zstd" "noatime" "space_cache=v2" "subvol=@snapshots" ];
+                      mountOptions = ["compress=zstd" "noatime" "space_cache=v2" "subvol=@snapshots"];
                     };
                   };
                 };
@@ -123,6 +125,7 @@
           partitions = {
             data = {
               size = "100%";
+              type = "8300";
               content = {
                 type = "luks";
                 name = "cryptdata";
@@ -131,21 +134,28 @@
                   allowDiscards = false;
                 };
                 extraFormatArgs = [
-                  "--type"           "luks2"
-                  "--cipher"         "aes-xts-plain64"
-                  "--key-size"       "512"
-                  "--pbkdf"          "argon2id"
-                  "--pbkdf-memory"   "524288"
-                  "--pbkdf-parallel" "4"
-                  "--label"          "cryptdata"
+                  "--type"
+                  "luks2"
+                  "--cipher"
+                  "aes-xts-plain64"
+                  "--key-size"
+                  "512"
+                  "--pbkdf"
+                  "argon2id"
+                  "--pbkdf-memory"
+                  "524288"
+                  "--pbkdf-parallel"
+                  "4"
+                  "--label"
+                  "cryptdata"
                 ];
                 content = {
                   type = "btrfs";
-                  extraArgs = [ "-L" "data" "-f" ];
+                  extraArgs = ["-L" "data" "-f"];
                   subvolumes = {
                     "@data" = {
                       mountpoint = "/mnt/data";
-                      mountOptions = [ "compress=zstd:3" "noatime" "autodefrag" "space_cache=v2" "subvol=@data" ];
+                      mountOptions = ["compress=zstd:3" "noatime" "autodefrag" "space_cache=v2" "subvol=@data"];
                     };
                   };
                 };
@@ -154,7 +164,6 @@
           };
         };
       };
-
     };
   };
 }
