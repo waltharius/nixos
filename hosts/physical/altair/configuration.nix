@@ -46,6 +46,7 @@
   ];
 
   networking.hostName = "altair";
+  services.atuin-auto-login.enabled = lib.mkForce false;
 
   system.stateVersion = "25.11";
 
