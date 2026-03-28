@@ -85,6 +85,11 @@
         identityFile = "~/.ssh/id_ed25519_gitlab";
       };
 
+      "gitlab.home.lan" = {
+        user = "git";
+        identityFile = "~/.ssh/id_ed25519_gitlab";
+      };
+
       # Local network (Tabby)
       "192.168.50.*" = {
         identityFile = "~/.ssh/id_ed25519_tabby";
