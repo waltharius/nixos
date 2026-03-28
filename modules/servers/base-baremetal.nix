@@ -11,22 +11,13 @@
 #
 # Import this in every bare-metal server configuration.nix
 # alongside hardware-configuration.nix and disko.nix.
-
-{
-  config,
-  lib,
-  pkgs,
-  inputs,
-  hostname,
-  ...
-}:
-
-{
+{pkgs, ...}: {
   imports = [
     ../system/secrets.nix
     ../system/certificates.nix
     ./users.nix
     ./atuin-login.nix
+    ./encryption/initrd-ssh.nix
   ];
 
   # ---------------------------------------------------------------------------
@@ -53,10 +44,10 @@
   # Nix settings
   # ---------------------------------------------------------------------------
   nix.settings = {
-    experimental-features = [ "nix-command" "flakes" ];
+    experimental-features = ["nix-command" "flakes"];
 
     # Trust nixadm and wheel for remote Colmena deployments
-    trusted-users = [ "nixadm" "root" "@wheel" ];
+    trusted-users = ["nixadm" "root" "@wheel"];
 
     # sandbox = true on bare metal (unlike LXC where kernel namespaces
     # are restricted). Improves build isolation and security.
@@ -87,7 +78,7 @@
   # NIC: enp10s0 (Intel I226-V 2.5G, MAC: 30:c5:99:5b:ec:97)
   # IP:  192.168.50.150/24 (static DHCP reservation in pfSense)
   #
-  # ⚠️  CRITICAL macvlan note (relevant for Phase 2 Incus setup):
+  # ⚠️  CRITICAL macvlan note
   #     When Incus uses enp10s0 as a macvlan parent (lanbr0), the HOST
   #     cannot communicate directly with macvlan containers. Only other
   #     LAN devices or containers on incusbr0 (10.0.0.x) can reach them
@@ -97,18 +88,18 @@
   networking.useNetworkd = true;
 
   # LinkLocalAddressing = "no" is required when enp10s0 will become a
-  # macvlan parent in Phase 2. Setting it now avoids a rebuild later.
+  # macvlan parent. Setting it now avoids a rebuild later.
   systemd.network = {
     enable = true;
     networks = {
       "10-lan" = {
-        matchConfig.Name = "enp10s0";  # Intel I226-V 2.5G — confirmed active NIC
+        matchConfig.Name = "enp10s0";
         networkConfig = {
           Address = "192.168.50.150/24";
-          Gateway = "192.168.50.1";          # pfSense
-          DNS = [ "192.168.50.1" ];          # pfSense DNS
+          Gateway = "192.168.50.1"; # pfSense
+          DNS = ["192.168.50.1"]; # pfSense DNS
           DHCP = "no";
-          LinkLocalAddressing = "no";        # Required for future Incus macvlan parent
+          LinkLocalAddressing = "no"; # Required for future Incus macvlan parent
           IPv6AcceptRA = false;
         };
       };
@@ -119,14 +110,14 @@
   # Domain and DNS
   # ---------------------------------------------------------------------------
   networking.domain = "home.lan";
-  networking.search = [ "home.lan" ];
-  networking.nameservers = [ "192.168.50.1" ];
+  networking.search = ["home.lan"];
+  networking.nameservers = ["192.168.50.1"];
 
   services.resolved = {
     enable = true;
     dnssec = "false";
-    domains = [ "home.lan" ];
-    fallbackDns = [ "9.9.9.9" ];  # Quad9 fallback
+    domains = ["home.lan"];
+    fallbackDns = ["9.9.9.9"]; # Quad9 fallback
     extraConfig = ''
       [Resolve]
       DNS=192.168.50.1
@@ -141,15 +132,15 @@
   boot.loader = {
     systemd-boot = {
       enable = true;
-      configurationLimit = 10;  # Keep 10 generations for rollback
+      configurationLimit = 10; # Keep 10 generations for rollback
       # editor = false prevents kernel param editing at physical console.
       # Security trade-off: slightly harder to recover from bad boot params,
       # but prevents physical-access kernel injection attacks.
       editor = false;
     };
     efi = {
-      canTouchEfiVariables = true;   # Required for systemd-boot EFI entry management
-      efiSysMountPoint = "/boot";    # Must match disko.nix ESP mountpoint
+      canTouchEfiVariables = true; # Required for systemd-boot EFI entry management
+      efiSysMountPoint = "/boot"; # Must match disko.nix ESP mountpoint
     };
   };
 
@@ -158,7 +149,7 @@
   # ---------------------------------------------------------------------------
   services.openssh = {
     enable = true;
-    ports = [ 22 ];
+    ports = [22];
     settings = {
       PermitRootLogin = "no";
       PasswordAuthentication = false;
@@ -172,8 +163,8 @@
   networking.firewall = {
     enable = true;
     allowedTCPPorts = [
-      22    # SSH
-      2222  # initrd SSH (Tang fallback — no-op until Phase 0, harmless now)
+      22
+      2222
     ];
   };
 
@@ -196,8 +187,8 @@
     btop
 
     # Network diagnostics
-    bind        # dig, nslookup
-    inetutils   # ping, traceroute
+    bind # dig, nslookup
+    inetutils # ping, traceroute
 
     # Storage / LUKS inspection
     cryptsetup
@@ -205,17 +196,14 @@
     lsof
 
     # Hardware inspection
-    pciutils    # lspci
-    usbutils    # lsusb
-    lm_sensors  # sensors
-    nvme-cli    # nvme smart-log
+    pciutils # lspci
+    usbutils # lsusb
+    lm_sensors # sensors
+    nvme-cli # nvme smart-log
 
     # Modern replacements
-    eza         # Better ls
-    zoxide      # Smart cd
-
-    # Shell history
-    atuin
+    eza # Better ls
+    zoxide # Smart cd
 
     # Secrets tooling
     sops
@@ -233,6 +221,6 @@
 
   nix.optimise = {
     automatic = true;
-    dates = [ "weekly" ];
+    dates = ["weekly"];
   };
 }
