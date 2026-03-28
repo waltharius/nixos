@@ -21,6 +21,14 @@
       url = "github:nix-community/nixvim/nixos-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Declarative disk partitioning.
+    # Required for altair's LUKS2/btrfs layout and the one-command
+    # disko-install workflow from live USB.
+    disko = {
+      url = "github:nix-community/disko";
+      inputs.nixpkgs.follows = "nixpkgs";  # Avoid duplicate nixpkgs closures
+    };
   };
 
   outputs = {
@@ -29,6 +37,7 @@
     nix-flatpak,
     sops-nix,
     nixvim,
+    disko,
     ...
   } @ inputs: let
     system = "x86_64-linux";
@@ -41,14 +50,13 @@
     # Import custom packages
     customPackages = import ./packages {inherit pkgs;};
 
-    # Helper function to create host configurations
+    # Helper function to create workstation configurations
     mkHost = hostname: system:
       nixpkgs.lib.nixosSystem {
         inherit system;
         specialArgs = {
           inherit inputs hostname;
-          inherit (inputs) self; # This should allow access to git metadata
-          # Unstable packages overlay for specific packages
+          inherit (inputs) self;
           pkgs-unstable = import inputs.nixpkgs-unstable {
             inherit system;
             config.allowUnfree = true;
@@ -56,33 +64,24 @@
           customPkgs = customPackages;
         };
         modules = [
-          # Allow unfree packages globally
           {nixpkgs.config.allowUnfree = true;}
-
-          # Host-specific configuration
           ./hosts/${hostname}/configuration.nix
           ./hosts/${hostname}/hardware-configuration.nix
-
-          # Shared system modules
           ./modules/system/boot.nix
           ./modules/system/networking.nix
           ./modules/system/locale.nix
           ./modules/system/gnome.nix
           ./modules/system/secrets.nix
-          ./modules/system/sshd.nix # SSH server for remote access
-          ./modules/system/wifi.nix # WiFi with encrypted passwords
-          ./modules/system/auto-upgrade.nix # weekly upgrades with garbage collections
+          ./modules/system/sshd.nix
+          ./modules/system/wifi.nix
+          ./modules/system/auto-upgrade.nix
           ./modules/system/certificates.nix
           ./modules/system/base.nix
           ./modules/services/solaar.nix
           ./modules/system/plymouth.nix
           ./modules/system/sudo.nix
           ./modules/system/brave.nix
-
-          # SOPS for system-level secrets
           sops-nix.nixosModules.sops
-
-          # Home Manager integration
           home-manager.nixosModules.home-manager
           {
             home-manager = {
@@ -98,7 +97,6 @@
               };
               users.marcin = import ./users/marcin/home.nix;
               backupFileExtension = "backup";
-
               sharedModules = [
                 nixvim.homeModules.nixvim
                 nix-flatpak.homeManagerModules.nix-flatpak
@@ -109,13 +107,13 @@
         ];
       };
 
+    # Helper for LXC container servers (Colmena-managed, no disko)
     mkServer = hostname:
       nixpkgs.lib.nixosSystem {
         inherit system;
         modules = [
           ./hosts/servers/${hostname}/configuration.nix
           sops-nix.nixosModules.sops
-
           home-manager.nixosModules.home-manager
           {
             home-manager = {
@@ -134,18 +132,65 @@
           }
         ];
       };
+
+    # Helper for bare-metal servers with disko (nixos-install workflow)
+    # Usage from live USB:
+    #   nix run github:nix-community/disko -- --mode disko ./hosts/servers/<name>/disko.nix
+    #   nixos-install --flake .#<name> --no-root-password
+    mkBareMetal = hostname:
+      nixpkgs.lib.nixosSystem {
+        inherit system;
+        specialArgs = {
+          inherit inputs hostname;
+        };
+        modules = [
+          # Host-specific configuration (imports hardware + base-baremetal)
+          ./hosts/servers/${hostname}/configuration.nix
+
+          # disko module: evaluates disko.devices, generates systemd mount
+          # units and activation scripts for the declarative disk layout.
+          disko.nixosModules.disko
+
+          # SOPS-nix for secret management
+          sops-nix.nixosModules.sops
+
+          # Home Manager for nixadm user environment
+          home-manager.nixosModules.home-manager
+          {
+            home-manager = {
+              useGlobalPkgs = true;
+              useUserPackages = true;
+              extraSpecialArgs = {
+                inherit inputs;
+                hostname = hostname;
+              };
+              users.nixadm = import ./users/nixadm/home.nix;
+              backupFileExtension = "backup";
+              sharedModules = [
+                sops-nix.homeManagerModules.sops
+              ];
+            };
+          }
+        ];
+      };
+
   in {
-    # Define all hosts here
     nixosConfigurations = {
-      # Workstations: ThinkPad laptops with GNOME
-      # Note: Physical location is hosts/sukkub/, not hosts/workstations/sukkub/
+      # Workstations
       sukkub = mkHost "sukkub" "x86_64-linux";
       azazel = mkHost "azazel" "x86_64-linux";
+
+      # Bare-metal servers (disko-managed disks, nixos-install workflow)
+      # altair: ASUS ProArt X870E, Ryzen 9 7900, 64GB DDR5, 2× RTX 3090
+      # Reinstall: nix run github:nix-community/disko -- --mode disko \
+      #              ./hosts/servers/altair/disko.nix
+      #            nixos-install --flake .#altair --no-root-password
+      altair = mkBareMetal "altair";
     };
 
-    # Colmena deployment configuration for servers
+    # Colmena deployment (LXC containers + bare-metal via SSH)
     colmena = import ./colmena.nix {inherit inputs system;};
-    # Expose packages for nix build, nix shell, etc.
+
     packages.${system} = customPackages;
   };
 }

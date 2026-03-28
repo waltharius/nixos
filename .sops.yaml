@@ -5,11 +5,13 @@
 # =============================================================================
 # HOW TO ADD A NEW HOST:
 # 1. Generate host key during installation:
-#    age-keygen -o /var/lib/sops-nix/key.txt
+#    sudo mkdir -p /var/lib/sops-nix
+#    nix-shell -p age --run "age-keygen -o /var/lib/sops-nix/key.txt"
 # 2. Get public key:
-#    age-keygen -y /var/lib/sops-nix/key.txt
-# 3. Add public key below
-# 4. Re-encrypt all secrets:
+#    grep 'public key' /var/lib/sops-nix/key.txt
+#    # or: nix-shell -p age --run "age-keygen -y /var/lib/sops-nix/key.txt"
+# 3. Add public key below under the host's anchor
+# 4. Re-encrypt all affected secrets:
 #    sops updatekeys secrets/*.yaml
 # =============================================================================
 
@@ -24,8 +26,18 @@ keys:
   - &azazel age1t73dnh9pj2qsz3rfqgq54t2pyxh8ew6w8xsta7pfwmmxmsjswgrshue8gx
   - &servers-shared age1qu4pnzn2teff7m78nrhzq4vct4qczp2ajhfda559xgpk2n08qswqzyh2aw
 
+  # altair - bare-metal homelab server (ASUS ProArt X870E, Ryzen 9 7900)
+  # ⚠️  PLACEHOLDER: replace after first boot with real key
+  # Steps:
+  #   sudo mkdir -p /var/lib/sops-nix
+  #   nix-shell -p age --run "age-keygen -o /var/lib/sops-nix/key.txt"
+  #   grep 'public key' /var/lib/sops-nix/key.txt
+  #   Then replace REPLACE-WITH-ALTAIR-AGE-PUBLIC-KEY below and run:
+  #   sops updatekeys secrets/altair.yaml  (once that file exists)
+  - &altair age1REPLACE-WITH-ALTAIR-AGE-PUBLIC-KEY
+
 creation_rules:
-  # SSH secrets - shared between all hosts (keys and config)
+  # SSH secrets - shared between all hosts
   - path_regex: secrets/ssh\.yaml$
     key_groups:
       - age:
@@ -33,7 +45,7 @@ creation_rules:
           - *sukkub
           - *azazel
 
-  # WiFi secrets - shared between all hosts (passwords for home, work, etc.)
+  # WiFi secrets - shared between all hosts
   - path_regex: secrets/wifi\.env$
     key_groups:
       - age:
@@ -41,7 +53,7 @@ creation_rules:
           - *sukkub
           - *azazel
 
-  # Common secrets - all hosts can decrypt
+  # Common secrets - all hosts
   - path_regex: secrets/common\.yaml$
     key_groups:
       - age:
@@ -56,7 +68,7 @@ creation_rules:
           - *admin
           - *sukkub
 
-  # Atuin secrets - shared between all hosts that use atuin
+  # Atuin secrets
   - path_regex: secrets/atuin-(password|key)\.txt$
     key_groups:
       - age:
@@ -87,3 +99,11 @@ creation_rules:
           - *admin
           - *sukkub
           - *servers-shared
+
+  # altair-specific secrets
+  # Add this rule once secrets/altair.yaml is created
+  - path_regex: secrets/altair\.yaml$
+    key_groups:
+      - age:
+          - *admin
+          - *altair
