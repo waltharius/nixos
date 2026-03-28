@@ -34,7 +34,7 @@ keys:
   #   grep 'public key' /var/lib/sops-nix/key.txt
   #   Then replace REPLACE-WITH-ALTAIR-AGE-PUBLIC-KEY below and run:
   #   sops updatekeys secrets/altair.yaml  (once that file exists)
-  - &altair age1REPLACE-WITH-ALTAIR-AGE-PUBLIC-KEY
+  - &altair age1j73et2st2j8njdn06fsx38e5cgf3z0x00decgjuz3ldhklyk9azsqs9ggj
 
 creation_rules:
   # SSH secrets - shared between all hosts
@@ -44,6 +44,7 @@ creation_rules:
           - *admin
           - *sukkub
           - *azazel
+          - *altair
 
   # WiFi secrets - shared between all hosts
   - path_regex: secrets/wifi\.env$
@@ -76,6 +77,7 @@ creation_rules:
           - *sukkub
           - *azazel
           - *servers-shared
+          - *altair
 
   # Azazel-specific secrets
   - path_regex: secrets/azazel\.yaml$
