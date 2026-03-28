@@ -151,6 +151,10 @@
         inherit system;
         specialArgs = {
           inherit inputs hostname;
+          pkgs-unstable = import inputs.nixpkgs-unstable {
+            inherit system;
+            config.allowUnfree = true;
+          };
         };
         modules = [
           ./hosts/physical/${hostname}/configuration.nix
@@ -174,7 +178,6 @@
           }
         ];
       };
-
   in {
     nixosConfigurations = {
       # Workstations (hosts/workstations/)
