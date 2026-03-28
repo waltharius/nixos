@@ -14,21 +14,29 @@
 # Reinstall procedure (from live USB):
 #   git clone https://github.com/waltharius/nixos /tmp/nixos
 #   read -rs PASS; echo -n "$PASS" > /tmp/disk-password
-#   nix run github:nix-community/disko -- --mode disko /tmp/nixos/hosts/physical/altair/disko.nix
-#   nixos-install --flake /tmp/nixos#altair --no-root-password
-
-{ config, lib, pkgs, inputs, ... }:
-
+#   sudo nix --experimental-features "nix-command flakes" \
+#     run github:nix-community/disko/latest#disko-install -- \
+#     --flake /tmp/nixos#altair \
+#     --write-efi-boot-entries \
+#     --disk main /dev/disk/by-id/nvme-WD_BLACK_SN850X_2000GB_25503L800955 \
+#     --disk data /dev/disk/by-id/ata-TOSHIBA_HDWG51EUZSVA_8562A02HFQ6H
 {
+  config,
+  lib,
+  pkgs,
+  inputs,
+  ...
+}: {
   imports = [
     ./hardware-configuration.nix
     ../../../modules/servers/base-baremetal.nix
+    ../../../modules/servers/nvidia.nix
 
     # -------------------------------------------------------------------------
     # Phase 2+ modules — uncomment when ready:
     # -------------------------------------------------------------------------
     # ../../../modules/servers/security/hardening.nix
-    # ../../../modules/servers/nvidia.nix
+    # ../../../modules/servers/nvidia.nix  - DONE
     # ../../../modules/servers/network/tailscale.nix
     # ../../../modules/servers/network/yggdrasil.nix
     # ../../../modules/servers/incus/default.nix
