@@ -25,7 +25,7 @@
       hostKeys = ["/etc/secrets/initrd/ssh_host_ed25519_key"];
       # Same key you use for normal SSH
       authorizedKeys = [
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhyNxm4pZR9CCnWGlDAjotcnH5sc53LpSkSLs7XNx0"
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhyNxm4pZR9CCnWGlDA+jotcnH5sc53LpSkSLs7XNx0 walth@fedora-laptop-tabby-2025"
       ];
     };
   };
