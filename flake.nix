@@ -23,11 +23,11 @@
     };
 
     # Declarative disk partitioning.
-    # Required for altair's LUKS2/btrfs layout and the one-command
+    # Required for bare-metal servers: LUKS2/btrfs layout and one-command
     # disko-install workflow from live USB.
     disko = {
       url = "github:nix-community/disko";
-      inputs.nixpkgs.follows = "nixpkgs";  # Avoid duplicate nixpkgs closures
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
@@ -47,10 +47,12 @@
       config.allowUnfree = true;
     };
 
-    # Import custom packages
     customPackages = import ./packages {inherit pkgs;};
 
-    # Helper function to create workstation configurations
+    # ---------------------------------------------------------------------------
+    # mkHost: physical workstations (laptops/desktops with desktop environment)
+    # Location: hosts/workstations/<hostname>/
+    # ---------------------------------------------------------------------------
     mkHost = hostname: system:
       nixpkgs.lib.nixosSystem {
         inherit system;
@@ -65,8 +67,8 @@
         };
         modules = [
           {nixpkgs.config.allowUnfree = true;}
-          ./hosts/${hostname}/configuration.nix
-          ./hosts/${hostname}/hardware-configuration.nix
+          ./hosts/workstations/${hostname}/configuration.nix
+          ./hosts/workstations/${hostname}/hardware-configuration.nix
           ./modules/system/boot.nix
           ./modules/system/networking.nix
           ./modules/system/locale.nix
@@ -107,12 +109,15 @@
         ];
       };
 
-    # Helper for LXC container servers (Colmena-managed, no disko)
-    mkServer = hostname:
+    # ---------------------------------------------------------------------------
+    # mkVirtual: LXC containers and VMs (Colmena-managed, no disko)
+    # Location: hosts/virtual/<hostname>/
+    # ---------------------------------------------------------------------------
+    mkVirtual = hostname:
       nixpkgs.lib.nixosSystem {
         inherit system;
         modules = [
-          ./hosts/servers/${hostname}/configuration.nix
+          ./hosts/virtual/${hostname}/configuration.nix
           sops-nix.nixosModules.sops
           home-manager.nixosModules.home-manager
           {
@@ -133,28 +138,24 @@
         ];
       };
 
-    # Helper for bare-metal servers with disko (nixos-install workflow)
-    # Usage from live USB:
-    #   nix run github:nix-community/disko -- --mode disko ./hosts/servers/<name>/disko.nix
-    #   nixos-install --flake .#<name> --no-root-password
-    mkBareMetal = hostname:
+    # ---------------------------------------------------------------------------
+    # mkPhysicalServer: bare-metal servers (disko, LUKS2, full hardware)
+    # Location: hosts/physical/<hostname>/
+    # Install from live USB:
+    #   nix run github:nix-community/disko -- --mode disko \
+    #     ./hosts/physical/<hostname>/disko.nix
+    #   nixos-install --flake .#<hostname> --no-root-password
+    # ---------------------------------------------------------------------------
+    mkPhysicalServer = hostname:
       nixpkgs.lib.nixosSystem {
         inherit system;
         specialArgs = {
           inherit inputs hostname;
         };
         modules = [
-          # Host-specific configuration (imports hardware + base-baremetal)
-          ./hosts/servers/${hostname}/configuration.nix
-
-          # disko module: evaluates disko.devices, generates systemd mount
-          # units and activation scripts for the declarative disk layout.
+          ./hosts/physical/${hostname}/configuration.nix
           disko.nixosModules.disko
-
-          # SOPS-nix for secret management
           sops-nix.nixosModules.sops
-
-          # Home Manager for nixadm user environment
           home-manager.nixosModules.home-manager
           {
             home-manager = {
@@ -176,19 +177,19 @@
 
   in {
     nixosConfigurations = {
-      # Workstations
+      # Workstations (hosts/workstations/)
       sukkub = mkHost "sukkub" "x86_64-linux";
       azazel = mkHost "azazel" "x86_64-linux";
 
-      # Bare-metal servers (disko-managed disks, nixos-install workflow)
-      # altair: ASUS ProArt X870E, Ryzen 9 7900, 64GB DDR5, 2× RTX 3090
-      # Reinstall: nix run github:nix-community/disko -- --mode disko \
-      #              ./hosts/servers/altair/disko.nix
-      #            nixos-install --flake .#altair --no-root-password
-      altair = mkBareMetal "altair";
+      # Physical bare-metal servers (hosts/physical/)
+      # Install: nix run github:nix-community/disko -- --mode disko \
+      #            ./hosts/physical/altair/disko.nix
+      #          nixos-install --flake .#altair --no-root-password
+      altair = mkPhysicalServer "altair";
+      # dell   = mkPhysicalServer "dell";  # future: Dell T5610
     };
 
-    # Colmena deployment (LXC containers + bare-metal via SSH)
+    # Colmena deployment for all servers (virtual + physical post-install)
     colmena = import ./colmena.nix {inherit inputs system;};
 
     packages.${system} = customPackages;
