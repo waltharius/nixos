@@ -12,10 +12,13 @@
 #         enp11s0 — Aquantia AQC113 10G (no cable, reserve)
 # NVMe:   WD Black SN850X 2TB — nvme-WD_BLACK_SN850X_2000GB_25503L800955
 # SATA:   Toshiba N300 14TB  — ata-TOSHIBA_HDWG51EUZSVA_8562A02HFQ6H
-
-{ config, lib, pkgs, modulesPath, ... }:
-
 {
+  config,
+  lib,
+  pkgs,
+  modulesPath,
+  ...
+}: {
   imports = [
     ./disko.nix
   ];
@@ -29,6 +32,7 @@
     "usbhid"
     "usb_storage"
     "sd_mod"
+    "igc"
   ];
 
   boot.initrd.kernelModules = [
@@ -45,7 +49,7 @@
     "iommu=pt"
   ];
 
-  boot.blacklistedKernelModules = [ "mt7921e" ];
+  boot.blacklistedKernelModules = ["mt7921e"];
 
   hardware.cpu.amd.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
   hardware.enableRedistributableFirmware = true;
