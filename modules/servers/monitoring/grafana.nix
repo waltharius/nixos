@@ -126,9 +126,9 @@
 
   # Firewall rule: allow Grafana from LAN interface only.
   # pfSense is the perimeter - it blocks WAN→LAN:3000 already.
-  # Restricting to enp5s0 (LAN NIC) ensures Grafana is unreachable
+  # Restricting to enp10s0 (LAN NIC) ensures Grafana is unreachable
   # from Incus containers (incusbr0) and the internet.
-  networking.firewall.interfaces."enp5s0".allowedTCPPorts = [3000];
+  networking.firewall.interfaces."enp10s0".allowedTCPPorts = [3000];
 
   # If you later want to also allow from incusbr0 (for a Caddy container):
   # networking.firewall.interfaces."incusbr0".allowedTCPPorts = [ 3000 ];
