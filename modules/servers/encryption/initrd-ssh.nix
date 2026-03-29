@@ -15,16 +15,21 @@
 # boot.initrd.secrets below) because the root filesystem is still
 # encrypted when the initrd runs and cannot be read from disk.
 #
-# To unlock remotely after boot:
+# To unlock remotely after reboot:
 #
-#   ssh -p 2222 root@<host-ip>
-#   systemd-tty-ask-password-agent --query
+#   ssh -p 2222 root@192.168.50.150
+#   systemctl default
+#
+# systemctl default responds to the pending systemd-ask-password request
+# raised by systemd-cryptsetup and causes the passphrase prompt to appear
+# in the SSH session. This is the correct mechanism under systemd initrd;
+# cryptsetup-askpass only exists in the legacy (non-systemd) initrd.
 #
 # Recommended ~/.ssh/config entry on the client to avoid known_hosts
 # conflicts (the initrd host key differs from the normal sshd key):
 #
-#   Host <hostname>-initrd
-#     HostName <host-ip>
+#   Host altair-initrd
+#     HostName 192.168.50.150
 #     Port 2222
 #     User root
 #     UserKnownHostsFile ~/.ssh/known_hosts_initrd
@@ -32,18 +37,28 @@
 #
 {pkgs, ...}: {
   # ---------------------------------------------------------------------------
-  # Network — systemd-networkd inside initrd
+  # Network — two stacks run in parallel in the initrd:
   #
-  # boot.initrd.systemd.enable = true activates a minimal systemd instance
-  # in the initrd. Network must be configured through its own networkd, not
-  # through the host-level systemd.network or boot.initrd.network options.
+  # 1. boot.initrd.systemd.network (systemd-networkd) — required for
+  #    systemd-cryptsetup and other stage-1 systemd units that depend on
+  #    network-online.target.
   #
-  # Matching by MAC address rather than interface name: udev predictable
-  # network naming rules are not yet applied in the initrd environment, so
-  # the interface name seen here may differ from the fully-booted system.
-  # The MAC address is stable and unambiguous.
+  # 2. boot.initrd.network (legacy stack) — required to activate
+  #    boot.initrd.network.ssh. Even with boot.initrd.systemd.enable = true
+  #    the legacy SSH daemon still starts correctly when this is enabled;
+  #    only the legacy *network* setup scripts are redundant (networkd wins).
+  #
+  # Both stacks coexist without conflict: networkd manages the interface,
+  # the legacy stack only contributes the SSH daemon.
+  #
+  # Matching by MAC address in the networkd config: udev predictable naming
+  # rules are not yet applied inside the initrd environment so the interface
+  # name seen here may differ from the fully-booted system. The MAC address
+  # is stable and unambiguous.
   # NIC: Intel I226-V 2.5G — MAC 30:c5:99:5b:ec:97
   # ---------------------------------------------------------------------------
+  boot.initrd.network.enable = true;
+
   boot.initrd.systemd.network = {
     enable = true;
     networks."10-initrd-lan" = {
@@ -58,19 +73,18 @@
   };
 
   # ---------------------------------------------------------------------------
-  # SSH — systemd-initrd native SSH daemon
+  # SSH daemon
   #
-  # boot.initrd.network.ssh belongs to the legacy (non-systemd) initrd network
-  # stack and is inactive when boot.initrd.systemd.enable = true. The correct
-  # option under systemd initrd is boot.initrd.systemd.ssh.
+  # boot.initrd.network.ssh works correctly alongside boot.initrd.systemd.enable.
+  # There is no boot.initrd.systemd.ssh option in NixOS; the legacy SSH module
+  # is the supported path for initrd SSH regardless of whether systemd stage-1
+  # is active.
   #
-  # The root shell is set to systemd-tty-ask-password-agent so that
-  # connecting over SSH immediately forwards any pending password prompts
-  # (including the LUKS passphrase) to the terminal.
+  # Root shell is left at the default (/bin/sh). After connecting, run:
+  #   systemctl default
+  # to forward the pending LUKS passphrase prompt to the SSH session.
   # ---------------------------------------------------------------------------
-  boot.initrd.systemd.users.root.shell = "/bin/systemd-tty-ask-password-agent";
-
-  boot.initrd.systemd.ssh = {
+  boot.initrd.network.ssh = {
     enable = true;
     port = 2222;
     hostKeys = ["/etc/secrets/initrd/ssh_host_ed25519_key"];
@@ -80,12 +94,12 @@
   };
 
   # ---------------------------------------------------------------------------
-  # Host key — embedded into the initrd at build time
+  # Host key — embedded into the initrd at build time.
   #
-  # The source path on the left is the destination path inside the initrd.
+  # The key on the left is the path inside the initrd image.
   # The value on the right is where nixos-rebuild reads it from on the host.
-  # Both point to the same location because the key lives in /etc/secrets
-  # which is on the encrypted root — it must be baked in before first boot.
+  # Both point to the same location because /etc/secrets lives on the
+  # encrypted root and must be baked in before the first boot.
   # ---------------------------------------------------------------------------
   boot.initrd.secrets = {
     "/etc/secrets/initrd/ssh_host_ed25519_key" = "/etc/secrets/initrd/ssh_host_ed25519_key";
