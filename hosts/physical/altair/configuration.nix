@@ -31,6 +31,7 @@
     ./hardware-configuration.nix
     ../../../modules/servers/base-baremetal.nix
     ../../../modules/servers/nvidia.nix
+    ../../../modules/servers/monitoring/default.nix
 
     # -------------------------------------------------------------------------
     # Phase 2+ modules — uncomment when ready:
