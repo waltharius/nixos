@@ -8,7 +8,16 @@
 # - tailscale up/down is instant (~1 second)
 # - stopping/starting the systemd service is slower and noisier
 # - the daemon uses ~0 CPU and ~20MB RAM when disconnected
-{config, ...}: {
+{
+  config,
+  pkgs,
+  ...
+}: {
+  environment.systemPackages = with pkgs; [
+    tailscale
+    tailscale-systray
+  ];
+
   services.tailscale = {
     enable = true;
     useRoutingFeatures = "client";
