@@ -32,6 +32,7 @@
     ../../../modules/servers/base-baremetal.nix
     ../../../modules/servers/nvidia.nix
     ../../../modules/servers/monitoring/default.nix
+    ../../../modules/servers/security/hardening.nix
 
     # -------------------------------------------------------------------------
     # Phase 2+ modules — uncomment when ready:
