@@ -47,7 +47,7 @@
   # Firewall rule for SSH - colocated with the SSH config above
   # This is an exception: SSH is infrastructure, not a service module,
   # so its firewall rule lives here in hardening.nix
-  networking.firewall.interfaces."enp5s0".allowedTCPPorts = [22];
+  networking.firewall.interfaces."enp10s0".allowedTCPPorts = [22];
 
   # --- Kernel hardening (sysctl) ---
   boot.kernel.sysctl = {
