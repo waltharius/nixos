@@ -119,8 +119,10 @@
   };
 
   sops.secrets.grafana-admin-password = {
+    sopsFile = ../../../secrets/altair.yaml;
     owner = "grafana";
     group = "grafana";
+    mode = "0400";
     # Key in secrets/altair.yaml: grafana-admin-password
   };
 
