@@ -60,6 +60,16 @@ in {
     (python3.withPackages (ps: [ps.torch]))
   ];
 
+  systemd.services.nvidia-dcgm = {
+    description = "NVIDIA DCGM host engine";
+    wantedBy = ["multi-user.target"];
+    after = ["multi-user.target"];
+    serviceConfig = {
+      ExecStart = "${pkgs.dcgm}/bin/nv-hostengine -n"; # foreground mode
+      Restart = "on-failure";
+    };
+  };
+
   networking.hostName = "altair";
   services.atuin-auto-login.enable = lib.mkForce false;
 
