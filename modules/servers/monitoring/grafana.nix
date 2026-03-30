@@ -54,7 +54,7 @@
             url = "http://127.0.0.1:9090";
             access = "proxy";
             isDefault = true;
-            uid = "prometheus";
+            uid = "prometheus-altair";
             jsonData = {
               timeInterval = "15s";
             };
