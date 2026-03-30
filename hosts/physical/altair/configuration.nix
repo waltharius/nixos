@@ -57,7 +57,7 @@ in {
     gpu-burn-sm86 # VRAM + compute stress test
     ocl-icd # OpenCL ICD loader
     clinfo # OpenCL device info
-    dcgm # NVIDIA Data Center GPU Manager (includes dcgmi)
+    dcgmNoCheck # NVIDIA Data Center GPU Manager (includes dcgmi)
     nvtopPackages.nvidia
     (python3.withPackages (ps: [ps.torch]))
   ];
