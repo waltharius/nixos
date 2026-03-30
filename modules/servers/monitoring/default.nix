@@ -5,6 +5,6 @@
     ./prometheus.nix
     ./grafana.nix
     ./node-exporter.nix
-    # ./nvidia-exporter.nix  # add in Phase C
+    ./nvidia-exporter.nix
   ];
 }

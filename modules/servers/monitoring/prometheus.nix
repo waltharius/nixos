@@ -46,13 +46,18 @@
 
       # ── GPU metrics ─────────────────────────────────────────────────────────
       # Phase C: uncomment when nvidia-exporter.nix is added
-      # {
-      #   job_name = "altair-nvidia";
-      #   static_configs = [{
-      #     targets = [ "127.0.0.1:9835" ];
-      #     labels  = { host = "altair"; role = "gpu"; };
-      #   }];
-      # }
+      {
+        job_name = "altair-nvidia";
+        static_configs = [
+          {
+            targets = ["127.0.0.1:9835"];
+            labels = {
+              host = "altair";
+              role = "gpu";
+            };
+          }
+        ];
+      }
     ];
 
     # Alerting rules
@@ -91,6 +96,21 @@
                 labels: { severity: warning }
                 annotations:
                   summary: "Systemd unit {{ $labels.name }} is in failed state"
+
+              - alert: GPUTempHigh
+                expr: nvidia_smi_temperature_gpu > 85
+                for: 5m
+                labels: { severity: warning }
+                annotations:
+                  summary: "GPU {{ $labels.gpu }} above 85°C on altair"
+
+              - alert: GPUMemoryHigh
+                expr: >
+                 nvidia_smi_memory_used_bytes / nvidia_smi_memory_total_bytes > 0.95
+                for: 10m
+                labels: { severity: warning }
+                annotations:
+                  summary: "GPU {{ $labels.gpu }} VRAM > 95% on altair"
       ''
     ];
   };
