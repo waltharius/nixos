@@ -21,10 +21,8 @@
 #     --disk main /dev/disk/by-id/nvme-WD_BLACK_SN850X_2000GB_25503L800955 \
 #     --disk data /dev/disk/by-id/ata-TOSHIBA_HDWG51EUZSVA_8562A02HFQ6H
 {
-  config,
   lib,
   pkgs,
-  inputs,
   ...
 }: {
   imports = [
@@ -45,6 +43,13 @@
     # ../../../modules/servers/monitoring/prometheus.nix
     # ../../../modules/servers/monitoring/grafana.nix
     # ../../../modules/servers/monitoring/psu-monitor.nix
+  ];
+
+  environment.systemPackages = with pkgs; [
+    # nvidia related packages
+    gpu-burn # VRAM + compute stress test
+    ocl-icd # OpenCL ICD loader
+    clinfo # OpenCL device info
   ];
 
   networking.hostName = "altair";
