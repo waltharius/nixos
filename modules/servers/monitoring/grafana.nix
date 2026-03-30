@@ -118,9 +118,15 @@
     in ''
       mkdir -p /var/lib/grafana/dashboards
       ${downloads}
-      # Normalize datasource variable casing so both dashboards resolve correctly
+      # FIX: Replace the ''${DS_PROMETHEUS} template variable reference with the
+      # hard-coded UID of the provisioned datasource ("prometheus").
+      # This is necessary because Grafana's file provisioner does not inject
+      # dashboard-level template variable values, so ''${DS_PROMETHEUS} would
+      # fail to resolve on load.
       if [ -f "/var/lib/grafana/dashboards/nvidia-gpu.json" ]; then
-        ${pkgs.gnused}/bin/sed -i 's/''${DS_PROMETHEUS}/''${ds_prometheus}/g' \
+        ${pkgs.gnused}/bin/sed -i \
+          's/''${DS_PROMETHEUS}"/\"prometheus\"/g;
+           s/''${ds_prometheus}"/\"prometheus\"/g' \
            /var/lib/grafana/dashboards/nvidia-gpu.json
       fi
     '';
