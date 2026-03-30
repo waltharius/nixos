@@ -12,6 +12,7 @@
     open = false; # proprietary — required for CUDA on 3090
     nvidiaSettings = false; # headless server, no GUI settings app
     package = config.boot.kernelPackages.nvidiaPackages.stable;
+    powerManagement.enable = true;
   };
 
   hardware.nvidia-container-toolkit.enable = true; # for future Incus GPU passthrough
