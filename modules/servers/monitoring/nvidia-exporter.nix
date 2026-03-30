@@ -4,20 +4,21 @@
 # Uses prometheus-nvidia-gpu-exporter (nvidia-smi based).
 # Binds loopback only. Prometheus scrapes 127.0.0.1:9835.
 #
-# Prerequisites: nvidia.nix must be imported (provides nvidia-smi via
-# hardware.nvidia.package). The NixOS exporter module locates nvidia-smi
-# automatically through the nvidiaPackage option — no PATH override needed.
-# Both RTX 3090s (GPU 0 and GPU 1) are exported automatically.
+# The exporter calls nvidia-smi at runtime. We add the nvidia bin package
+# to the service's `path` (distinct from `environment.PATH`) so it
+# doesn't conflict with the systemd default PATH definition.
 {config, ...}: {
   services.prometheus.exporters.nvidia-gpu = {
     enable = true;
     listenAddress = "127.0.0.1";
     port = 9835;
-    # Point the exporter at the correct nvidia-smi binary.
-    # The module prepends this package's bin/ to the service PATH internally,
-    # avoiding any conflict with the systemd default PATH.
-    nvidiaPackage = config.hardware.nvidia.package;
   };
+
+  # `path` appends packages to the service's PATH without
+  # conflicting with systemd.nix's environment.PATH definition.
+  systemd.services.prometheus-nvidia-gpu-exporter.path = [
+    config.hardware.nvidia.package.bin
+  ];
 
   # Firewall: no extra rule needed — loopback only
 }
