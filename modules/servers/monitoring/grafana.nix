@@ -24,6 +24,9 @@
         # Phase B: uncomment and set when Caddy proxy is live:
         # domain   = "grafana.home.lan";
         # root_url = "https://grafana.home.lan";
+        plugins = {
+          enable_alpha = false;
+        };
       };
       security = {
         admin_user = "admin";
@@ -55,6 +58,9 @@
             access = "proxy";
             isDefault = true;
             uid = "prometheus";
+            jsonData = {
+              timeInterval = "15s";
+            };
           }
         ];
       };
