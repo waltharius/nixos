@@ -25,9 +25,6 @@
         # domain   = "grafana.home.lan";
         # root_url = "https://grafana.home.lan";
       };
-      plugins = {
-        enable_alpha = false;
-      };
       security = {
         admin_user = "admin";
         # password comes from EnvironmentFile below (SOPS secret)
