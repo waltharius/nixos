@@ -143,7 +143,6 @@
           /var/lib/grafana/dashboards/nvidia-gpu.json \
           > /tmp/nvidia-gpu-clean.json \
           && mv /tmp/nvidia-gpu-clean.json /var/lib/grafana/dashboards/nvidia-gpu.json
-        # ''${...} is the Nix ''...'' string escape for a literal ${...} in shell.
         ${pkgs.gnused}/bin/sed -i \
           's/"''${DS_PROMETHEUS}"/"prometheus"/g;s/"''${ds_prometheus}"/"prometheus"/g' \
           /var/lib/grafana/dashboards/nvidia-gpu.json
