@@ -163,7 +163,6 @@
   networking.firewall = {
     enable = true;
     allowedTCPPorts = [
-      22
       2222 # for initrd.ssh.nix
     ];
   };
