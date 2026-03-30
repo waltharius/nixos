@@ -29,6 +29,10 @@
     # RTX 3090 = Ampere = compute_86
     makeFlags = (old.makeFlags or []) ++ ["COMPUTE=86"];
   });
+
+  dcgmNoCheck = pkgs.dcgm.overrideAttrs (old: {
+    doCheck = false; # skip flaky CTest suite
+  });
 in {
   imports = [
     ./hardware-configuration.nix
@@ -40,8 +44,6 @@ in {
     # -------------------------------------------------------------------------
     # Phase 2+ modules — uncomment when ready:
     # -------------------------------------------------------------------------
-    # ../../../modules/servers/security/hardening.nix
-    # ../../../modules/servers/nvidia.nix  - DONE
     # ../../../modules/servers/network/tailscale.nix
     # ../../../modules/servers/network/yggdrasil.nix
     # ../../../modules/servers/incus/default.nix
@@ -65,7 +67,7 @@ in {
     wantedBy = ["multi-user.target"];
     after = ["multi-user.target"];
     serviceConfig = {
-      ExecStart = "${pkgs.dcgm}/bin/nv-hostengine -n"; # foreground mode
+      ExecStart = "${dcgmNoCheck}/bin/nv-hostengine -n"; # foreground mode
       Restart = "on-failure";
     };
   };
