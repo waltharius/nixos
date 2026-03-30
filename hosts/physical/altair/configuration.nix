@@ -29,10 +29,10 @@
 }: {
   imports = [
     ./hardware-configuration.nix
-    ../../../modules/servers/base-baremetal.nix
-    ../../../modules/servers/nvidia.nix
-    ../../../modules/servers/monitoring/default.nix
     ../../../modules/servers/security/hardening.nix
+    ../../../modules/servers/base-baremetal.nix
+    ../../../modules/servers/monitoring/default.nix
+    ../../../modules/servers/nvidia.nix
 
     # -------------------------------------------------------------------------
     # Phase 2+ modules — uncomment when ready:
