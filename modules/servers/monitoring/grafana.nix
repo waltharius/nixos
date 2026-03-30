@@ -92,10 +92,14 @@
   # Why the nvidia-gpu dashboard needs patching:
   #   grafana.com API downloads use the "export for sharing" format which
   #   includes __inputs/__requires sections. Grafana's file provisioner does
-  #   NOT process this format and silently skips the file entirely — making
+  #   NOT process this format and silently skips the file entirely - making
   #   the dashboard invisible in the UI. We use jq to strip those sections,
-  #   then sed to replace the ${DS_PROMETHEUS} datasource variable reference
+  #   then sed to replace the ''${DS_PROMETHEUS} datasource variable reference
   #   with the hard-coded UID of our provisioned datasource ("prometheus").
+  #
+  # Note on Nix string escaping: inside ''...'' strings, ${ is still
+  # interpreted as Nix interpolation. Use ''${ to emit a literal ${ in
+  # the resulting shell script (i.e. ''${DS_PROMETHEUS} -> ${DS_PROMETHEUS}).
   systemd.services.grafana-provision-dashboards = {
     description = "Download Grafana community dashboards";
     wantedBy = ["grafana.service"];
@@ -129,20 +133,19 @@
       ${downloads}
 
       # Strip __inputs / __requires / __elements so Grafana's file provisioner
-      # can load the dashboard (it silently skips files that contain these
+      # can load the dashboard (it silently skips files containing these
       # export-format sections). Then replace the datasource variable reference
       # with the hard-coded UID of our provisioned Prometheus datasource.
-      # This block runs on every service start (idempotent: jq del on a file
-      # that no longer has those keys is a no-op; sed on an already-replaced
-      # string is also a no-op).
+      # Runs on every service start - both operations are idempotent.
       if [ -f "/var/lib/grafana/dashboards/nvidia-gpu.json" ]; then
         echo "Patching nvidia-gpu.json: stripping __inputs/__requires and fixing datasource UID"
         ${pkgs.jq}/bin/jq 'del(.__inputs) | del(.__requires) | del(.__elements)' \
           /var/lib/grafana/dashboards/nvidia-gpu.json \
           > /tmp/nvidia-gpu-clean.json \
           && mv /tmp/nvidia-gpu-clean.json /var/lib/grafana/dashboards/nvidia-gpu.json
+        # ''${...} is the Nix ''...'' string escape for a literal ${...} in shell.
         ${pkgs.gnused}/bin/sed -i \
-          's/"\${DS_PROMETHEUS}"/"prometheus"/g;s/"\${ds_prometheus}"/"prometheus"/g' \
+          's/"''${DS_PROMETHEUS}"/"prometheus"/g;s/"''${ds_prometheus}"/"prometheus"/g' \
           /var/lib/grafana/dashboards/nvidia-gpu.json
         echo "Patching nvidia-gpu.json: done"
       fi
@@ -158,7 +161,7 @@
   };
 
   # Firewall rule: allow Grafana from LAN interface only.
-  # pfSense is the perimeter - it blocks WAN→LAN:3000 already.
+  # pfSense is the perimeter - it blocks WAN->LAN:3000 already.
   # Restricting to enp10s0 (LAN NIC) ensures Grafana is unreachable
   # from Incus containers (incusbr0) and the internet.
   networking.firewall.interfaces."enp10s0".allowedTCPPorts = [3000];
