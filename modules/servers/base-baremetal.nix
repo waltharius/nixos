@@ -174,6 +174,7 @@
     wget
     htop
     btop
+    python3
 
     # Network diagnostics
     bind # dig, nslookup
