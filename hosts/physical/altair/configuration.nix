@@ -50,6 +50,7 @@
     gpu-burn # VRAM + compute stress test
     ocl-icd # OpenCL ICD loader
     clinfo # OpenCL device info
+    (python3.withPackages (ps: [ps.torch]))
   ];
 
   networking.hostName = "altair";
