@@ -84,9 +84,18 @@
     config.sops.secrets.grafana-admin-password.path;
 
   # Pre-download community dashboards before Grafana starts.
-  # Idempotent: skips download if file already exists.
-  # Dashboards are re-fetched on nixos-rebuild if files are absent
-  # (e.g. after a fresh install or /var/lib wipe).
+  #
+  # Download is guarded by file existence (idempotent).
+  # Patching is always re-run so it applies correctly after every
+  # colmena deploy without needing to manually delete cached JSON.
+  #
+  # Why the nvidia-gpu dashboard needs patching:
+  #   grafana.com API downloads use the "export for sharing" format which
+  #   includes __inputs/__requires sections. Grafana's file provisioner does
+  #   NOT process this format and silently skips the file entirely — making
+  #   the dashboard invisible in the UI. We use jq to strip those sections,
+  #   then sed to replace the ${DS_PROMETHEUS} datasource variable reference
+  #   with the hard-coded UID of our provisioned datasource ("prometheus").
   systemd.services.grafana-provision-dashboards = {
     description = "Download Grafana community dashboards";
     wantedBy = ["grafana.service"];
@@ -103,7 +112,7 @@
       dashboards = {
         # Node Exporter Full - system-wide hardware/OS metrics
         "node-exporter-full.json" = "https://grafana.com/api/dashboards/1860/revisions/latest/download";
-        # NVIDIA GPU metrics (works with nvidia-smi exporter we add in Phase C)
+        # NVIDIA GPU metrics (nvidia-smi exporter, utkuozdemir/nvidia_gpu_exporter)
         "nvidia-gpu.json" = "https://grafana.com/api/dashboards/14574/revisions/latest/download";
       };
       downloads = lib.concatStrings (lib.mapAttrsToList (file: url: ''
@@ -118,16 +127,24 @@
     in ''
       mkdir -p /var/lib/grafana/dashboards
       ${downloads}
-      # FIX: Replace the ''${DS_PROMETHEUS} template variable reference with the
-      # hard-coded UID of the provisioned datasource ("prometheus").
-      # This is necessary because Grafana's file provisioner does not inject
-      # dashboard-level template variable values, so ''${DS_PROMETHEUS} would
-      # fail to resolve on load.
+
+      # Strip __inputs / __requires / __elements so Grafana's file provisioner
+      # can load the dashboard (it silently skips files that contain these
+      # export-format sections). Then replace the datasource variable reference
+      # with the hard-coded UID of our provisioned Prometheus datasource.
+      # This block runs on every service start (idempotent: jq del on a file
+      # that no longer has those keys is a no-op; sed on an already-replaced
+      # string is also a no-op).
       if [ -f "/var/lib/grafana/dashboards/nvidia-gpu.json" ]; then
+        echo "Patching nvidia-gpu.json: stripping __inputs/__requires and fixing datasource UID"
+        ${pkgs.jq}/bin/jq 'del(.__inputs) | del(.__requires) | del(.__elements)' \
+          /var/lib/grafana/dashboards/nvidia-gpu.json \
+          > /tmp/nvidia-gpu-clean.json \
+          && mv /tmp/nvidia-gpu-clean.json /var/lib/grafana/dashboards/nvidia-gpu.json
         ${pkgs.gnused}/bin/sed -i \
-          's/''${DS_PROMETHEUS}"/\"prometheus\"/g;
-           s/''${ds_prometheus}"/\"prometheus\"/g' \
-           /var/lib/grafana/dashboards/nvidia-gpu.json
+          's/"\${DS_PROMETHEUS}"/"prometheus"/g;s/"\${ds_prometheus}"/"prometheus"/g' \
+          /var/lib/grafana/dashboards/nvidia-gpu.json
+        echo "Patching nvidia-gpu.json: done"
       fi
     '';
   };
