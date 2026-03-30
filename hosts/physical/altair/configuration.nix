@@ -24,7 +24,12 @@
   lib,
   pkgs,
   ...
-}: {
+}: let
+  gpu-burn-sm86 = pkgs.gpu-burn.overrideAttrs (old: {
+    # RTX 3090 = Ampere = compute_86
+    makeFlags = (old.makeFlags or []) ++ ["COMPUTE=86"];
+  });
+in {
   imports = [
     ./hardware-configuration.nix
     ../../../modules/servers/security/hardening.nix
@@ -47,9 +52,11 @@
 
   environment.systemPackages = with pkgs; [
     # nvidia related packages
-    gpu-burn # VRAM + compute stress test
+    gpu-burn-sm86 # VRAM + compute stress test
     ocl-icd # OpenCL ICD loader
     clinfo # OpenCL device info
+    dcgm # NVIDIA Data Center GPU Manager (includes dcgmi)
+    nvtopPackages.nvidia
     (python3.withPackages (ps: [ps.torch]))
   ];
 
