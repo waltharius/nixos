@@ -120,7 +120,7 @@
       ${downloads}
       # Normalize datasource variable casing so both dashboards resolve correctly
       if [ -f "/var/lib/grafana/dashboards/nvidia-gpu.json" ]; then
-        ${pkgs.gnused}/bin/sed -i 's/\${DS_PROMETHEUS}/\${ds_prometheus}/g' \
+        ${pkgs.gnused}/bin/sed -i 's/''${DS_PROMETHEUS}/''${ds_prometheus}/g' \
            /var/lib/grafana/dashboards/nvidia-gpu.json
       fi
     '';
