@@ -48,6 +48,8 @@
       targetHost = ip;
       targetUser = "nixadm";
       inherit tags;
+
+      buildOnTarget = true;
     };
 
     imports = [
@@ -84,9 +86,9 @@ in {
   #=========================#
   #  VIRTUAL (LXC / VMs)    #
   #=========================#
-  nixos-test  = mkVirtualDeployment "nixos-test"  "192.168.50.6" [ "test" "container" "lxc" ];
+  nixos-test = mkVirtualDeployment "nixos-test" "192.168.50.6" ["test" "container" "lxc"];
   # actual-budget = mkVirtualDeployment "actual-budget" "192.168.50.7" [ "prod" "container" "lxc" "web" ];
-  cloud-apps  = mkVirtualDeployment "cloud-apps"  "192.168.50.8" [ "prod" "lxc" "cloud" ];
+  cloud-apps = mkVirtualDeployment "cloud-apps" "192.168.50.8" ["prod" "lxc" "cloud"];
 
   #=========================#
   #  PHYSICAL (bare-metal)  #
@@ -94,6 +96,6 @@ in {
   # altair: ASUS ProArt X870E, Ryzen 9 7900, 64 GB DDR5, 2× RTX 3090
   # ⚠️  First deploy via nixos-install from live USB (see flake.nix).
   #     Subsequent config changes: colmena apply --on altair
-  altair = mkPhysicalDeployment "altair" "192.168.50.150" [ "server" "baremetal" "gpu" "llm" ];
+  altair = mkPhysicalDeployment "altair" "192.168.50.150" ["server" "baremetal" "gpu" "llm"];
   # dell = mkPhysicalDeployment "dell" "192.168.50.200" [ "server" "baremetal" "dell" ];  # future
 }
