@@ -35,6 +35,7 @@
         # prometheus.nix scrape job: targets = ["127.0.0.1:9101"]
         # Do not change this port without updating monitoring/prometheus.nix.
         "core.metrics_address" = "127.0.0.1:9101";
+        "core.https_address" = "0.0.0.0:8443";
       };
       networks = [
         {
