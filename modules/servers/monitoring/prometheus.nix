@@ -34,6 +34,7 @@
         job_name = "incus";
         scrape_interval = "30s";
         scheme = "https";
+        metrics_path = "/1.0/metrics";
         tls_config = {
           insecure_skip_verify = true;
         };
