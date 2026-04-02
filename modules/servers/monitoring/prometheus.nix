@@ -9,6 +9,7 @@
     listenAddress = "127.0.0.1";
     port = 9090;
     retentionTime = "90d";
+    checkConfig = "syntax-only";
 
     globalConfig.scrape_interval = "15s";
 
