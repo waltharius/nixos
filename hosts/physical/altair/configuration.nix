@@ -60,6 +60,7 @@ in {
     dcgmNoCheck # NVIDIA Data Center GPU Manager (includes dcgmi)
     nvtopPackages.nvidia
     (python3.withPackages (ps: [ps.torch]))
+    openssl
   ];
 
   systemd.services.nvidia-dcgm = {
