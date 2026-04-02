@@ -1,12 +1,7 @@
 # modules/servers/security/hardening.nix
 # Base system hardening for all altair services.
 # Does NOT manage per-service firewall rules — those live in each service module.
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: {
+{lib, ...}: {
   # --- Firewall base policy ---
   networking.firewall = {
     enable = true;
@@ -18,11 +13,13 @@
     logRefusedPackets = false; # too noisy
   };
 
-  # Enable nftables backend (replaces iptables)
-  # IMPORTANT: networking.firewall uses nftables under the hood on NixOS 23.11+
-  # Do NOT set networking.nftables.enable = true if networking.firewall.enable = true
-  # They are mutually exclusive backends. Pick one. We use networking.firewall.
-  # networking.nftables.enable = true;  # <-- leave this commented out
+  # Enable the full nftables module as the firewall backend.
+  # networking.firewall.* options all continue to work unchanged.
+  # Required for Incus: both host firewall and Incus NAT must use
+  # the same kernel subsystem (nftables). Without this, Incus writes
+  # its NAT rules to nftables while the host firewall uses iptables,
+  # creating two separate rulesets that cannot see each other.
+  networking.nftables.enable = true;
 
   # --- SSH hardening ---
   services.openssh = {
