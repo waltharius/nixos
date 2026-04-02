@@ -40,13 +40,13 @@ in {
     ../../../modules/servers/base-baremetal.nix
     ../../../modules/servers/monitoring/default.nix
     ../../../modules/servers/nvidia.nix
+    ../../../modules/servers/incus/default.nix
 
     # -------------------------------------------------------------------------
     # Phase 2+ modules — uncomment when ready:
     # -------------------------------------------------------------------------
     # ../../../modules/servers/network/tailscale.nix
     # ../../../modules/servers/network/yggdrasil.nix
-    # ../../../modules/servers/incus/default.nix
     # ../../../modules/servers/monitoring/prometheus.nix
     # ../../../modules/servers/monitoring/grafana.nix
     # ../../../modules/servers/monitoring/psu-monitor.nix
