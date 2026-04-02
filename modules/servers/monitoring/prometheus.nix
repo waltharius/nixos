@@ -37,6 +37,8 @@
         metrics_path = "/1.0/metrics";
         tls_config = {
           insecure_skip_verify = true;
+          cert_file = "/var/lib/prometheus-incus/metrics.crt";
+          key_file = "/var/lib/prometheus-incus/metrics.key";
         };
         static_configs = [
           {
