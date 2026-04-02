@@ -33,6 +33,10 @@
       {
         job_name = "incus";
         scrape_interval = "30s";
+        scheme = "https";
+        tls_config = {
+          insecure_skip_verify = true;
+        };
         static_configs = [
           {
             targets = ["127.0.0.1:9101"];
