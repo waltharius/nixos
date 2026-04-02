@@ -24,19 +24,17 @@
   virtualisation.incus = {
     enable = true;
 
-    # Expose Prometheus metrics endpoint on loopback.
-    # prometheus.nix scrape job: targets = ["127.0.0.1:9101"]
-    # This must match — do not change the port without updating prometheus.nix.
-    metrics = {
-      enable = true;
-      port = 9101;
-      address = "127.0.0.1";
-    };
-
     # -----------------------------------------------------------------
     # Preseed — applied ONCE on first incus admin init. See warning above.
     # -----------------------------------------------------------------
     preseed = {
+      # Daemon-level config - sets global Incus behaviour
+      config = {
+        # Expose Prometheus metrics on loopback only.
+        # prometheus.nix scrape job: targets = ["127.0.0.1:9101"]
+        # Do not change this port without updating monitoring/prometheus.nix.
+        "core.metrics_address" = "127.0.0.1:9101";
+      };
       networks = [
         {
           # NAT bridge — containers get 10.0.0.x, reach internet via host NAT.
