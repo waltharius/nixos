@@ -148,10 +148,6 @@
   # The 'L+' type creates the path as a directory if missing, idempotently.
   # Owner: root:root with 0711 — Incus manages its own permissions inside.
   # ---------------------------------------------------------------------------
-  systemd.tmpfiles.rules = [
-    "d /mnt/data/incus 0711 root root -"
-  ];
-
   # ---------------------------------------------------------------------------
   # Service ordering — incus.service must start AFTER /mnt/data is mounted.
   # The cryptdata LUKS device and its btrfs mount are managed by systemd
