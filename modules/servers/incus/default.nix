@@ -23,6 +23,7 @@
   # ---------------------------------------------------------------------------
   virtualisation.incus = {
     enable = true;
+    ui.enable = true;
 
     # -----------------------------------------------------------------
     # Preseed — applied ONCE on first incus admin init. See warning above.
