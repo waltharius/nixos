@@ -40,8 +40,8 @@ in {
     users.users.${cfg.user} = mkIf (cfg.user == "syncthing") {
       isSystemUser = true;
       group = cfg.group;
-      home = mkForce cfg.dataDir;  # Force home to be mounted data directory
-      createHome = mkForce false;  # Don't auto-create, use tmpfiles instead
+      home = mkForce cfg.dataDir; # Force home to be mounted data directory
+      createHome = mkForce false; # Don't auto-create, use tmpfiles instead
     };
 
     users.groups.${cfg.group} = mkIf (cfg.group == "syncthing") {};
@@ -67,8 +67,8 @@ in {
         };
       };
 
-      overrideDevices = true;
-      overrideFolders = true;
+      overrideDevices = false;
+      overrideFolders = false;
     };
 
     # Firewall
