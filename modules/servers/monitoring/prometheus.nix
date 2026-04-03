@@ -69,12 +69,12 @@
 
       # OPNsense metrics
       {
-        job_name = "opnsesne firewall";
+        job_name = "opnsense firewall";
         static_configs = [
           {
             trgets = ["192.168.50.149:9100"];
             labels = {
-              host = "opnsesne";
+              host = "opnsense";
               role = "firewall";
             };
           }
