@@ -66,6 +66,20 @@
           }
         ];
       }
+
+      # OPNsense metrics
+      {
+        job_name = "opnsesne firewall";
+        static_configs = [
+          {
+            trgets = ["192.168.50.149:9100"];
+            labels = {
+              host = "opnsesne";
+              role = "firewall";
+            };
+          }
+        ];
+      }
     ];
 
     # Alerting rules
