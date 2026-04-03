@@ -72,7 +72,7 @@
         job_name = "opnsense firewall";
         static_configs = [
           {
-            trgets = ["192.168.50.149:9100"];
+            targets = ["192.168.50.149:9100"];
             labels = {
               host = "opnsense";
               role = "firewall";
