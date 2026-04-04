@@ -169,10 +169,6 @@ in {
       # My custom packages
       customPkgs.rebuild-and-diff
       customPkgs.solaar-stable
-      customPkgs.track-package
-      customPkgs.track-package-deps
-      customPkgs.track-package-py
-      customPkgs.track-package-simple
 
       # GUI Applications
       blanket
@@ -185,9 +181,10 @@ in {
       foliate
 
       # Productivity & Office
+      pkgs-unstable.silverbullet
       libreoffice-fresh # Office suite
-      zotero # Reference manager
-      obsidian # Knowledge management
+      pkgs-unstable.zotero # Reference manager
+      pkgs-unstable.obsidian # Knowledge management
       thunderbird-latest
       onlyoffice-desktopeditors
 
@@ -229,13 +226,7 @@ in {
       rclone-ui
       dig
       openssl
-      hledger
-      hledger-ui
-      hledger-fmt
-      hledger-web
-      hledger-utils
-      hledger-interest
-      hledger-check-fancyassertions
+      pkgs-unstable.nb
 
       # Nix tools
       nix-prefetch-github
