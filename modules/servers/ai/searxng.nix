@@ -7,21 +7,12 @@
 #   - OCI container (Podman) via virtualisation.oci-containers.
 #   - settings.yml written by ExecStartPre on every service start (idempotent).
 #   - secret_key generated once, stored in /mnt/data/searxng/secret_key.
-#   - Binds 0.0.0.0:8080 (all interfaces) so Open-WebUI container can reach
-#     it via host-gateway (10.88.0.1). Firewall blocks LAN access.
-#
-# Why 0.0.0.0 and not 127.0.0.1:
-#   Open-WebUI runs in a Podman container. It reaches the host via
-#   host-gateway (10.88.0.1 on podman0 bridge). 127.0.0.1 is the
-#   container's OWN loopback, not the host's. SearXNG must bind all
-#   interfaces so the podman0 bridge IP (10.88.0.1) accepts connections.
-#   Firewall rule on enp10s0 blocks direct LAN access to port 8080.
-#
-# Boot-ordering:
-#   ExecStartPre with + prefix (root), after mnt-data.mount.
+#   - Binds 0.0.0.0:8080 so Open-WebUI container can reach it via host-gateway.
+#   - JSON format explicitly enabled — SearXNG blocks ?format=json by default
+#     as a bot-protection measure. Internal use requires it explicitly allowed.
 #
 # Ports:
-#   8080 — HTTP, 0.0.0.0 (firewall restricts to lo + podman0, blocks LAN)
+#   8080 — HTTP, 0.0.0.0 (firewall restricts to lo + podman bridges, blocks LAN)
 #
 # Volumes:
 #   /mnt/data/searxng  →  /etc/searxng
@@ -37,6 +28,8 @@
       image_proxy: true
       base_url: "http://search.home.lan/"
       bind_address: "0.0.0.0:8080"
+      # Not a public instance — disables public-facing bot protections.
+      public_instance: false
 
     ui:
       default_locale: "en"
@@ -47,6 +40,11 @@
       safe_search: 0
       autocomplete: ""
       default_lang: "en"
+      # Must explicitly allow json format — SearXNG blocks it by default
+      # to prevent scraping on public instances. Required for Open-WebUI.
+      formats:
+        - html
+        - json
 
     engines:
       - name: google
@@ -85,7 +83,6 @@ in {
     extraOptions = [ "--network=host" ];
 
     environment = {
-      # Bind all interfaces — firewall restricts access, not the bind address.
       SEARXNG_BIND_ADDRESS  = "0.0.0.0:8080";
       SEARXNG_SETTINGS_PATH = "/etc/searxng";
     };
@@ -103,10 +100,8 @@ in {
     serviceConfig.ExecStartPre = [ "+${prepScript}" ];
   };
 
-  # SearXNG port 8080 access control:
-  #   ALLOW: lo        (localhost — Caddy proxy, curl tests)
-  #   ALLOW: podman0   (Open-WebUI container via host-gateway)
-  #   BLOCK: enp10s0   (LAN — users access via Caddy on port 80 only)
+  # Port 8080 (SearXNG) and 11434 (Ollama) allowed on Podman bridges only.
+  # LAN (enp10s0) access to both ports stays blocked.
   networking.firewall.interfaces."podman0".allowedTCPPorts     = [ 11434 8080 ];
   networking.firewall.interfaces."podman1".allowedTCPPorts     = [ 11434 8080 ];
   networking.firewall.interfaces."cni-podman0".allowedTCPPorts = [ 11434 8080 ];
