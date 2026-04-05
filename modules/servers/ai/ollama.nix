@@ -4,10 +4,10 @@
 #
 # Design decisions:
 #   - Runs on the HOST (not in a container) for direct GPU access.
-#   - Listens on 0.0.0.0:11434 so Podman containers (10.0.0.x) can reach it.
+#   - Listens on 0.0.0.0:11434 so Podman containers can reach it.
 #   - LAN access (enp10s0 / 192.168.50.x) is blocked by firewall — only
-#     containers on incusbr0 (10.0.0.x) and localhost may query Ollama directly.
-#     Open-WebUI container proxies all user requests.
+#     containers on incusbr0 (10.0.0.x), Podman bridge, and localhost may
+#     query Ollama directly. Open-WebUI proxies all user requests.
 #   - CUDA binary cache must be active before first deploy (see base-baremetal.nix).
 #   - Models stored on /mnt/data (LUKS2 btrfs) — not on the NVMe boot disk.
 #
@@ -16,9 +16,12 @@
 #   For models that fit in one GPU (<=24 GB), Ollama picks automatically.
 #
 # Firewall:
-#   Port 11434 is NOT added to networking.firewall.allowedTCPPorts (global).
-#   Only explicitly allowed on incusbr0 (containers) and lo (localhost).
-#   enp10s0 (LAN) stays blocked — users access via Open-WebUI only.
+#   Port 11434 allowed on:
+#     lo        — localhost (curl tests, same-host tools)
+#     incusbr0  — Incus containers (10.0.0.x)
+#     podman1   — Podman netavark bridge (Open-WebUI, ~10.88.0.x)
+#     cni-podman0 — Podman CNI bridge (fallback name on older setups)
+#   Port 11434 BLOCKED on enp10s0 (LAN) — direct API access not allowed.
 #
 # Systemd hardening notes:
 #   - DynamicUser=true (NixOS default) is incompatible with homes on external
@@ -118,8 +121,6 @@
       Group          = lib.mkForce "ollama";
 
       # Create required directories before service starts.
-      # ExecStartPre runs as the ollama user after DynamicUser is resolved,
-      # ensuring correct ownership without a separate tmpfiles race.
       ExecStartPre = [
         "${pkgs.coreutils}/bin/mkdir -p /mnt/data/ollama/models"
         "${pkgs.coreutils}/bin/mkdir -p /mnt/data/ollama/tmp"
@@ -128,7 +129,6 @@
   };
 
   # Pre-create directories with correct ownership on every boot activation.
-  # Works correctly because the ollama user is now a real persistent user.
   systemd.tmpfiles.rules = [
     "d /mnt/data/ollama        0750 ollama ollama -"
     "d /mnt/data/ollama/models 0750 ollama ollama -"
@@ -138,9 +138,13 @@
   # ---------------------------------------------------------------------------
   # Firewall — Ollama port 11434 access control
   #
-  # ALLOW:  lo        (localhost — curl tests, same-host tools)
-  # ALLOW:  incusbr0  (10.0.0.x — Open-WebUI, SearXNG containers)
-  # BLOCK:  enp10s0   (192.168.50.x LAN — direct API access blocked)
+  # ALLOW:  lo          (localhost)
+  # ALLOW:  incusbr0    (Incus containers, 10.0.0.x)
+  # ALLOW:  podman1     (Podman netavark bridge — Open-WebUI container)
+  # ALLOW:  cni-podman0 (Podman CNI bridge — fallback for older Podman)
+  # BLOCK:  enp10s0     (LAN — direct API access blocked)
   # ---------------------------------------------------------------------------
-  networking.firewall.interfaces."incusbr0".allowedTCPPorts = [ 11434 ];
+  networking.firewall.interfaces."incusbr0".allowedTCPPorts   = [ 11434 ];
+  networking.firewall.interfaces."podman1".allowedTCPPorts     = [ 11434 ];
+  networking.firewall.interfaces."cni-podman0".allowedTCPPorts = [ 11434 ];
 }
