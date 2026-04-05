@@ -26,33 +26,30 @@
 #
 # Volumes:
 #   /mnt/data/open-webui  →  /app/backend/data
-{
-  pkgs,
-  ...
-}: {
+{pkgs, ...}: {
   virtualisation.oci-containers.containers.open-webui = {
     image = "ghcr.io/open-webui/open-webui:main";
 
     # Explicit port mapping: only bind on loopback so Caddy is the
     # sole entry point. Container sees port 8080 internally (its default).
     # 127.0.0.1:3000 on host → 8080 inside container.
-    ports = [ "127.0.0.1:3000:8080" ];
+    ports = ["127.0.0.1:3000:8080"];
 
     # Add host-gateway so the container can reach Ollama on the host.
     # Podman resolves host-gateway to the host's IP automatically.
-    extraOptions = [ "--add-host=host-gateway:host-gateway" ];
+    extraOptions = ["--add-host=host-gateway:host-gateway"];
 
     environment = {
       # Reach Ollama on the host via the special host-gateway alias.
-      OLLAMA_BASE_URL      = "http://host-gateway:11434";
-      OLLAMA_API_KEY       = "";
+      OLLAMA_BASE_URL = "http://host-gateway:11434";
+      OLLAMA_API_KEY = "";
 
       # TODO Phase 4: replace with sops secret
       # Generate with: tr -dc A-Za-z0-9 </dev/urandom | head -c 32
-      WEBUI_SECRET_KEY     = "change-me-use-sops-later";
+      WEBUI_SECRET_KEY = "change-me-use-sops-later";
 
-      SCARF_NO_ANALYTICS   = "true";
-      DO_NOT_TRACK         = "true";
+      SCARF_NO_ANALYTICS = "true";
+      DO_NOT_TRACK = "true";
       ANONYMIZED_TELEMETRY = "false";
     };
 
@@ -64,9 +61,9 @@
   };
 
   systemd.services."podman-open-webui" = {
-    after    = [ "mnt-data.mount" "ollama.service" ];
-    requires = [ "mnt-data.mount" ];
-    wants    = [ "ollama.service" ];
+    after = ["mnt-data.mount" "ollama.service"];
+    requires = ["mnt-data.mount"];
+    wants = ["ollama.service"];
 
     serviceConfig = {
       ExecStartPre = [
