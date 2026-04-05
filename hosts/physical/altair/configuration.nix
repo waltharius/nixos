@@ -42,6 +42,9 @@ in {
     ../../../modules/servers/nvidia.nix
     ../../../modules/servers/incus/default.nix
 
+    # AI / LLM stack
+    ../../../modules/servers/ai/ollama.nix
+
     # -------------------------------------------------------------------------
     # Phase 2+ modules — uncomment when ready:
     # -------------------------------------------------------------------------
@@ -50,6 +53,10 @@ in {
     # ../../../modules/servers/monitoring/prometheus.nix
     # ../../../modules/servers/monitoring/grafana.nix
     # ../../../modules/servers/monitoring/psu-monitor.nix
+    # ../../../modules/servers/ai/podman.nix        # Phase 2
+    # ../../../modules/servers/ai/open-webui.nix    # Phase 2
+    # ../../../modules/servers/ai/searxng.nix       # Phase 2
+    # ../../../modules/servers/caddy.nix            # Phase 3
   ];
 
   environment.systemPackages = with pkgs; [
