@@ -80,6 +80,14 @@
       RestartSec = "10s";
       # Reduce OOM kill priority slightly — kernel should kill other things first.
       OOMScoreAdjust = 500;
+
+      # The NixOS ollama module injects namespace-based hardening that breaks
+      # GPU/network access. Override them explicitly here.
+      PrivateNetwork = "no"; # Must reach incusbr0 and GPU driver sockets
+      PrivateUsers = "no"; # GPU device nodes require real UID mapping
+      PrivateTmp = "no"; # CUDA libs use /tmp for IPC
+      PrivateDevices = "no"; # Must access /dev/nvidia*
+      ProtectHome = "no"; # home = /mnt/data/ollama (not under /home)
     };
   };
 
