@@ -72,7 +72,7 @@
       OLLAMA_FLASH_ATTENTION = "1";
       # Redirects the CUDA blob extraction to a path ollama own instead of using
       # /tmp, and keeps all other systemd hardening intact.
-      OLLAMA_TMPDIR = "/mnt/data/ollama/tmp";
+      TMPDIR = "/mnt/data/ollama/tmp";
       # Force ollama models folder
       OLLAMA_MODELS = "/mnt/data/ollama/models";
     };
@@ -104,6 +104,11 @@
       DynamicUser = lib.mkForce false;
       User = lib.mkForce "ollama";
       Group = lib.mkForce "ollama";
+
+      environment = {
+        OLLAMA_TMPDIR = "/mnt/data/ollama/tmp";
+        TMPDIR = "/mnt/data/ollama/tmp";
+      };
 
       # Create model dirs before service starts, as the ollama user.
       # This is the correct pattern when home is on an external mount.
