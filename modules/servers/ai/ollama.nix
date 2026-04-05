@@ -42,9 +42,9 @@
   # ---------------------------------------------------------------------------
   users.users.ollama = {
     isSystemUser = true;
-    group        = "ollama";
-    home         = "/mnt/data/ollama";
-    extraGroups  = [ "render" "video" ];
+    group = "ollama";
+    home = "/mnt/data/ollama";
+    extraGroups = ["render" "video"];
   };
   users.groups.ollama = {};
 
@@ -67,30 +67,30 @@
 
     environmentVariables = {
       # Both GPUs visible to CUDA.
-      CUDA_VISIBLE_DEVICES     = "0,1";
-      OLLAMA_GPU_OVERHEAD      = "0";
+      CUDA_VISIBLE_DEVICES = "0,1";
+      OLLAMA_GPU_OVERHEAD = "0";
 
       # Keep models loaded in VRAM indefinitely (no idle unload).
-      OLLAMA_KEEP_ALIVE        = "-1";
+      OLLAMA_KEEP_ALIVE = "-1";
 
       # Allow loading up to 2 models simultaneously (one per GPU).
       OLLAMA_MAX_LOADED_MODELS = "2";
 
       # Process up to 2 requests in parallel.
-      OLLAMA_NUM_PARALLEL      = "2";
+      OLLAMA_NUM_PARALLEL = "2";
 
       # Flash attention — faster, less VRAM for long contexts on Ampere.
-      OLLAMA_FLASH_ATTENTION   = "1";
+      OLLAMA_FLASH_ATTENTION = "1";
 
       # Force the models directory explicitly.
       # Without this, Ollama appends /.ollama/models to HOME.
-      OLLAMA_MODELS            = "/mnt/data/ollama/models";
+      OLLAMA_MODELS = "/mnt/data/ollama/models";
 
       # Redirect CUDA runner blob extraction away from /tmp.
       # ProtectSystem=strict (systemd default) makes /tmp read-only inside
       # the service namespace — CUDA fails to write its temp .bin files there.
-      TMPDIR                   = "/mnt/data/ollama/tmp";
-      OLLAMA_TMPDIR            = "/mnt/data/ollama/tmp";
+      TMPDIR = "/mnt/data/ollama/tmp";
+      OLLAMA_TMPDIR = "/mnt/data/ollama/tmp";
     };
   };
 
@@ -99,26 +99,26 @@
   # ---------------------------------------------------------------------------
   systemd.services.ollama = {
     # Must start after the LUKS2 data disk is mounted.
-    after    = [ "mnt-data.mount" ];
-    requires = [ "mnt-data.mount" ];
+    after = ["mnt-data.mount"];
+    requires = ["mnt-data.mount"];
 
     serviceConfig = {
-      Restart        = "on-failure";
-      RestartSec     = "10s";
+      Restart = "on-failure";
+      RestartSec = "10s";
       # Reduce OOM kill priority — let kernel kill other processes first.
       OOMScoreAdjust = 500;
 
       # Override NixOS module defaults that break CUDA and GPU access.
       PrivateNetwork = lib.mkForce false;
-      PrivateUsers   = lib.mkForce false;
-      PrivateTmp     = lib.mkForce false;
+      PrivateUsers = lib.mkForce false;
+      PrivateTmp = lib.mkForce false;
       PrivateDevices = lib.mkForce false;
-      ProtectHome    = lib.mkForce false;
+      ProtectHome = lib.mkForce false;
 
       # Replace DynamicUser with our persistent user declared above.
-      DynamicUser    = lib.mkForce false;
-      User           = lib.mkForce "ollama";
-      Group          = lib.mkForce "ollama";
+      DynamicUser = lib.mkForce false;
+      User = lib.mkForce "ollama";
+      Group = lib.mkForce "ollama";
 
       # Create required directories before service starts.
       ExecStartPre = [
@@ -144,7 +144,7 @@
   # ALLOW:  cni-podman0 (Podman CNI bridge — fallback for older Podman)
   # BLOCK:  enp10s0     (LAN — direct API access blocked)
   # ---------------------------------------------------------------------------
-  networking.firewall.interfaces."incusbr0".allowedTCPPorts   = [ 11434 ];
-  networking.firewall.interfaces."podman1".allowedTCPPorts     = [ 11434 ];
-  networking.firewall.interfaces."cni-podman0".allowedTCPPorts = [ 11434 ];
+  networking.firewall.interfaces."incusbr0".allowedTCPPorts = [11434];
+  networking.firewall.interfaces."podman1".allowedTCPPorts = [11434];
+  networking.firewall.interfaces."cni-podman0".allowedTCPPorts = [11434];
 }
