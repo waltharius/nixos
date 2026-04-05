@@ -32,18 +32,18 @@
     # Host network: container reaches Ollama on 127.0.0.1:11434 directly.
     # Security: port 3000 is bound to 127.0.0.1 inside the container,
     # so it's only reachable via Caddy proxy — not directly from LAN.
-    extraOptions = [ "--network=host" ];
+    extraOptions = ["--network=host"];
 
     environment = {
-      OLLAMA_BASE_URL      = "http://127.0.0.1:11434";
-      OLLAMA_API_KEY       = "";
-      HOST                 = "127.0.0.1";
-      PORT                 = "3000";
+      OLLAMA_BASE_URL = "http://127.0.0.1:11434";
+      OLLAMA_API_KEY = "";
+      HOST = "127.0.0.1";
+      PORT = "3000";
       # TODO Phase 3: replace with sops secret
       # Generate with: tr -dc A-Za-z0-9 </dev/urandom | head -c 32
-      WEBUI_SECRET_KEY     = "change-me-use-sops-later";
-      SCARF_NO_ANALYTICS   = "true";
-      DO_NOT_TRACK         = "true";
+      WEBUI_SECRET_KEY = "change-me-use-sops-later";
+      SCARF_NO_ANALYTICS = "true";
+      DO_NOT_TRACK = "true";
       ANONYMIZED_TELEMETRY = "false";
     };
 
@@ -57,11 +57,11 @@
   systemd.services."podman-open-webui" = {
     # Hard-require the data disk — without it the bind mount silently
     # creates an empty dir on the root fs and data is lost.
-    after    = [ "mnt-data.mount" "ollama.service" ];
-    requires = [ "mnt-data.mount" ];
+    after = ["mnt-data.mount" "ollama.service"];
+    requires = ["mnt-data.mount"];
     # Soft dep on Ollama: Open-WebUI starts even if Ollama is down,
     # it just shows a connection error in the UI until Ollama comes up.
-    wants    = [ "ollama.service" ];
+    wants = ["ollama.service"];
 
     serviceConfig = {
       # + prefix: runs as root regardless of service User=, so mkdir

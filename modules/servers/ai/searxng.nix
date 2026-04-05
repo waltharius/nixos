@@ -20,10 +20,7 @@
 #
 # Volumes:
 #   /mnt/data/searxng  →  /etc/searxng
-{
-  pkgs,
-  ...
-}: let
+{pkgs, ...}: let
   # Write settings.yml as a Nix-managed file in the Nix store.
   # The actual secret_key line is filled in at runtime by the shell script
   # in ExecStartPre (it reads /mnt/data/searxng/secret_key).
@@ -87,10 +84,10 @@
 in {
   virtualisation.oci-containers.containers.searxng = {
     image = "docker.io/searxng/searxng:latest";
-    extraOptions = [ "--network=host" ];
+    extraOptions = ["--network=host"];
 
     environment = {
-      SEARXNG_BIND_ADDRESS  = "127.0.0.1:8080";
+      SEARXNG_BIND_ADDRESS = "127.0.0.1:8080";
       SEARXNG_SETTINGS_PATH = "/etc/searxng";
     };
 
@@ -102,12 +99,12 @@ in {
   };
 
   systemd.services."podman-searxng" = {
-    after    = [ "mnt-data.mount" ];
-    requires = [ "mnt-data.mount" ];
+    after = ["mnt-data.mount"];
+    requires = ["mnt-data.mount"];
 
     serviceConfig = {
       # + prefix: runs as root, after mount ordering is satisfied.
-      ExecStartPre = [ "+${prepScript}" ];
+      ExecStartPre = ["+${prepScript}"];
     };
   };
 }
