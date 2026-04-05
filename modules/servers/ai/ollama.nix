@@ -19,23 +19,35 @@
 #   Port 11434 is NOT added to networking.firewall.allowedTCPPorts (global).
 #   Only explicitly allowed on incusbr0 (containers) and lo (localhost).
 #   enp10s0 (LAN) stays blocked — users access via Open-WebUI only.
+#
+# Systemd hardening notes:
+#   - DynamicUser=true (NixOS default) is incompatible with homes on external
+#     mounts — systemd can't chown paths outside its control. We declare a
+#     real persistent user instead.
+#   - PrivateDevices/PrivateNetwork/PrivateTmp/PrivateUsers are all forced false
+#     because CUDA requires direct GPU device access and host network binding.
+#   - TMPDIR/OLLAMA_TMPDIR redirect CUDA blob extraction away from /tmp
+#     (ProtectSystem=strict makes /tmp read-only inside the service namespace).
 {
   lib,
   pkgs,
   ...
 }: {
-  # Declare a real persistent ollama user.
-  # DynamicUser=true (set by the NixOS module) is incompatible with
-  # homes on external mounts — systemd can't chown paths it doesn't control.
+  # ---------------------------------------------------------------------------
+  # Persistent ollama user — required because DynamicUser=true is incompatible
+  # with a home directory on an external encrypted mount (/mnt/data).
+  # ---------------------------------------------------------------------------
   users.users.ollama = {
     isSystemUser = true;
-    group = "ollama";
-    home = "/mnt/data/ollama";
-    # Give GPU access
-    extraGroups = ["render" "video"];
+    group        = "ollama";
+    home         = "/mnt/data/ollama";
+    extraGroups  = [ "render" "video" ];
   };
   users.groups.ollama = {};
 
+  # ---------------------------------------------------------------------------
+  # Ollama service
+  # ---------------------------------------------------------------------------
   services.ollama = {
     enable = true;
 
@@ -44,84 +56,79 @@
     port = 11434;
 
     # Store models on the data disk, not on the 2 TB NVMe.
-    # /mnt/data is the LUKS2 btrfs volume (unlocked at boot via Clevis/passphrase).
     home = "/mnt/data/ollama";
 
     # Accelerate with CUDA (both RTX 3090s).
-    # nixpkgs cudaSupport = true is set globally in nvidia.nix — this just
-    # ensures Ollama itself is built against CUDA.
+    # cudaSupport = true is set globally in nvidia.nix.
     acceleration = "cuda";
 
     environmentVariables = {
-      # Split tensor layers evenly across GPU 0 and GPU 1.
-      # Format: "gpu0_fraction,gpu1_fraction" — must sum to 1.0.
-      OLLAMA_GPU_OVERHEAD = "0";
-      CUDA_VISIBLE_DEVICES = "0,1";
+      # Both GPUs visible to CUDA.
+      CUDA_VISIBLE_DEVICES     = "0,1";
+      OLLAMA_GPU_OVERHEAD      = "0";
 
       # Keep models loaded in VRAM indefinitely (no idle unload).
-      # Avoids 10-30s reload delay between requests.
-      OLLAMA_KEEP_ALIVE = "-1";
+      OLLAMA_KEEP_ALIVE        = "-1";
 
-      # Allow loading up to 2 models simultaneously (one per GPU if needed).
+      # Allow loading up to 2 models simultaneously (one per GPU).
       OLLAMA_MAX_LOADED_MODELS = "2";
 
-      # Increase context window limit — allows larger prompts without truncation.
-      OLLAMA_NUM_PARALLEL = "2";
+      # Process up to 2 requests in parallel.
+      OLLAMA_NUM_PARALLEL      = "2";
 
-      # Flash attention — faster and less VRAM for long contexts on Ampere.
-      OLLAMA_FLASH_ATTENTION = "1";
-      # Redirects the CUDA blob extraction to a path ollama own instead of using
-      # /tmp, and keeps all other systemd hardening intact.
-      TMPDIR = "/mnt/data/ollama/tmp";
-      # Force ollama models folder
-      OLLAMA_MODELS = "/mnt/data/ollama/models";
+      # Flash attention — faster, less VRAM for long contexts on Ampere.
+      OLLAMA_FLASH_ATTENTION   = "1";
+
+      # Force the models directory explicitly.
+      # Without this, Ollama appends /.ollama/models to HOME.
+      OLLAMA_MODELS            = "/mnt/data/ollama/models";
+
+      # Redirect CUDA runner blob extraction away from /tmp.
+      # ProtectSystem=strict (systemd default) makes /tmp read-only inside
+      # the service namespace — CUDA fails to write its temp .bin files there.
+      TMPDIR                   = "/mnt/data/ollama/tmp";
+      OLLAMA_TMPDIR            = "/mnt/data/ollama/tmp";
     };
   };
 
   # ---------------------------------------------------------------------------
-  # Ensure ollama starts AFTER /mnt/data is mounted.
-  # The data disk is LUKS2-encrypted and mounted by a systemd mount unit.
-  # Without this ordering, ollama may start before the disk is available.
+  # systemd service overrides
   # ---------------------------------------------------------------------------
   systemd.services.ollama = {
-    after = ["mnt-data.mount"];
-    requires = ["mnt-data.mount"];
-    # Restart on failure — CUDA init occasionally fails on first boot.
+    # Must start after the LUKS2 data disk is mounted.
+    after    = [ "mnt-data.mount" ];
+    requires = [ "mnt-data.mount" ];
+
     serviceConfig = {
-      Restart = "on-failure";
-      RestartSec = "10s";
-      # Reduce OOM kill priority slightly — kernel should kill other things first.
+      Restart        = "on-failure";
+      RestartSec     = "10s";
+      # Reduce OOM kill priority — let kernel kill other processes first.
       OOMScoreAdjust = 500;
 
-      # The upstream NixOS ollama module sets these — we override with mkForce
-      # because namespace isolation breaks CUDA GPU access and incusbr0 binding.
+      # Override NixOS module defaults that break CUDA and GPU access.
       PrivateNetwork = lib.mkForce false;
-      PrivateUsers = lib.mkForce false;
-      PrivateTmp = lib.mkForce false;
+      PrivateUsers   = lib.mkForce false;
+      PrivateTmp     = lib.mkForce false;
       PrivateDevices = lib.mkForce false;
-      ProtectHome = lib.mkForce false;
-      # Override DynamicUser — we manage the user ourselves above
-      DynamicUser = lib.mkForce false;
-      User = lib.mkForce "ollama";
-      Group = lib.mkForce "ollama";
+      ProtectHome    = lib.mkForce false;
 
-      environment = {
-        OLLAMA_TMPDIR = "/mnt/data/ollama/tmp";
-        TMPDIR = "/mnt/data/ollama/tmp";
-      };
+      # Replace DynamicUser with our persistent user declared above.
+      DynamicUser    = lib.mkForce false;
+      User           = lib.mkForce "ollama";
+      Group          = lib.mkForce "ollama";
 
-      # Create model dirs before service starts, as the ollama user.
-      # This is the correct pattern when home is on an external mount.
+      # Create required directories before service starts.
+      # ExecStartPre runs as the ollama user after DynamicUser is resolved,
+      # ensuring correct ownership without a separate tmpfiles race.
       ExecStartPre = [
         "${pkgs.coreutils}/bin/mkdir -p /mnt/data/ollama/models"
         "${pkgs.coreutils}/bin/mkdir -p /mnt/data/ollama/tmp"
       ];
-      # Tell systemd to stop the old instance before starting the new one
-      # (default Restart=on-failure doesn't kill a running instance on activation)
-      RestartMode = lib.mkForce "direct";
     };
   };
 
+  # Pre-create directories with correct ownership on every boot activation.
+  # Works correctly because the ollama user is now a real persistent user.
   systemd.tmpfiles.rules = [
     "d /mnt/data/ollama        0750 ollama ollama -"
     "d /mnt/data/ollama/models 0750 ollama ollama -"
@@ -129,16 +136,11 @@
   ];
 
   # ---------------------------------------------------------------------------
-  # Firewall — Ollama port access control
+  # Firewall — Ollama port 11434 access control
   #
-  # ALLOW:  lo        (localhost — same-host tools, curl tests)
-  # ALLOW:  incusbr0  (10.0.0.x — Podman containers: Open-WebUI, SearXNG)
-  # BLOCK:  enp10s0   (192.168.50.x LAN — users must go through Open-WebUI)
-  #
-  # This is intentional: raw API access from LAN is blocked.
-  # Only Open-WebUI (running as a container on incusbr0) talks to Ollama.
+  # ALLOW:  lo        (localhost — curl tests, same-host tools)
+  # ALLOW:  incusbr0  (10.0.0.x — Open-WebUI, SearXNG containers)
+  # BLOCK:  enp10s0   (192.168.50.x LAN — direct API access blocked)
   # ---------------------------------------------------------------------------
-  networking.firewall.interfaces."incusbr0".allowedTCPPorts = [11434];
-  # lo is always allowed by the NixOS firewall (not configurable per-interface).
-  # enp10s0 intentionally has NO entry for 11434.
+  networking.firewall.interfaces."incusbr0".allowedTCPPorts = [ 11434 ];
 }
