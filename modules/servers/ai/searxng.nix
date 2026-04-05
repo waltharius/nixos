@@ -16,10 +16,7 @@
 #
 # Volumes:
 #   /mnt/data/searxng  →  /etc/searxng  (settings.yml + secret_key)
-{
-  pkgs,
-  ...
-}: {
+{pkgs, ...}: {
   # ---------------------------------------------------------------------------
   # Generate SearXNG config directory and settings.yml.
   # Using an activation script so the config is always up-to-date and
@@ -27,63 +24,63 @@
   # ---------------------------------------------------------------------------
   system.activationScripts.searxng-config = {
     text = ''
-      install -d -m 0750 /mnt/data/searxng
+            install -d -m 0750 /mnt/data/searxng
 
-      # Generate a persistent secret key on first deploy only.
-      KEY_FILE=/mnt/data/searxng/secret_key
-      if [ ! -f "$KEY_FILE" ]; then
-        ${pkgs.openssl}/bin/openssl rand -hex 32 > "$KEY_FILE"
-        chmod 0600 "$KEY_FILE"
-      fi
-      SECRET_KEY=$(cat "$KEY_FILE")
+            # Generate a persistent secret key on first deploy only.
+            KEY_FILE=/mnt/data/searxng/secret_key
+            if [ ! -f "$KEY_FILE" ]; then
+              ${pkgs.openssl}/bin/openssl rand -hex 32 > "$KEY_FILE"
+              chmod 0600 "$KEY_FILE"
+            fi
+            SECRET_KEY=$(cat "$KEY_FILE")
 
-      cat > /mnt/data/searxng/settings.yml << EOF
-# SearXNG settings — managed by NixOS activation script.
-# Do not edit manually; changes will be overwritten on next deploy.
-use_default_settings: true
+            cat > /mnt/data/searxng/settings.yml << EOF
+      # SearXNG settings — managed by NixOS activation script.
+      # Do not edit manually; changes will be overwritten on next deploy.
+      use_default_settings: true
 
-server:
-  secret_key: "$SECRET_KEY"
-  limiter: false       # disable rate limiting (internal use only)
-  image_proxy: true
-  base_url: "http://localhost:8080/"
-  bind_address: "127.0.0.1:8080"
+      server:
+        secret_key: "$SECRET_KEY"
+        limiter: false       # disable rate limiting (internal use only)
+        image_proxy: true
+        base_url: "http://localhost:8080/"
+        bind_address: "127.0.0.1:8080"
 
-ui:
-  default_locale: "en"
-  default_theme: simple
-  center_alignment: true
+      ui:
+        default_locale: "en"
+        default_theme: simple
+        center_alignment: true
 
-search:
-  safe_search: 0
-  autocomplete: ""
-  default_lang: "en"
+      search:
+        safe_search: 0
+        autocomplete: ""
+        default_lang: "en"
 
-engines:
-  - name: google
-    engine: google
-    shortcut: g
-  - name: duckduckgo
-    engine: duckduckgo
-    shortcut: d
-  - name: wikipedia
-    engine: wikipedia
-    shortcut: w
-    base_url: "https://en.wikipedia.org/"
-  - name: github
-    engine: github
-    shortcut: gh
-EOF
+      engines:
+        - name: google
+          engine: google
+          shortcut: g
+        - name: duckduckgo
+          engine: duckduckgo
+          shortcut: d
+        - name: wikipedia
+          engine: wikipedia
+          shortcut: w
+          base_url: "https://en.wikipedia.org/"
+        - name: github
+          engine: github
+          shortcut: gh
+      EOF
     '';
     # Run after tmpfiles so /mnt/data exists.
-    deps = [ "specialfs" ];
+    deps = ["specialfs"];
   };
 
   virtualisation.oci-containers.containers.searxng = {
     image = "docker.io/searxng/searxng:latest";
 
     # Host network — same reasoning as Open-WebUI.
-    extraOptions = [ "--network=host" ];
+    extraOptions = ["--network=host"];
 
     environment = {
       SEARXNG_BIND_ADDRESS = "127.0.0.1:8080";
@@ -99,7 +96,7 @@ EOF
   };
 
   systemd.services."podman-searxng" = {
-    after    = [ "mnt-data.mount" ];
-    requires = [ "mnt-data.mount" ];
+    after = ["mnt-data.mount"];
+    requires = ["mnt-data.mount"];
   };
 }

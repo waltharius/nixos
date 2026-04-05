@@ -21,10 +21,7 @@
 # Access:
 #   http://ai.altair.home.lan  (via Caddy, Phase 3)
 #   http://localhost:3000      (direct, for testing)
-{
-  lib,
-  ...
-}: {
+{...}: {
   # Pre-create persistent data directory with correct ownership.
   # open-webui runs as root inside the container (uid 0), so root ownership
   # on the host is correct for the bind mount.
@@ -40,28 +37,28 @@
     # Security note: host networking gives the container full host network
     # visibility. Acceptable here because Open-WebUI is trusted and
     # port 3000 is only exposed to Caddy on localhost.
-    extraOptions = [ "--network=host" ];
+    extraOptions = ["--network=host"];
 
     environment = {
       # Point at Ollama on the host (reachable via host network mode).
-      OLLAMA_BASE_URL          = "http://127.0.0.1:11434";
+      OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 
       # Disable Ollama API key requirement (we don't set one on Ollama).
-      OLLAMA_API_KEY           = "";
+      OLLAMA_API_KEY = "";
 
       # Bind only to localhost — Caddy proxies from outside.
-      HOST                     = "127.0.0.1";
-      PORT                     = "3000";
+      HOST = "127.0.0.1";
+      PORT = "3000";
 
       # Required for JWT session signing. Change to any random string.
       # To generate: tr -dc A-Za-z0-9 </dev/urandom | head -c 32
       # TODO: move to SOPS secret in Phase 3 when Caddy lands.
-      WEBUI_SECRET_KEY         = "change-me-use-sops-later";
+      WEBUI_SECRET_KEY = "change-me-use-sops-later";
 
       # Disable telemetry.
-      SCARF_NO_ANALYTICS       = "true";
-      DO_NOT_TRACK             = "true";
-      ANONYMIZED_TELEMETRY     = "false";
+      SCARF_NO_ANALYTICS = "true";
+      DO_NOT_TRACK = "true";
+      ANONYMIZED_TELEMETRY = "false";
     };
 
     volumes = [
@@ -74,11 +71,11 @@
 
   # Ensure the container starts after Ollama is ready and data disk is mounted.
   systemd.services."podman-open-webui" = {
-    after    = [ "ollama.service" "mnt-data.mount" ];
-    requires = [ "mnt-data.mount" ];
+    after = ["ollama.service" "mnt-data.mount"];
+    requires = ["mnt-data.mount"];
     # Soft dependency on Ollama — Open-WebUI can start without it
     # (just shows "Ollama unreachable" in UI), but we prefer ordering.
-    wants    = [ "ollama.service" ];
+    wants = ["ollama.service"];
   };
 
   # Allow Caddy (Phase 3) to proxy port 3000 on loopback.

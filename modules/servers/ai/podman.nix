@@ -12,14 +12,12 @@
 #     Containers use it to reach the host-side DNS resolver.
 #   - The 10.88.0.0/16 range is Podman's default CNI bridge range.
 #     It must NOT overlap with incusbr0 (10.0.0.x) or LAN (192.168.50.x).
-{
-  ...
-}: {
+{...}: {
   virtualisation.podman = {
-    enable          = true;
+    enable = true;
     # Provide /run/docker.sock compatibility shim — needed by Open-WebUI
     # and other images that probe for the Docker socket at startup.
-    dockerCompat    = true;
+    dockerCompat = true;
     # Clean up unused images/containers automatically.
     autoPrune.enable = true;
     defaultNetwork.settings = {
