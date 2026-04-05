@@ -116,6 +116,9 @@
         "${pkgs.coreutils}/bin/mkdir -p /mnt/data/ollama/models"
         "${pkgs.coreutils}/bin/mkdir -p /mnt/data/ollama/tmp"
       ];
+      # Tell systemd to stop the old instance before starting the new one
+      # (default Restart=on-failure doesn't kill a running instance on activation)
+      RestartMode = lib.mkForce "direct";
     };
   };
 
