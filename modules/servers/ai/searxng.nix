@@ -5,25 +5,27 @@
 #
 # Design decisions:
 #   - OCI container (Podman) via virtualisation.oci-containers.
-#   - settings.yml written by ExecStartPre on every service start,
-#     so config is always in sync with Nix without a separate activation script.
-#   - secret_key is generated once and stored in /mnt/data/searxng/secret_key.
-#     It is NOT regenerated on subsequent starts (idempotent check).
-#   - Listens on 127.0.0.1:8080 only — not reachable from LAN directly.
+#   - settings.yml written by ExecStartPre on every service start (idempotent).
+#   - secret_key generated once, stored in /mnt/data/searxng/secret_key.
+#   - Binds 0.0.0.0:8080 (all interfaces) so Open-WebUI container can reach
+#     it via host-gateway (10.88.0.1). Firewall blocks LAN access.
+#
+# Why 0.0.0.0 and not 127.0.0.1:
+#   Open-WebUI runs in a Podman container. It reaches the host via
+#   host-gateway (10.88.0.1 on podman0 bridge). 127.0.0.1 is the
+#   container's OWN loopback, not the host's. SearXNG must bind all
+#   interfaces so the podman0 bridge IP (10.88.0.1) accepts connections.
+#   Firewall rule on enp10s0 blocks direct LAN access to port 8080.
 #
 # Boot-ordering:
-#   Same as open-webui.nix — ExecStartPre with + prefix, after mnt-data.mount.
-#   No tmpfiles.rules, no activationScripts (those run too early / wrong order).
+#   ExecStartPre with + prefix (root), after mnt-data.mount.
 #
 # Ports:
-#   8080 — HTTP, 127.0.0.1 only
+#   8080 — HTTP, 0.0.0.0 (firewall restricts to lo + podman0, blocks LAN)
 #
 # Volumes:
 #   /mnt/data/searxng  →  /etc/searxng
 {pkgs, ...}: let
-  # Write settings.yml as a Nix-managed file in the Nix store.
-  # The actual secret_key line is filled in at runtime by the shell script
-  # in ExecStartPre (it reads /mnt/data/searxng/secret_key).
   settingsTemplate = pkgs.writeText "searxng-settings-template.yml" ''
     # SearXNG settings — written by NixOS ExecStartPre on each service start.
     # secret_key is injected from /mnt/data/searxng/secret_key at runtime.
@@ -33,8 +35,8 @@
       secret_key: "__SECRET_KEY__"
       limiter: false
       image_proxy: true
-      base_url: "http://localhost:8080/"
-      bind_address: "127.0.0.1:8080"
+      base_url: "http://search.home.lan/"
+      bind_address: "0.0.0.0:8080"
 
     ui:
       default_locale: "en"
@@ -62,10 +64,6 @@
         shortcut: gh
   '';
 
-  # Shell script run as root before the container starts.
-  # 1. Creates /mnt/data/searxng if missing.
-  # 2. Generates secret_key once (idempotent).
-  # 3. Writes settings.yml with secret_key substituted.
   prepScript = pkgs.writeShellScript "searxng-prep" ''
     set -euo pipefail
     install -d -m 0750 /mnt/data/searxng
@@ -84,10 +82,11 @@
 in {
   virtualisation.oci-containers.containers.searxng = {
     image = "docker.io/searxng/searxng:latest";
-    extraOptions = ["--network=host"];
+    extraOptions = [ "--network=host" ];
 
     environment = {
-      SEARXNG_BIND_ADDRESS = "127.0.0.1:8080";
+      # Bind all interfaces — firewall restricts access, not the bind address.
+      SEARXNG_BIND_ADDRESS  = "0.0.0.0:8080";
       SEARXNG_SETTINGS_PATH = "/etc/searxng";
     };
 
@@ -99,12 +98,16 @@ in {
   };
 
   systemd.services."podman-searxng" = {
-    after = ["mnt-data.mount"];
-    requires = ["mnt-data.mount"];
-
-    serviceConfig = {
-      # + prefix: runs as root, after mount ordering is satisfied.
-      ExecStartPre = ["+${prepScript}"];
-    };
+    after    = [ "mnt-data.mount" ];
+    requires = [ "mnt-data.mount" ];
+    serviceConfig.ExecStartPre = [ "+${prepScript}" ];
   };
+
+  # SearXNG port 8080 access control:
+  #   ALLOW: lo        (localhost — Caddy proxy, curl tests)
+  #   ALLOW: podman0   (Open-WebUI container via host-gateway)
+  #   BLOCK: enp10s0   (LAN — users access via Caddy on port 80 only)
+  networking.firewall.interfaces."podman0".allowedTCPPorts     = [ 11434 8080 ];
+  networking.firewall.interfaces."podman1".allowedTCPPorts     = [ 11434 8080 ];
+  networking.firewall.interfaces."cni-podman0".allowedTCPPorts = [ 11434 8080 ];
 }
