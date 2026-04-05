@@ -30,20 +30,20 @@
 
     # 127.0.0.1:3001 on host → 8080 inside container.
     # Loopback-only: Caddy is the sole external entry point.
-    ports = [ "127.0.0.1:3001:8080" ];
+    ports = ["127.0.0.1:3001:8080"];
 
     # host-gateway resolves to the host IP inside the container,
     # allowing the container to reach Ollama on the host.
-    extraOptions = [ "--add-host=host-gateway:host-gateway" ];
+    extraOptions = ["--add-host=host-gateway:host-gateway"];
 
     environment = {
-      OLLAMA_BASE_URL      = "http://host-gateway:11434";
-      OLLAMA_API_KEY       = "";
+      OLLAMA_BASE_URL = "http://host-gateway:11434";
+      OLLAMA_API_KEY = "";
       # TODO Phase 4: replace with sops secret
       # Generate with: tr -dc A-Za-z0-9 </dev/urandom | head -c 32
-      WEBUI_SECRET_KEY     = "change-me-use-sops-later";
-      SCARF_NO_ANALYTICS   = "true";
-      DO_NOT_TRACK         = "true";
+      WEBUI_SECRET_KEY = "change-me-use-sops-later";
+      SCARF_NO_ANALYTICS = "true";
+      DO_NOT_TRACK = "true";
       ANONYMIZED_TELEMETRY = "false";
     };
 
@@ -55,9 +55,9 @@
   };
 
   systemd.services."podman-open-webui" = {
-    after    = [ "mnt-data.mount" "ollama.service" ];
-    requires = [ "mnt-data.mount" ];
-    wants    = [ "ollama.service" ];
+    after = ["mnt-data.mount" "ollama.service"];
+    requires = ["mnt-data.mount"];
+    wants = ["ollama.service"];
 
     serviceConfig = {
       ExecStartPre = [

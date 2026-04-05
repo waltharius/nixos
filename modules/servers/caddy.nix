@@ -22,9 +22,7 @@
 # DNS (FreeIPA home.lan zone — already configured):
 #   ai.home.lan     A  192.168.50.150
 #   search.home.lan A  192.168.50.150
-{
-  ...
-}: {
+{...}: {
   services.caddy = {
     enable = true;
 
@@ -65,7 +63,7 @@
   };
 
   # Port 80 on LAN interface only — not globally.
-  networking.firewall.interfaces."enp10s0".allowedTCPPorts = [ 80 ];
+  networking.firewall.interfaces."enp10s0".allowedTCPPorts = [80];
 
   systemd.services.caddy = {
     after = [
