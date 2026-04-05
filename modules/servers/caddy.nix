@@ -28,9 +28,7 @@
 #     reach them, not direct LAN connections to port 3000/8080.
 #   - Caddy strips the X-Forwarded-For header from upstream to prevent
 #     spoofing; Open-WebUI's WEBUI_SECRET_KEY still protects sessions.
-{
-  ...
-}: {
+{...}: {
   services.caddy = {
     enable = true;
 
@@ -86,7 +84,7 @@
   # Open port 80 on the LAN interface only.
   # NOT added to networking.firewall.allowedTCPPorts (which applies globally).
   # enp10s0 = Intel I226-V 2.5G LAN NIC (192.168.50.150)
-  networking.firewall.interfaces."enp10s0".allowedTCPPorts = [ 80 ];
+  networking.firewall.interfaces."enp10s0".allowedTCPPorts = [80];
 
   # Caddy must start after both containers are up.
   # 'wants' not 'requires' — Caddy starts even if a container is down,
