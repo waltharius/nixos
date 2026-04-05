@@ -1,0 +1,461 @@
+#+TITLE: Local LLM Stack on Altair — Build Log & Reference
+#+AUTHOR: waltharius
+#+DATE: 2026-04-05
+#+STARTUP: overview
+#+OPTIONS: toc:3 num:t
+
+* Overview
+
+This document describes the initial setup of a local LLM inference stack on
+=altair= (NixOS, dual RTX 3090, 48 GB VRAM total) completed on 2026-04-05.
+It covers architecture decisions, all NixOS modules created, errors encountered
+during the session, and their resolutions. Intended as a personal reference for
+future maintenance and extension.
+
+** Stack Summary
+
+| Component   | Implementation          | Port           | Data Path              |
+|-------------|-------------------------|----------------|------------------------|
+| Ollama      | NixOS service (host)    | 0.0.0.0:11434  | /mnt/data/ollama       |
+| Open-WebUI  | Podman OCI container    | 127.0.0.1:3001 | /mnt/data/open-webui   |
+| SearXNG     | Podman OCI container    | 0.0.0.0:8080   | /mnt/data/searxng      |
+| Podman      | NixOS virtualisation    | bridge podman0 | 10.88.0.0/16           |
+
+** Pre-existing Foundation (Not Built This Session)
+
+- NixOS on =altair= already running and managed via =colmena=
+- =nvidia.nix= already configured: proprietary drivers, =cuda= toolkit,
+  =nvidia-container-toolkit=, =nvidiaPersistenced=, =cudaSupport = true=
+- =incus/default.nix= already configured: bridge =incusbr0= at =10.0.0.1/24=
+- LUKS2 encrypted data disk mounted at =/mnt/data=
+- Cachix binary cache active (avoids multi-hour CUDA recompile)
+
+* Architecture Decisions
+
+** Why Ollama Runs on the Host (Not in a Container)
+
+CUDA and GPU passthrough to containers adds significant complexity. Running
+Ollama directly on the NixOS host gives it native CUDA access without any
+container runtime GPU configuration. The NixOS =services.ollama= module handles
+this cleanly. The firewall then restricts which network interfaces can reach
+port 11434.
+
+** Why Podman (Not Docker or Incus LXC) for WebUI and SearXNG
+
+- Podman has no root daemon — better security posture
+- =virtualisation.oci-containers= in NixOS uses Podman by default and generates
+  proper =systemd= units automatically
+- Docker Hub / GHCR images work without modification
+- =dockerCompat = true= provides =/run/docker.sock= for images that probe for it
+- Incus LXC would require manual rootfs and package management — unnecessary
+  complexity for containerised web apps
+
+** Why Models Live on =/mnt/data= (Not =/=)
+
+The NVMe boot disk is dedicated to the OS and Nix store. Models are large
+(19 GB for qwen2.5:32b alone) and must survive NixOS rebuilds without being
+gc'd. The LUKS2 btrfs data disk at =/mnt/data= is the correct home.
+
+** GPU Split Strategy
+
+The two RTX 3090s (24 GB each) are both visible via =CUDA_VISIBLE_DEVICES=0,1=.
+Ollama only splits a model across GPUs when it *does not fit* in a single GPU.
+=qwen2.5:32b-instruct-q4_K_M= is 19 GB — it fits in one 24 GB card, so Ollama
+correctly loads it on GPU 0 only. This is *faster* than a PCIe tensor split due
+to inter-GPU transfer overhead. A 70B+ model would automatically span both GPUs.
+
+* NixOS Modules Created
+
+All modules live under =modules/servers/ai/= and are imported in
+=hosts/physical/altair/configuration.nix=.
+
+** =podman.nix= — Container Runtime
+
+Key settings:
+- =dockerCompat = true= — creates =/run/docker.sock= symlink
+- =autoPrune.enable = true= — automatic cleanup of unused images
+- =dns_enabled = true= on default network
+- =virtualisation.docker.enable = false= — explicit, prevents accidental enablement
+
+Default bridge: =10.88.0.0/16=. Chosen to avoid overlap with =incusbr0=
+(=10.0.0.x=) and LAN (=192.168.50.x=).
+
+** =ollama.nix= — Inference Server
+
+#+BEGIN_SRC nix
+services.ollama = {
+  enable       = true;
+  host         = "0.0.0.0";   # firewall restricts access, not bind address
+  port         = 11434;
+  home         = "/mnt/data/ollama";
+  acceleration = "cuda";
+
+  environmentVariables = {
+    CUDA_VISIBLE_DEVICES     = "0,1";
+    OLLAMA_KEEP_ALIVE        = "-1";   # never evict from VRAM
+    OLLAMA_MAX_LOADED_MODELS = "2";
+    OLLAMA_NUM_PARALLEL      = "2";
+    OLLAMA_FLASH_ATTENTION   = "1";    # faster on Ampere, less VRAM
+    OLLAMA_MODELS            = "/mnt/data/ollama/models";
+    TMPDIR                   = "/mnt/data/ollama/tmp";
+    OLLAMA_TMPDIR            = "/mnt/data/ollama/tmp";
+  };
+};
+#+END_SRC
+
+Key systemd overrides (all =lib.mkForce=):
+- =DynamicUser = false= — incompatible with external mount home directories
+- =PrivateNetwork/Devices/Tmp/Users = false= — required for CUDA GPU access
+- =after/requires = ["mnt-data.mount"]= — ensures data disk is available first
+- =OOMScoreAdjust = 500= — deprioritise for OOM killer
+
+Firewall (interface-scoped, NOT global =allowedTCPPorts=):
+#+BEGIN_SRC nix
+networking.firewall.interfaces."incusbr0".allowedTCPPorts   = [ 11434 ];
+networking.firewall.interfaces."podman0".allowedTCPPorts     = [ 11434 ];
+networking.firewall.interfaces."podman1".allowedTCPPorts     = [ 11434 ];
+networking.firewall.interfaces."cni-podman0".allowedTCPPorts = [ 11434 ];
+# enp10s0 (LAN) intentionally NOT listed — direct API access blocked.
+#+END_SRC
+
+Persistent user =ollama= declared explicitly (=isSystemUser=, groups =render=, =video=).
+=systemd.tmpfiles.rules= pre-creates =/mnt/data/ollama/{models,tmp}= on boot.
+
+** =open-webui.nix= — Chat Interface
+
+#+BEGIN_SRC nix
+virtualisation.oci-containers.containers.open-webui = {
+  image        = "ghcr.io/open-webui/open-webui:main";
+  ports        = [ "127.0.0.1:3001:8080" ];   # loopback only — Caddy entry point
+  extraOptions = [ "--add-host=host-gateway:host-gateway" ];
+
+  environment = {
+    OLLAMA_BASE_URL      = "http://host-gateway:11434";
+    SCARF_NO_ANALYTICS   = "true";
+    DO_NOT_TRACK         = "true";
+    ANONYMIZED_TELEMETRY = "false";
+    WEBUI_SECRET_KEY     = "...";   # TODO: move to SOPS Phase 4
+  };
+
+  volumes = [ "/mnt/data/open-webui:/app/backend/data" ];
+};
+#+END_SRC
+
+Systemd unit ordering:
+- =after = ["mnt-data.mount" "ollama.service"]=
+- =wants = ["ollama.service"]= (soft dependency — starts even if Ollama is slow)
+- =ExecStartPre= with =+= prefix (root) creates and chmods =/mnt/data/open-webui=
+
+Port note: =3000= was taken by Grafana on this host → moved to =3001=.
+
+** =searxng.nix= — Privacy-Respecting Web Search
+
+Uses a Nix-store =settingsTemplate= with =__SECRET_KEY__= placeholder.
+A shell =prepScript= runs at each service start (idempotent):
+1. Creates =/mnt/data/searxng/= if missing
+2. Generates =secret_key= once via =openssl rand -hex 32= (never regenerated)
+3. =sed= substitutes the key into =settings.yml=
+
+Critical =settings.yml= sections:
+#+BEGIN_SRC yaml
+server:
+  limiter: false
+  public_instance: false   # disables bot-protection on internal instance
+  bind_address: "0.0.0.0:8080"
+
+search:
+  formats:
+    - html
+    - json    # MUST be explicit — blocked by default as bot-scraping protection
+#+END_SRC
+
+Container uses =--network=host= so it shares the host network stack directly.
+Firewall controls access instead of the bind address.
+
+* Models Installed
+
+| Model                             | Size   | Purpose                    |
+|-----------------------------------|--------|----------------------------|
+| qwen2.5:32b-instruct-q4_K_M       | 19 GB  | Primary chat / reasoning   |
+| nomic-embed-text:latest           | 274 MB | RAG embeddings             |
+
+Pull commands used:
+#+BEGIN_SRC bash
+ollama pull qwen2.5:32b-instruct-q4_K_M
+ollama pull nomic-embed-text
+#+END_SRC
+
+* Errors Encountered and Resolutions
+
+** E1: Open-WebUI Shows No Models — Ollama Unreachable from Container
+
+*** Symptom
+Open-WebUI UI showed an empty model list. =ollama list= on host showed both
+models correctly.
+
+*** Root Cause
+The NixOS firewall was only allowing port 11434 on =incusbr0= (Incus bridge,
+=10.0.0.x=). The Podman bridge =podman0= (=10.88.0.0/16=) was not whitelisted.
+Traffic from the Open-WebUI container arrives at the host via =10.88.0.1=
+(=host-gateway=) and was silently dropped by =nftables=.
+
+Confirmed with:
+#+BEGIN_SRC bash
+ip -br addr | grep -E 'podman|cni|10\.88'
+# podman0  UP  10.88.0.1/16
+
+sudo nft list ruleset | grep 11434
+# Only incusbr0 and podman1 were listed — podman0 was missing
+#+END_SRC
+
+*** Fix
+Added =networking.firewall.interfaces."podman0".allowedTCPPorts = [ 11434 ]= to
+=ollama.nix=. Also kept =podman1= and =cni-podman0= entries as forward-compatibility
+for Podman version upgrades that may rename the bridge.
+
+** E2: Ollama Connection Timed Out from Container (Not Refused)
+
+*** Symptom
+After the first firewall fix attempt (adding =podman1=), the container still
+could not reach Ollama — =curl= hung indefinitely instead of refusing immediately.
+
+*** Root Cause
+The previous commit had added =podman1= and =cni-podman0= to the firewall, but
+the *actual* active Podman bridge interface on this host is =podman0=.
+=networking.firewall.interfaces= rules are interface-name-exact — a rule on
+=podman1= does nothing if the bridge is named =podman0=.
+
+Diagnosis:
+#+BEGIN_SRC bash
+ip -br addr | grep -E 'podman|cni'
+# podman0  UP  10.88.0.1/16   ← this one, not podman1
+
+sudo podman exec open-webui curl -sv --max-time 5 http://host-gateway:11434/
+# * Trying 10.88.0.1:11434...
+# * Connection timed out after 5000 milliseconds
+#+END_SRC
+
+*** Fix
+Added the =podman0= interface entry explicitly. Kept all three variant names
+(=podman0=, =podman1=, =cni-podman0=) for resilience across Podman/netavark/CNI
+backend changes in future NixOS upgrades.
+
+** E3: SearXNG Bound to =127.0.0.1= — Unreachable via =host-gateway=
+
+*** Symptom
+Even with the firewall open on =podman0= port 8080, =curl= from the Open-WebUI
+container to =host-gateway:8080= was *immediately refused* (not timed out).
+
+*** Root Cause
+SearXNG was configured with =SEARXNG_BIND_ADDRESS = "127.0.0.1:8080"= and
+=bind_address: "127.0.0.1:8080"= in =settings.yml=. From inside a container,
+=127.0.0.1= is the container's *own* loopback — not the host's. =host-gateway=
+resolves to =10.88.0.1= (the =podman0= bridge host IP), which =127.0.0.1= is
+not listening on. Connection refused immediately because nothing is listening
+on that IP:port combination.
+
+*** Fix
+Changed both =SEARXNG_BIND_ADDRESS= and =settings.yml bind_address= to
+=0.0.0.0:8080=. Security is maintained by the firewall blocking =enp10s0= (LAN)
+on port 8080 — only the =podman0= bridge and loopback can reach SearXNG.
+
+Key insight: *bind address and firewall are two separate layers.* Use the
+firewall for access control; bind to =0.0.0.0= when container-to-host
+communication is required.
+
+** E4: SearXNG Returns 403 for =?format=json= Requests
+
+*** Symptom
+Open-WebUI reported "An error occurred while searching the web". Direct test:
+#+BEGIN_SRC bash
+sudo podman exec open-webui curl -s "http://host-gateway:8080/search?q=test&format=json"
+# <!doctype html><title>403 Forbidden</title><h1>Forbidden</h1>
+#+END_SRC
+
+*** Root Cause
+SearXNG has two independent bot-protection mechanisms both requiring action:
+
+1. =server.limiter: false= — was already set, disables rate limiting only
+2. =search.formats= — defaults to =[html]= only on all instances; =json= is
+   *deliberately blocked by default* to prevent scraping on public instances.
+   It must be explicitly opted in.
+3. =server.public_instance: false= — disables additional public-facing checks
+
+The =limiter: false= alone is insufficient. The =formats= list must be explicit.
+This is a common gotcha for self-hosted SearXNG used as an API backend.
+
+*** Fix
+Added to =settings.yml= template in =searxng.nix=:
+#+BEGIN_SRC yaml
+server:
+  public_instance: false
+
+search:
+  formats:
+    - html
+    - json
+#+END_SRC
+
+No =colmena= redeploy needed — the =prepScript= rewrites =settings.yml= on every
+container start. Restarting =podman-searxng= systemd unit was sufficient:
+#+BEGIN_SRC bash
+sudo systemctl restart podman-searxng
+#+END_SRC
+
+* Open-WebUI Configuration (Post-Deploy, in UI)
+
+Settings applied in Admin Panel after the stack was running. These are stored
+in =/mnt/data/open-webui= (persistent volume) and survive container restarts.
+
+1. *Default model*: Admin Panel → Settings → set =qwen2.5:32b-instruct-q4_K_M=
+2. *Web search*: Admin Panel → Web Search → SearXNG URL →
+   =http://host-gateway:8080=
+3. *Embeddings for RAG*: Admin Panel → Documents → Embedding model →
+   =nomic-embed-text= (via Ollama)
+
+* Verification Commands
+
+#+BEGIN_SRC bash
+# List loaded models
+ollama list
+
+# GPU VRAM usage during inference
+watch -n 1 nvidia-smi
+
+# Confirm Ollama is listening on all interfaces
+sudo ss -tlnp | grep 11434
+
+# Confirm SearXNG is listening on all interfaces
+sudo ss -tlnp | grep 8080
+
+# Test Ollama reachable from Open-WebUI container
+sudo podman exec open-webui curl -s http://host-gateway:11434/api/tags
+
+# Test SearXNG JSON API from Open-WebUI container
+sudo podman exec open-webui \
+  curl -s "http://host-gateway:8080/search?q=test&format=json" | head -c 200
+
+# Check active nftables firewall rules
+sudo nft list ruleset | grep -E '11434|8080'
+
+# Confirm which Podman bridge interface is active
+ip -br addr | grep podman
+
+# Check settings.yml was written correctly
+cat /mnt/data/searxng/settings.yml | grep -A5 'formats'
+
+# Check container status
+sudo podman ps
+#+END_SRC
+
+* Network Topology
+
+#+BEGIN_EXAMPLE
+  LAN 192.168.50.x
+        |
+  [enp10s0]  ── port 11434 BLOCKED, port 8080 BLOCKED
+        |
+  ┌─────────────── altair host ───────────────────────────────┐
+  │                                                            │
+  │  [lo] 127.0.0.1                                           │
+  │    Ollama   :11434  ✓                                     │
+  │    SearXNG  :8080   ✓                                     │
+  │                                                            │
+  │  [incusbr0] 10.0.0.1/24                                   │
+  │    Ollama   :11434  ✓  (future Incus containers)          │
+  │                                                            │
+  │  [podman0] 10.88.0.1/16  ← CONFIRMED active bridge       │
+  │    Ollama   :11434  ✓                                     │
+  │    SearXNG  :8080   ✓                                     │
+  │    │                                                       │
+  │    ├── [open-webui] 10.88.x.x                             │
+  │    │     OLLAMA_BASE_URL = http://host-gateway:11434       │
+  │    │     SearXNG URL     = http://host-gateway:8080        │
+  │    │     exposed as      → 127.0.0.1:3001 on host         │
+  │    │                                                       │
+  │    └── [searxng] --network=host (shares host stack)       │
+  │          bound 0.0.0.0:8080                               │
+  │                                                            │
+  └────────────────────────────────────────────────────────────┘
+#+END_EXAMPLE
+
+* Known Issues and TODOs
+
+** TODO Move =WEBUI_SECRET_KEY= to SOPS
+
+Currently hardcoded as a placeholder in =open-webui.nix=. Should be encrypted
+with SOPS and referenced via =sops.secrets=. The SOPS age key infrastructure
+is already in place on =altair=.
+
+Target pattern:
+#+BEGIN_SRC nix
+sops.secrets."open-webui/secret-key" = {};
+# Then in container environment:
+# WEBUI_SECRET_KEY read from the secret file path
+#+END_SRC
+
+** TODO Phase 3 — Caddy Reverse Proxy
+
+Open-WebUI currently accessible only at =altair:3001= directly.
+Need to create =modules/servers/caddy.nix= with:
+- Virtual host for Open-WebUI (=ai.home.lan= → =localhost:3001=)
+- Virtual host for SearXNG (=search.home.lan= → =localhost:8080=)
+- Decision pending: plain HTTP (simpler for LAN) vs HTTPS with internal CA
+
+** TODO Consider Larger Models for Dual-GPU Utilisation
+
+Current model (=qwen2.5:32b= at 19 GB) runs on a single GPU by design.
+To use both GPUs simultaneously for a single inference, a model exceeding
+24 GB VRAM is needed. Candidates:
+- =qwen2.5:72b-instruct-q4_K_M= (~42 GB) — would span both GPUs automatically
+- =llama3.3:70b-instruct-q4_K_M= (~40 GB) — alternative for coding tasks
+
+Pull and test with =nvidia-smi= to confirm dual-GPU layer split.
+
+** TODO RAG Pipeline Validation
+
+=nomic-embed-text= is installed and configured as the embedding model in
+Open-WebUI, but no RAG document corpus has been ingested yet.
+Test with a local document set to validate the full retrieval pipeline.
+
+** TODO Image Pull Policy
+
+=open-webui= uses the =:main= tag which can silently change. Consider pinning
+to a specific digest for reproducibility:
+#+BEGIN_SRC nix
+image = "ghcr.io/open-webui/open-webui@sha256:<digest>";
+#+END_SRC
+
+* Lessons Learned
+
+- *=networking.firewall.interfaces= rules are interface-name-exact.* Always
+  verify the real interface name with =ip -br addr= before writing Nix config.
+  =podman0=, =podman1=, and =cni-podman0= are all valid names depending on Podman
+  version and backend (netavark vs CNI). When in doubt, add all three.
+
+- *Container loopback ≠ host loopback.* Inside a container, =127.0.0.1= is the
+  container's own loopback. To reach a service on the host, use =host-gateway=
+  (Podman's special DNS alias for the bridge gateway IP). Any service the
+  container must reach *must bind =0.0.0.0=*, not =127.0.0.1=. Use the firewall
+  for access control, not the bind address.
+
+- *SearXNG JSON format is opt-in, not opt-out.* This is a deliberate design
+  decision by the SearXNG project to prevent public instance scraping. Any
+  private/internal SearXNG deployment used as an API backend must explicitly
+  add =json= to =search.formats= in =settings.yml=.
+
+- *Ollama single-GPU is correct for sub-24 GB models.* PCIe tensor split across
+  two GPUs adds inter-GPU transfer overhead that outweighs the parallelism gain
+  for models that fit in a single card. Let Ollama decide — it only splits when
+  it physically must.
+
+- *=DynamicUser= is incompatible with external mount home directories.* Systemd's
+  =DynamicUser= mechanism cannot chown paths outside its control namespace.
+  When a service home directory lives on an external encrypted mount, declare a
+  real persistent =isSystemUser= and override with =DynamicUser = lib.mkForce false=.
+
+- *=prepScript= pattern is clean for runtime secrets in NixOS.* Writing config
+  files with secrets at container start time (via =ExecStartPre= with =+= root
+  prefix) is simpler than SOPS for non-critical secrets and avoids the
+  activation script ordering pitfalls. The =+= prefix runs the script as root
+  regardless of service user, after mount ordering is satisfied.
