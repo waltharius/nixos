@@ -70,6 +70,11 @@
 
       # Flash attention — faster and less VRAM for long contexts on Ampere.
       OLLAMA_FLASH_ATTENTION = "1";
+      # Redirects the CUDA blob extraction to a path ollama own instead of using
+      # /tmp, and keeps all other systemd hardening intact.
+      OLLAMA_TMPDIR = "/mnt/data/ollama/tmp";
+      # Force ollama models folder
+      OLLAMA_MODELS = "/mnt/data/ollama/models";
     };
   };
 
@@ -104,13 +109,7 @@
       # This is the correct pattern when home is on an external mount.
       ExecStartPre = [
         "${pkgs.coreutils}/bin/mkdir -p /mnt/data/ollama/models"
-      ];
-
-      ProtectSystem = lib.mkForce false; # stops making /tmp read-only
-      ReadWritePaths = lib.mkForce [
-        "/mnt/data/ollama"
-        "/mnt/data/ollama/models"
-        "/tmp"
+        "${pkgs.coreutils}/bin/mkdir -p /mnt/data/ollama/tmp"
       ];
     };
   };
@@ -118,6 +117,7 @@
   systemd.tmpfiles.rules = [
     "d /mnt/data/ollama        0750 ollama ollama -"
     "d /mnt/data/ollama/models 0750 ollama ollama -"
+    "d /mnt/data/ollama/tmp    0750 ollama ollama -"
   ];
 
   # ---------------------------------------------------------------------------
