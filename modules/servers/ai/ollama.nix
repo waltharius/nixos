@@ -19,7 +19,7 @@
 #   Port 11434 is NOT added to networking.firewall.allowedTCPPorts (global).
 #   Only explicitly allowed on incusbr0 (containers) and lo (localhost).
 #   enp10s0 (LAN) stays blocked — users access via Open-WebUI only.
-{...}: {
+{lib, ...}: {
   services.ollama = {
     enable = true;
 
@@ -81,13 +81,13 @@
       # Reduce OOM kill priority slightly — kernel should kill other things first.
       OOMScoreAdjust = 500;
 
-      # The NixOS ollama module injects namespace-based hardening that breaks
-      # GPU/network access. Override them explicitly here.
-      PrivateNetwork = "no"; # Must reach incusbr0 and GPU driver sockets
-      PrivateUsers = "no"; # GPU device nodes require real UID mapping
-      PrivateTmp = "no"; # CUDA libs use /tmp for IPC
-      PrivateDevices = "no"; # Must access /dev/nvidia*
-      ProtectHome = "no"; # home = /mnt/data/ollama (not under /home)
+      # The upstream NixOS ollama module sets these — we override with mkForce
+      # because namespace isolation breaks CUDA GPU access and incusbr0 binding.
+      PrivateNetwork = lib.mkForce false;
+      PrivateUsers = lib.mkForce false;
+      PrivateTmp = lib.mkForce false;
+      PrivateDevices = lib.mkForce false;
+      ProtectHome = lib.mkForce false;
     };
   };
 
