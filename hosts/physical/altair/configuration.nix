@@ -14,11 +14,11 @@
 # Reinstall procedure (from live USB):
 #   git clone https://github.com/waltharius/nixos /tmp/nixos
 #   read -rs PASS; echo -n "$PASS" > /tmp/disk-password
-#   sudo nix --experimental-features "nix-command flakes" \
-#     run github:nix-community/disko/latest#disko-install -- \
-#     --flake /tmp/nixos#altair \
-#     --write-efi-boot-entries \
-#     --disk main /dev/disk/by-id/nvme-WD_BLACK_SN850X_2000GB_25503L800955 \
+#   sudo nix --experimental-features "nix-command flakes" \\
+#     run github:nix-community/disko/latest#disko-install -- \\
+#     --flake /tmp/nixos#altair \\
+#     --write-efi-boot-entries \\
+#     --disk main /dev/disk/by-id/nvme-WD_BLACK_SN850X_2000GB_25503L800955 \\
 #     --disk data /dev/disk/by-id/ata-TOSHIBA_HDWG51EUZSVA_8562A02HFQ6H
 {
   lib,
@@ -42,20 +42,22 @@ in {
     ../../../modules/servers/nvidia.nix
     ../../../modules/servers/incus/default.nix
 
-    # AI / LLM stack
+    # AI / LLM stack — Phase 1
     ../../../modules/servers/ai/ollama.nix
 
+    # AI / LLM stack — Phase 2
+    ../../../modules/servers/ai/podman.nix
+    ../../../modules/servers/ai/open-webui.nix
+    ../../../modules/servers/ai/searxng.nix
+
     # -------------------------------------------------------------------------
-    # Phase 2+ modules — uncomment when ready:
+    # Phase 3+ modules — uncomment when ready:
     # -------------------------------------------------------------------------
     # ../../../modules/servers/network/tailscale.nix
     # ../../../modules/servers/network/yggdrasil.nix
     # ../../../modules/servers/monitoring/prometheus.nix
     # ../../../modules/servers/monitoring/grafana.nix
     # ../../../modules/servers/monitoring/psu-monitor.nix
-    # ../../../modules/servers/ai/podman.nix        # Phase 2
-    # ../../../modules/servers/ai/open-webui.nix    # Phase 2
-    # ../../../modules/servers/ai/searxng.nix       # Phase 2
     # ../../../modules/servers/caddy.nix            # Phase 3
   ];
 
