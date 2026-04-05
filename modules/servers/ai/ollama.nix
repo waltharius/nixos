@@ -19,8 +19,7 @@
 #   Port 11434 is NOT added to networking.firewall.allowedTCPPorts (global).
 #   Only explicitly allowed on incusbr0 (containers) and lo (localhost).
 #   enp10s0 (LAN) stays blocked — users access via Open-WebUI only.
-{config, ...}: {
-
+{...}: {
   services.ollama = {
     enable = true;
 
@@ -97,4 +96,4 @@
   networking.firewall.interfaces."incusbr0".allowedTCPPorts = [11434];
   # lo is always allowed by the NixOS firewall (not configurable per-interface).
   # enp10s0 intentionally has NO entry for 11434.
-};
+}
