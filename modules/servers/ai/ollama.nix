@@ -19,7 +19,11 @@
 #   Port 11434 is NOT added to networking.firewall.allowedTCPPorts (global).
 #   Only explicitly allowed on incusbr0 (containers) and lo (localhost).
 #   enp10s0 (LAN) stays blocked — users access via Open-WebUI only.
-{lib, ...}: {
+{
+  lib,
+  pkgs,
+  ...
+}: {
   services.ollama = {
     enable = true;
 
@@ -58,15 +62,6 @@
   };
 
   # ---------------------------------------------------------------------------
-  # Model storage directory
-  # Must exist before first service start. Created here declaratively.
-  # ---------------------------------------------------------------------------
-  systemd.tmpfiles.rules = [
-    "d /mnt/data/ollama 0755 ollama ollama -"
-    "d /mnt/data/ollama/models 0755 ollama ollama -"
-  ];
-
-  # ---------------------------------------------------------------------------
   # Ensure ollama starts AFTER /mnt/data is mounted.
   # The data disk is LUKS2-encrypted and mounted by a systemd mount unit.
   # Without this ordering, ollama may start before the disk is available.
@@ -88,6 +83,13 @@
       PrivateTmp = lib.mkForce false;
       PrivateDevices = lib.mkForce false;
       ProtectHome = lib.mkForce false;
+
+      # Create model dirs before service starts, as the ollama user.
+      # This is the correct pattern when home is on an external mount.
+      ExecStartPre = [
+        "${pkgs.coreutils}/bin/mkdir -p /mnt/data/ollama/models"
+      ];
+      PermissionsStartOnly = false;
     };
   };
 
