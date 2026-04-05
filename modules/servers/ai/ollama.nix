@@ -24,6 +24,18 @@
   pkgs,
   ...
 }: {
+  # Declare a real persistent ollama user.
+  # DynamicUser=true (set by the NixOS module) is incompatible with
+  # homes on external mounts — systemd can't chown paths it doesn't control.
+  users.users.ollama = {
+    isSystemUser = true;
+    group = "ollama";
+    home = "/mnt/data/ollama";
+    # Give GPU access
+    extraGroups = ["render" "video"];
+  };
+  users.groups.ollama = {};
+
   services.ollama = {
     enable = true;
 
@@ -83,15 +95,23 @@
       PrivateTmp = lib.mkForce false;
       PrivateDevices = lib.mkForce false;
       ProtectHome = lib.mkForce false;
+      # Override DynamicUser — we manage the user ourselves above
+      DynamicUser = lib.mkForce false;
+      User = lib.mkForce "ollama";
+      Group = lib.mkForce "ollama";
 
       # Create model dirs before service starts, as the ollama user.
       # This is the correct pattern when home is on an external mount.
       ExecStartPre = [
         "${pkgs.coreutils}/bin/mkdir -p /mnt/data/ollama/models"
       ];
-      PermissionsStartOnly = false;
     };
   };
+
+  systemd.tmpfiles.rules = [
+    "d /mnt/data/ollama        0750 ollama ollama -"
+    "d /mnt/data/ollama/models 0750 ollama ollama -"
+  ];
 
   # ---------------------------------------------------------------------------
   # Firewall — Ollama port access control
