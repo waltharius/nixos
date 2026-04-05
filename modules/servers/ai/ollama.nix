@@ -105,6 +105,13 @@
       ExecStartPre = [
         "${pkgs.coreutils}/bin/mkdir -p /mnt/data/ollama/models"
       ];
+
+      ProtectSystem = lib.mkForce false; # stops making /tmp read-only
+      ReadWritePaths = lib.mkForce [
+        "/mnt/data/ollama"
+        "/mnt/data/ollama/models"
+        "/tmp"
+      ];
     };
   };
 
