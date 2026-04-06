@@ -171,6 +171,7 @@ in {
       customPkgs.solaar-stable
 
       # GUI Applications
+      winboat
       blanket
       signal-desktop
       pkgs-unstable.brave
