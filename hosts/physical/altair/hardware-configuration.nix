@@ -65,7 +65,7 @@
   systemd.network.links."10-intel-lan" = {
     matchConfig.MACAddress = "30:c5:99:5b:ec:97";
     linkConfig = {
-      Speed = 1000;
+      Speed = "1000";
       Duplex = "full";
     };
   };
