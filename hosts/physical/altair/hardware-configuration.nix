@@ -62,10 +62,10 @@
 
   # Intel I226-V 2.5G errata — force 1 Gbps to eliminate hardware reset bug
   # under sustained transfers. 1G is stable; 2.5G is not on this silicon rev.
-  systemd.network.networks."10-intel-lan" = {
+  systemd.network.links."10-intel-lan" = {
     matchConfig.MACAddress = "30:c5:99:5b:ec:97";
     linkConfig = {
-      SpeedMegabits = 1000;
+      Speed = 1000;
       Duplex = "full";
     };
   };
