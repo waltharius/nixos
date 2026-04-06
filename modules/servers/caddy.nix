@@ -59,6 +59,19 @@
           encode gzip
         '';
       };
+
+      "http://ollama.home.lan" = {
+        extraConfig = ''
+          reverse_proxy 127.0.0.1:11434 {
+            header_up X-Real-IP {remote_host}
+            transport http {
+              response_header_timeout 600s
+              dial_timeout 10s
+            }
+          }
+          encode gzip
+        '';
+      };
     };
   };
 
