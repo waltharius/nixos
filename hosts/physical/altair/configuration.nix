@@ -71,7 +71,6 @@ in {
     clinfo # OpenCL device info
     dcgmNoCheck # NVIDIA Data Center GPU Manager (includes dcgmi)
     nvtopPackages.nvidia
-    (python3.withPackages (ps: [ps.torch]))
     openssl
     tree
     ethtool
