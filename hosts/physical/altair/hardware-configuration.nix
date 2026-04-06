@@ -60,13 +60,15 @@
   # and loading the Wi-Fi driver adds unnecessary init time.
   boot.blacklistedKernelModules = ["mt7921e"];
 
-  # Intel I226-V 2.5G errata — force 1 Gbps to eliminate hardware reset bug
-  # under sustained transfers. 1G is stable; 2.5G is not on this silicon rev.
-  systemd.network.links."10-intel-lan" = {
-    matchConfig.MACAddress = "30:c5:99:5b:ec:97";
-    linkConfig = {
-      Speed = "1000";
-      Duplex = "full";
+  # Intel I226-V 2.5G errata — force 1 Gbps via ethtool on boot
+  systemd.services."igc-link-speed" = {
+    description = "Force Intel I226-V (enp10s0) to 1 Gbps to avoid 2.5G hardware reset bug";
+    after = ["network.target"];
+    wantedBy = ["multi-user.target"];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = "${pkgs.ethtool}/sbin/ethtool -s enp10s0 speed 1000 duplex full autoneg off";
     };
   };
 
