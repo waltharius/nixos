@@ -23,6 +23,7 @@
     ../../../modules/system/gaming.nix
     ../../../modules/laptop/fingerprint.nix
     ../../../modules/services/tailscale.nix
+    ../../../modules/services/podman.nix
   ];
 
   # Allow automatic hibernation. It automaticly handles offset calcukation and setup via EFI variables
