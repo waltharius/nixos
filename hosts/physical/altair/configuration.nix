@@ -73,6 +73,7 @@ in {
     nvtopPackages.nvidia
     (python3.withPackages (ps: [ps.torch]))
     openssl
+    tree
   ];
 
   systemd.services.nvidia-dcgm = {
