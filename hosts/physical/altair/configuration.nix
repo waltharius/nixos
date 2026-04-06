@@ -74,6 +74,7 @@ in {
     (python3.withPackages (ps: [ps.torch]))
     openssl
     tree
+    ethtool
   ];
 
   systemd.services.nvidia-dcgm = {
@@ -83,6 +84,35 @@ in {
     serviceConfig = {
       ExecStart = "${dcgmNoCheck}/bin/nv-hostengine -n"; # foreground mode
       Restart = "on-failure";
+    };
+  };
+
+  # Watchdog for Marvell AQC113 (enp11s0) — auto-recovers if PCIe link drops
+  # under sustained transfer load. Activates only when the cable is connected.
+  systemd.services."aqc113-watchdog" = {
+    description = "Watchdog for Aquantia AQC113 enp11s0";
+    after = ["network.target"];
+    wantedBy = ["multi-user.target"];
+    serviceConfig = {
+      Type = "simple";
+      Restart = "always";
+      RestartSec = "10s";
+      ExecStart = pkgs.writeShellScript "aqc113-watchdog" ''
+        while true; do
+          sleep 30
+          # Only act if cable is plugged in and NIC is not UP
+          if ${pkgs.iproute2}/bin/ip link show enp11s0 | grep -q "state DOWN"; then
+            CARRIER=$(cat /sys/class/net/enp11s0/carrier 2>/dev/null || echo 0)
+            if [ "$CARRIER" = "1" ]; then
+              echo "enp11s0 carrier present but DOWN - reloading atlantic driver"
+              ${pkgs.kmod}/bin/modprobe -r atlantic
+              sleep 2
+              ${pkgs.kmod}/bin/modprobe atlantic
+            fi
+          fi
+          sleep 30
+        done
+      '';
     };
   };
 

@@ -52,12 +52,23 @@
   boot.kernelParams = [
     "amd_iommu=on"
     "iommu=pt"
+    "pcie_aspm=off" # Fixes AQC113 and Intel I226-V PCIe instability
   ];
 
   # mt7921e is the MediaTek Wi-Fi driver built into the X870E board.
   # Blacklisted because the server uses the wired Intel NIC exclusively
   # and loading the Wi-Fi driver adds unnecessary init time.
   boot.blacklistedKernelModules = ["mt7921e"];
+
+  # Intel I226-V 2.5G errata — force 1 Gbps to eliminate hardware reset bug
+  # under sustained transfers. 1G is stable; 2.5G is not on this silicon rev.
+  systemd.network.networks."10-intel-lan" = {
+    matchConfig.MACAddress = "30:c5:99:5b:ec:97";
+    linkConfig = {
+      SpeedMegabits = 1000;
+      Duplex = "full";
+    };
+  };
 
   hardware.cpu.amd.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
   hardware.enableRedistributableFirmware = true;
