@@ -76,12 +76,17 @@
     enable = true;
     nssmdns4 = true;
     openFirewall = true;
-    publish = {
-      enable = true;
-      addresses = true;
-      userServices = true;
-    };
   };
+
+  # Override nsswitch to allow DNS fallback after mdns4_minimal
+  system.nssDatabases.hosts = lib.mkForce [
+    "mymachines"
+    "mdns4_minimal"
+    "files"
+    "myhostname"
+    "dns"
+    "mdns4"
+  ];
 
   # Enable PipeWire for audio
   services.pulseaudio.enable = false;
