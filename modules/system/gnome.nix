@@ -66,6 +66,12 @@
   services.printing = {
     enable = true;
     drivers = [pkgs.cups-filters];
+    # Disable CUPS's own auto-queue creation from dnssd backend
+    extraConf = ''
+      BrowseRemoteProtocols none
+      BrowseLocalProtocols none
+      BrowseSubscriptions No
+    '';
   };
 
   systemd.services.cups-browsed.enable = false;
