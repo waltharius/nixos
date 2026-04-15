@@ -93,9 +93,30 @@
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
+      # Retry up to 5 times if it fails, with 5s delay between attempts
+      Restart = "on-failure";
+      RestartSec = "5s";
     };
     script = ''
-      sleep 3
+      # Wait until CUPS socket is actually accepting connections
+      for i in $(seq 1 10); do
+        if ${pkgs.cups}/bin/lpstat -r 2>/dev/null | grep -q "running"; then
+          break
+        fi
+        echo "Waiting for CUPS... attempt $i"
+        sleep 3
+      done
+
+      # Wait until the printer is reachable on the network
+      for i in $(seq 1 10); do
+        if ${pkgs.iputils}/bin/ping -c1 -W2 drukarka.home.lan >/dev/null 2>&1; then
+          break
+        fi
+        echo "Waiting for printer on network... attempt $i"
+        sleep 3
+      done
+
+      # Only add if not already present
       if ! ${pkgs.cups}/bin/lpstat -v 2>/dev/null | grep -q "CanonTS8300"; then
         ${pkgs.cups}/bin/lpadmin \
           -p CanonTS8300 \
