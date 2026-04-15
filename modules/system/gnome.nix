@@ -68,10 +68,19 @@
     drivers = [pkgs.cups-filters];
   };
 
+  # cups-browsed: the daemon that watches Avahi and populates CUPS
+  # with discovered network printers automatically
+  services.cups-browsed.enable = true;
+
   services.avahi = {
     enable = true;
     nssmdns4 = true;
     openFirewall = true;
+    publish = {
+      enable = true;
+      addresses = true;
+      userServices = true;
+    };
   };
 
   # Enable PipeWire for audio
