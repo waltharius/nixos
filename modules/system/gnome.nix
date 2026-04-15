@@ -63,7 +63,16 @@
   };
 
   # Enable CUPS for printing
-  services.printing.enable = true;
+  services.printing = {
+    enable = true;
+    drivers = [pkgs.cups-filters];
+  };
+
+  sevices.avahi = {
+    enable = true;
+    nssmdns4 = true;
+    openFirewall = true;
+  };
 
   # Enable PipeWire for audio
   services.pulseaudio.enable = false;
