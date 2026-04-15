@@ -68,6 +68,16 @@
     drivers = [pkgs.cups-filters];
   };
 
+  # Configure cups-browsed to not auto-create printer queues
+  # It will still browse but won't pollute CUPS with duplicate entries
+  environment.etc."cups/cups-browsed.conf".text = ''
+    # Do not automatically create queues for discovered printers
+    CreateIPPPrinterQueues No
+    # Also disable legacy CUPS browsing queue creation
+    BrowseRemoteProtocols none
+    BrowseLocalProtocols none
+  '';
+
   services.avahi = {
     enable = true;
     nssmdns4 = true;
