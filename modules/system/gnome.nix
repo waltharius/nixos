@@ -68,10 +68,6 @@
     drivers = [pkgs.cups-filters];
   };
 
-  # cups-browsed: the daemon that watches Avahi and populates CUPS
-  # with discovered network printers automatically
-  services.cups-browsed.enable = true;
-
   services.avahi = {
     enable = true;
     nssmdns4 = true;
@@ -87,6 +83,30 @@
     "dns"
     "mdns4"
   ];
+
+  # Persist the Canon printer across rebuilds
+  systemd.services.cups-add-canon = {
+    description = "Add Canon TS8300 printer to CUPS";
+    after = ["cups.service" "network-online.target"];
+    wants = ["cups.service" "network-online.target"];
+    wantedBy = ["multi-user.target"];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      sleep 3
+      if ! ${pkgs.cups}/bin/lpstat -v 2>/dev/null | grep -q "CanonTS8300"; then
+        ${pkgs.cups}/bin/lpadmin \
+          -p CanonTS8300 \
+          -E \
+          -v "ipp://drukarka.home.lan/ipp/print" \
+          -m everywhere \
+          -D "Canon Pixma TS8300"
+        ${pkgs.cups}/bin/lpoptions -d CanonTS8300
+      fi
+    '';
+  };
 
   # Enable PipeWire for audio
   services.pulseaudio.enable = false;
