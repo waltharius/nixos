@@ -68,7 +68,7 @@
     drivers = [pkgs.cups-filters];
   };
 
-  sevices.avahi = {
+  services.avahi = {
     enable = true;
     nssmdns4 = true;
     openFirewall = true;
