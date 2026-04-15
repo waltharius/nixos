@@ -121,7 +121,7 @@
         ${pkgs.cups}/bin/lpadmin \
           -p CanonTS8300 \
           -E \
-          -v "ipp://drukarka.home.lan/ipp/print" \
+          -v "ipp://192.168.50.101/ipp/print" \
           -m everywhere \
           -D "Canon Pixma TS8300"
         ${pkgs.cups}/bin/lpoptions -d CanonTS8300
