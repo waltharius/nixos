@@ -171,6 +171,7 @@ in {
       customPkgs.solaar-stable
 
       # GUI Applications
+      winboat
       blanket
       signal-desktop
       pkgs-unstable.brave
@@ -227,6 +228,7 @@ in {
       dig
       openssl
       pkgs-unstable.nb
+      ocrmypdf
 
       # Nix tools
       nix-prefetch-github
