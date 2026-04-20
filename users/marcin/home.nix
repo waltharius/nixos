@@ -228,6 +228,7 @@ in {
       openssl
       pkgs-unstable.nb
       ocrmypdf
+      tesseract
 
       # Nix tools
       nix-prefetch-github
