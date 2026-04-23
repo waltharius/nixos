@@ -199,7 +199,7 @@ in {
       # NOTE: doom-emacs is installed via programs.doom-emacs module
       emacs
       gnupg
-      pinentry-curses
+      pinentry-gnome3
 
       # Development tools
       zip
