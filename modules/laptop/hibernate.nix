@@ -21,7 +21,7 @@
   # Systemd sleep configuration
   systemd.sleep.extraConfig = ''
     # Hibernate after X hours of suspend
-    HibernateDelaySec=2h
+    HibernateDelaySec=8h
 
     # Use 'mem' suspend state (suspend-to-RAM)
     SuspendState=mem
@@ -34,13 +34,13 @@
         # This should make suspend the laptop even when external monitors plugged in
         HandleLidSwitchDocked = "suspend";
 
-        HandlePowerKey = "suspend-then-hibernate";
+        HandlePowerKey = "suspend";
 
         # On AC power, only suspend (no hibernate needed)
         HandleLidSwitchExternalPower = "suspend";
 
         # Suspend-then-hibernate when lid is closed
-        HandleLidSwitch = "suspend-then-hibernate";
+        HandleLidSwitch = "suspend";
 
         # Ignore applications trying to block suspend (good on laptops)
         LidSwitchIgnoreInhibited = "yes";
