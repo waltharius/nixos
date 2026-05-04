@@ -19,5 +19,5 @@
   boot.kernelParams = ["quiet" "splash" "video=efifb:3840x2160"];
 
   # Latest stable kernel
-  boot.kernelPackages = pkgs.linuxPackages_6_19;
+  #  boot.kernelPackages = pkgs.linuxPackages_6_19;
 }
