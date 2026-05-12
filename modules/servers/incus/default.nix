@@ -17,7 +17,11 @@
 #     The host cannot communicate directly with containers on the lan
 #     profile (macvlan limitation). Use incusbr0 (10.0.0.x) for any
 #     host→container communication (Prometheus scraping, etc.).
-{lib, ...}: {
+{
+  lib,
+  pkgs,
+  ...
+}: {
   # ---------------------------------------------------------------------------
   # Core Incus service
   # ---------------------------------------------------------------------------
@@ -161,4 +165,7 @@
   # ---------------------------------------------------------------------------
   systemd.services.incus.after = lib.mkAfter ["mnt-data.mount"];
   systemd.services.incus.requires = ["mnt-data.mount"];
+  # TPM 2.0 emulation for Windows VMs (Windows 11 requirement)
+  # swtpm provides the software TPM that Incus exposes as a vTPM device
+  environment.systemPackages = with pkgs; [swtpm];
 }
