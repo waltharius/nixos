@@ -232,6 +232,7 @@ in {
       pkgs-unstable.nb
       ocrmypdf
       tesseract
+      libsecret
 
       # Nix tools
       nix-prefetch-github
