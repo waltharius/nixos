@@ -179,6 +179,7 @@ in {
       shotwell
       nextcloud-client
       foliate
+      freerdp
 
       # Productivity & Office
       pkgs-unstable.silverbullet

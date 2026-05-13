@@ -39,6 +39,9 @@
       # Atuin filter modes
       atuin-local = "ATUIN_FILTER_MODE=host atuin search -i";
       atuin-global = "ATUIN_FILTER_MODE=global atuin search -i";
+
+      # RDP aliases for external window connection
+      rdp-win11 = "xfreerdp3 /u:marcin /v:192.168.50.6 /dynamic-resolution /smart-sizing /cert:ignore /audio-mode:1";
     };
 
     bashrcExtra = ''
