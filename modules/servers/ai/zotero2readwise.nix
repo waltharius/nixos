@@ -4,13 +4,15 @@
 #
 # Design decisions:
 #   - OCI container (Podman) via virtualisation.oci-containers.
-#   - Runs as a oneshot container on a systemd timer, NOT autoStart.
-#     The container exits after each sync; the timer re-triggers it.
+#   - autoStart = false; the systemd timer drives execution on schedule.
+#   - The generated podman-zotero2readwise.service uses Type=notify (set by
+#     oci-containers internally). We must NOT override Type — instead we
+#     inject ExecStartPre/ExecStopPost at the top-level service stanza and
+#     use mkForce only for Restart to suppress the default on-failure policy.
 #   - Secrets (API keys, user ID) are SOPS-decrypted at boot to
 #     /run/secrets/* and assembled into an EnvironmentFile at ExecStartPre.
 #     This avoids passing secrets as plain env vars visible in `systemctl show`.
 #   - --filter-colors allows excluding navigation highlights (e.g. grey #aaaaaa).
-#   - Image is pinned by digest for reproducibility; update intentionally.
 #
 # Scheduling:
 #   Syncs every 6 hours by default. Adjust timer via cfg.syncInterval.
@@ -43,12 +45,16 @@ with lib; let
     printf 'ZOTERO_API_KEY=%s\n'     "$(cat "$SECRETS_DIR/zotero2readwise-zotero-key")"     >> "$ENV_FILE"
     printf 'ZOTERO_LIBRARY_ID=%s\n'  "$(cat "$SECRETS_DIR/zotero2readwise-zotero-id")"      >> "$ENV_FILE"
   '';
+
+  cleanupScript = pkgs.writeShellScript "zotero2readwise-cleanup" ''
+    rm -f /run/zotero2readwise.env
+  '';
 in {
   options.services.server-role.zotero2readwise = {
     enable = mkEnableOption "Zotero → Readwise highlight sync";
 
     image = mkOption {
-      type = types.str;
+      type    = types.str;
       default = "docker.io/justinlee901227/zotero2readwise:latest";
       description = ''
         OCI image to use. Consider pinning to a specific digest once tested:
@@ -58,15 +64,15 @@ in {
     };
 
     zoteroLibraryType = mkOption {
-      type = types.enum ["user" "group"];
+      type    = types.enum [ "user" "group" ];
       default = "user";
       description = "Zotero library type: 'user' or 'group'.";
     };
 
     filterColors = mkOption {
-      type = types.listOf types.str;
-      default = ["#ffd400" "#ff6666" "#5fb236" "#2ea8e5" "#a28ae5" "#e56eee"];
-      example = ["#ffd400" "#ff6666"];
+      type    = types.listOf types.str;
+      default = [ "#ffd400" "#ff6666" "#5fb236" "#2ea8e5" "#a28ae5" "#e56eee" ];
+      example = [ "#ffd400" "#ff6666" ];
       description = ''
         Highlight colours to sync. Grey (#aaaaaa) is excluded by default —
         it is commonly used for navigation/chapter title highlights that
@@ -77,7 +83,7 @@ in {
     };
 
     syncInterval = mkOption {
-      type = types.str;
+      type    = types.str;
       default = "*-*-* 00,06,12,18:00:00";
       description = ''
         OnCalendar expression for the systemd timer.
@@ -87,6 +93,7 @@ in {
   };
 
   config = mkIf cfg.enable {
+
     # SOPS secrets — decrypted to /run/secrets/ at boot by sops-nix
     sops.secrets."zotero2readwise-readwise-token" = {
       sopsFile = ../../../secrets/altair.yaml;
@@ -98,52 +105,55 @@ in {
       sopsFile = ../../../secrets/altair.yaml;
     };
 
-    # The container is NOT set to autoStart — the timer drives it.
-    # virtualisation.oci-containers still registers the podman-zotero2readwise
-    # service so Nix manages the image pull and unit generation.
+    # autoStart = false — the systemd timer drives execution, not boot.
+    # oci-containers still generates the podman-zotero2readwise.service unit
+    # and manages image pulls; we just don't want it starting at boot.
     virtualisation.oci-containers.containers.zotero2readwise = {
-      image = cfg.image;
+      image     = cfg.image;
       autoStart = false;
 
       # EnvironmentFile written by ExecStartPre — secrets never in unit env dump
-      environmentFiles = ["/run/zotero2readwise.env"];
+      environmentFiles = [ "/run/zotero2readwise.env" ];
 
       environment = {
         ZOTERO_LIBRARY_TYPE = cfg.zoteroLibraryType;
         # Space-separated colour list consumed by the entrypoint
-        FILTER_COLORS = concatStringsSep " " cfg.filterColors;
+        FILTER_COLORS       = concatStringsSep " " cfg.filterColors;
       };
     };
 
-    # Override the generated systemd service to:
-    #   1. Run prepScript before the container to assemble the EnvironmentFile
-    #   2. Wait for sops-nix to decrypt secrets
+    # Extend the oci-containers-generated service with:
+    #   1. Ordering: wait for network and sops-nix secret decryption
+    #   2. ExecStartPre: assemble the EnvironmentFile from /run/secrets/*
+    #   3. ExecStopPost: wipe the EnvironmentFile immediately after each run
+    #   4. Restart=no (mkForce): oci-containers defaults to on-failure;
+    #      for a timer-driven job we never want automatic restarts.
+    #
+    # DO NOT set serviceConfig.Type here — oci-containers owns it (notify).
     systemd.services."podman-zotero2readwise" = {
-      after = ["network-online.target" "sops-nix.service"];
-      wants = ["network-online.target"];
-      requires = ["sops-nix.service"];
+      after    = [ "network-online.target" "sops-nix.service" ];
+      wants    = [ "network-online.target" ];
+      requires = [ "sops-nix.service" ];
 
+      # '+' prefix on ExecStartPre runs the script as root so it can read
+      # /run/secrets/* which are root-owned by sops-nix.
       serviceConfig = {
-        Type = "oneshot";
-        # '+' prefix runs prepScript as root so it can read /run/secrets/*
-        ExecStartPre = ["+${prepScript}"];
-        # Remove EnvironmentFile after container exits to avoid secrets at rest
-        ExecStopPost = ["${pkgs.coreutils}/bin/rm -f /run/zotero2readwise.env"];
-        # Restart policy: do NOT restart on failure — wait for next timer tick
-        Restart = "no";
+        ExecStartPre  = [ "+${prepScript}" ];
+        ExecStopPost  = [ "+${cleanupScript}" ];
+        Restart       = mkForce "no";
       };
     };
 
-    # Systemd timer — triggers the oneshot service on schedule
+    # Systemd timer — triggers the service on schedule
     systemd.timers."podman-zotero2readwise" = {
-      wantedBy = ["timers.target"];
+      wantedBy  = [ "timers.target" ];
       timerConfig = {
-        OnCalendar = cfg.syncInterval;
-        # Run immediately on first boot/enable if last trigger was missed
-        Persistent = true;
-        # Spread load ±5 min to avoid exact-on-the-hour thundering herd
+        OnCalendar         = cfg.syncInterval;
+        # Fire immediately on first enable if the last trigger was missed
+        Persistent         = true;
+        # Spread ±5 min to avoid exact-on-the-hour thundering herd
         RandomizedDelaySec = "5min";
-        Unit = "podman-zotero2readwise.service";
+        Unit               = "podman-zotero2readwise.service";
       };
     };
   };
