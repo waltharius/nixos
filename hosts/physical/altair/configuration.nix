@@ -62,6 +62,8 @@ in {
     # ../../../modules/servers/monitoring/grafana.nix
     # ../../../modules/servers/monitoring/psu-monitor.nix
     # Cloudflare Tunnel config goes here in Phase 4
+
+    ../../../modules/servers/ai/zotero2readwise.nix
   ];
 
   environment.systemPackages = with pkgs; [
@@ -113,6 +115,13 @@ in {
         done
       '';
     };
+  };
+
+  services.server-role.zotero2readwise = {
+    enable = true;
+    # Grey excluded — used for chapter title navigation highlights
+    filterColors = ["#ffd400" "#ff6666" "#5fb236" "#2ea8e5" "#a28ae5" "#e56eee"];
+    syncInterval = "*-*-* 00,06,12,18:00:00";
   };
 
   networking.hostName = "altair";
