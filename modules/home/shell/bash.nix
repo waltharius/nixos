@@ -41,7 +41,7 @@
       atuin-global = "ATUIN_FILTER_MODE=global atuin search -i";
 
       # RDP aliases for external window connection
-      rdp-win11 = "xfreerdp3 /u:marcin /v:192.168.50.6 /dynamic-resolution /smart-sizing /cert:ignore /audio-mode:1";
+      rdp-win11 = "nohup xfreerdp /u:marcin /v:192.168.50.6 /dynamic-resolution /cert:ignore /audio-mode:1 &>/dev/null";
     };
 
     bashrcExtra = ''
