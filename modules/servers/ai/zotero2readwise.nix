@@ -7,11 +7,14 @@
 #   - autoStart = false; the systemd timer drives execution on schedule.
 #   - The generated podman-zotero2readwise.service uses Type=notify (set by
 #     oci-containers internally). We must NOT override Type — instead we
-#     inject ExecStartPre/ExecStopPost at the top-level service stanza and
-#     use mkForce only for Restart to suppress the default on-failure policy.
-#   - Secrets (API keys, user ID) are SOPS-decrypted at boot to
-#     /run/secrets/* and assembled into an EnvironmentFile at ExecStartPre.
-#     This avoids passing secrets as plain env vars visible in `systemctl show`.
+#     inject ExecStartPre/ExecStopPost via serviceConfig and use mkForce
+#     only for Restart to suppress the default on-failure policy.
+#   - Secrets (API keys, user ID) are SOPS-decrypted during nixos-activation
+#     (before systemd services start) to /run/secrets/* by sops-nix.
+#     prepScript assembles them into an EnvironmentFile at ExecStartPre.
+#     This avoids secrets appearing in `systemctl show` env dumps.
+#   - sops-nix does NOT run as a systemd service — it is an activation script.
+#     No Requires/After on sops-nix.service is needed or possible.
 #   - --filter-colors allows excluding navigation highlights (e.g. grey #aaaaaa).
 #
 # Scheduling:
@@ -94,7 +97,10 @@ in {
 
   config = mkIf cfg.enable {
 
-    # SOPS secrets — decrypted to /run/secrets/ at boot by sops-nix
+    # SOPS secrets — decrypted to /run/secrets/ during nixos-activation by
+    # sops-nix (activation script, not a systemd service). All secrets are
+    # present before systemd starts any services, so no ordering dependency
+    # on sops-nix is required.
     sops.secrets."zotero2readwise-readwise-token" = {
       sopsFile = ../../../secrets/altair.yaml;
     };
@@ -123,7 +129,7 @@ in {
     };
 
     # Extend the oci-containers-generated service with:
-    #   1. Ordering: wait for network and sops-nix secret decryption
+    #   1. Ordering: wait for network only (sops secrets already present)
     #   2. ExecStartPre: assemble the EnvironmentFile from /run/secrets/*
     #   3. ExecStopPost: wipe the EnvironmentFile immediately after each run
     #   4. Restart=no (mkForce): oci-containers defaults to on-failure;
@@ -131,16 +137,15 @@ in {
     #
     # DO NOT set serviceConfig.Type here — oci-containers owns it (notify).
     systemd.services."podman-zotero2readwise" = {
-      after    = [ "network-online.target" "sops-nix.service" ];
-      wants    = [ "network-online.target" ];
-      requires = [ "sops-nix.service" ];
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
 
       # '+' prefix on ExecStartPre runs the script as root so it can read
       # /run/secrets/* which are root-owned by sops-nix.
       serviceConfig = {
-        ExecStartPre  = [ "+${prepScript}" ];
-        ExecStopPost  = [ "+${cleanupScript}" ];
-        Restart       = mkForce "no";
+        ExecStartPre = [ "+${prepScript}" ];
+        ExecStopPost = [ "+${cleanupScript}" ];
+        Restart      = mkForce "no";
       };
     };
 
