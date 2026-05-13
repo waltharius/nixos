@@ -5,27 +5,27 @@
 # Design decisions:
 #   - OCI container (Podman) via virtualisation.oci-containers.
 #   - autoStart = false; the systemd timer drives execution on schedule.
-#   - The generated podman-zotero2readwise.service uses Type=notify (set by
-#     oci-containers internally). We must NOT override Type — instead we
-#     inject ExecStartPre/ExecStopPost via serviceConfig and use mkForce
-#     only for Restart to suppress the default on-failure policy.
-#   - Secrets (API keys, user ID) are SOPS-decrypted during nixos-activation
-#     (before systemd services start) to /run/secrets/* by sops-nix.
-#     prepScript assembles them into an EnvironmentFile at ExecStartPre.
-#     This avoids secrets appearing in `systemctl show` env dumps.
-#   - sops-nix does NOT run as a systemd service — it is an activation script.
-#     No Requires/After on sops-nix.service is needed or possible.
+#   - The image entrypoint is `crond -f` with a baked-in crontab that
+#     hardcodes placeholder credentials as POSITIONAL CLI ARGS — env vars
+#     are not read by run.py at all. We bypass crond by overriding the
+#     container cmd to call a wrapper script written at ExecStartPre.
+#   - prepScript writes /run/zotero2readwise-cmd (chmod 0700) containing
+#     the exact python invocation with real secrets injected as positional
+#     args. This file is bind-mounted into the container and executed
+#     directly, so secrets never appear in the Nix store or systemd env.
+#   - sops-nix is an activation script, not a systemd service — no
+#     Requires/After on sops-nix.service is needed.
 #
-# Image env vars (verified via podman inspect):
-#   ZOTERO_USER_ID     — Zotero numeric user/library ID
-#   ZOTERO_API_KEY     — Zotero API key
-#   READWISE_API_KEY   — Readwise API token
+# Verified call signature (from crontab inside container):
+#   python /usr/src/Zotero2Readwise/zotero2readwise/run.py \
+#     <readwise_token> <zotero_key> <zotero_user_id> \
+#     [--filter-colors COLOR ...]
 #
 # Scheduling:
 #   Syncs every 6 hours by default. Adjust timer via cfg.syncInterval.
 #
 # Volumes:
-#   none — stateless, all state is in Zotero cloud and Readwise cloud.
+#   /run/zotero2readwise-cmd — runtime wrapper script (tmpfs, wiped after run)
 #
 # Ports:
 #   none — outbound HTTPS only to api.zotero.org and readwise.io.
@@ -38,25 +38,28 @@
 with lib; let
   cfg = config.services.server-role.zotero2readwise;
 
-  # Assemble the EnvironmentFile from SOPS-decrypted secrets at runtime.
-  # Variable names verified against image defaults via:
-  #   podman inspect zotero2readwise --format '{{.Config.Env}}'
-  # Result: ZOTERO_USER_ID, ZOTERO_API_KEY, READWISE_API_KEY
+  # Build a wrapper script at runtime containing secrets as positional args.
+  # Written to tmpfs (/run) with mode 0700 — never touches the Nix store.
+  # The container bind-mounts /run/zotero2readwise-cmd and executes it.
   prepScript = pkgs.writeShellScript "zotero2readwise-prep" ''
     set -euo pipefail
 
     SECRETS_DIR=/run/secrets
-    ENV_FILE=/run/zotero2readwise.env
+    CMD_FILE=/run/zotero2readwise-cmd
 
-    install -m 0600 /dev/null "$ENV_FILE"
+    RW_TOKEN="$(cat "$SECRETS_DIR/zotero2readwise-readwise-token")"
+    ZT_KEY="$(cat   "$SECRETS_DIR/zotero2readwise-zotero-key")"
+    ZT_ID="$(cat    "$SECRETS_DIR/zotero2readwise-zotero-id")"
 
-    printf 'READWISE_API_KEY=%s\n' "$(cat "$SECRETS_DIR/zotero2readwise-readwise-token")" >> "$ENV_FILE"
-    printf 'ZOTERO_API_KEY=%s\n'   "$(cat "$SECRETS_DIR/zotero2readwise-zotero-key")"     >> "$ENV_FILE"
-    printf 'ZOTERO_USER_ID=%s\n'   "$(cat "$SECRETS_DIR/zotero2readwise-zotero-id")"      >> "$ENV_FILE"
+    install -m 0700 /dev/null "$CMD_FILE"
+    printf '#!/bin/sh\nexec /usr/local/bin/python /usr/src/Zotero2Readwise/zotero2readwise/run.py "%s" "%s" "%s" --filter-colors %s\n' \
+      "$RW_TOKEN" "$ZT_KEY" "$ZT_ID" \
+      "${concatStringsSep " " cfg.filterColors}" \
+      >> "$CMD_FILE"
   '';
 
   cleanupScript = pkgs.writeShellScript "zotero2readwise-cleanup" ''
-    rm -f /run/zotero2readwise.env
+    rm -f /run/zotero2readwise-cmd
   '';
 in {
   options.services.server-role.zotero2readwise = {
@@ -68,7 +71,7 @@ in {
       description = ''
         OCI image to use. Consider pinning to a specific digest once tested:
           docker.io/justinlee901227/zotero2readwise@sha256:<digest>
-        Retrieve with: podman pull --quiet ... && podman inspect ... | jq '.[0].Digest'
+        Retrieve with: podman inspect zotero2readwise --format '{{.Id}}'
       '';
     };
 
@@ -103,10 +106,9 @@ in {
 
   config = mkIf cfg.enable {
 
-    # SOPS secrets — decrypted to /run/secrets/ during nixos-activation by
-    # sops-nix (activation script, not a systemd service). All secrets are
-    # present before systemd starts any services, so no ordering dependency
-    # on sops-nix is required.
+    # SOPS secrets — decrypted to /run/secrets/ during nixos-activation.
+    # sops-nix is an activation script, not a systemd service, so all
+    # secrets are present before any service starts. No ordering needed.
     sops.secrets."zotero2readwise-readwise-token" = {
       sopsFile = ../../../secrets/altair.yaml;
     };
@@ -117,37 +119,33 @@ in {
       sopsFile = ../../../secrets/altair.yaml;
     };
 
-    # autoStart = false — the systemd timer drives execution, not boot.
-    # oci-containers still generates the podman-zotero2readwise.service unit
-    # and manages image pulls; we just don't want it starting at boot.
     virtualisation.oci-containers.containers.zotero2readwise = {
       image     = cfg.image;
       autoStart = false;
 
-      # EnvironmentFile written by ExecStartPre — secrets never in unit env dump
-      environmentFiles = [ "/run/zotero2readwise.env" ];
+      # Override crond entrypoint — execute the runtime wrapper script directly.
+      # The wrapper is written by prepScript at ExecStartPre with real secrets
+      # injected as positional args matching run.py's calling convention.
+      entrypoint = "/bin/sh";
+      cmd        = [ "/run/zotero2readwise-cmd" ];
+
+      # Bind-mount the runtime cmd file into the container.
+      # /run on the host is tmpfs — the file never persists across reboots.
+      volumes = [ "/run/zotero2readwise-cmd:/run/zotero2readwise-cmd:ro" ];
 
       environment = {
         ZOTERO_LIBRARY_TYPE = cfg.zoteroLibraryType;
-        # Space-separated colour list consumed by the entrypoint
-        FILTER_COLORS       = concatStringsSep " " cfg.filterColors;
       };
     };
 
-    # Extend the oci-containers-generated service with:
-    #   1. Ordering: wait for network only (sops secrets already present)
-    #   2. ExecStartPre: assemble the EnvironmentFile from /run/secrets/*
-    #   3. ExecStopPost: wipe the EnvironmentFile immediately after each run
-    #   4. Restart=no (mkForce): oci-containers defaults to on-failure;
-    #      for a timer-driven job we never want automatic restarts.
-    #
-    # DO NOT set serviceConfig.Type here — oci-containers owns it (notify).
+    # Extend the oci-containers-generated service:
+    #   1. ExecStartPre: write the cmd wrapper with real secrets
+    #   2. ExecStopPost: wipe the cmd wrapper immediately after each run
+    #   3. Restart=no: timer-driven jobs must not auto-restart on failure
     systemd.services."podman-zotero2readwise" = {
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
 
-      # '+' prefix on ExecStartPre runs the script as root so it can read
-      # /run/secrets/* which are root-owned by sops-nix.
       serviceConfig = {
         ExecStartPre = [ "+${prepScript}" ];
         ExecStopPost = [ "+${cleanupScript}" ];
@@ -160,9 +158,7 @@ in {
       wantedBy  = [ "timers.target" ];
       timerConfig = {
         OnCalendar         = cfg.syncInterval;
-        # Fire immediately on first enable if the last trigger was missed
         Persistent         = true;
-        # Spread ±5 min to avoid exact-on-the-hour thundering herd
         RandomizedDelaySec = "5min";
         Unit               = "podman-zotero2readwise.service";
       };
