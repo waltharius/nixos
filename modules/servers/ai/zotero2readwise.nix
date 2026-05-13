@@ -15,6 +15,8 @@
 #     directly, so secrets never appear in the Nix store or systemd env.
 #   - sops-nix is an activation script, not a systemd service — no
 #     Requires/After on sops-nix.service is needed.
+#   - Colour hex values (#xxxxxx) must be double-quoted in the generated
+#     /bin/sh script — bare # is a comment character in sh.
 #
 # Verified call signature (from run.py --help inside container):
 #   python run.py <readwise_token> <zotero_key> <zotero_library_id> \
@@ -38,8 +40,9 @@
 with lib; let
   cfg = config.services.server-role.zotero2readwise;
 
-  # Build --filter_color flags: one flag per colour as required by run.py
-  filterColorFlags = concatMapStringsSep " " (c: "--filter_color '${c}'") cfg.filterColors;
+  # Each colour becomes --filter_color "#xxxxxx" — double-quoted so that
+  # the generated /bin/sh script does not treat # as a comment character.
+  filterColorFlags = concatMapStringsSep " " (c: "--filter_color \"${c}\"") cfg.filterColors;
 
   # Build a wrapper script at runtime containing secrets as positional args.
   # Written to tmpfs (/run) with mode 0700 — never touches the Nix store.
