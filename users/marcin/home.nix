@@ -188,6 +188,7 @@ in {
       pkgs-unstable.obsidian # Knowledge management
       thunderbird-latest
       onlyoffice-desktopeditors
+      flameshot
 
       # Media & Entertainment
       spotify # Music streaming
