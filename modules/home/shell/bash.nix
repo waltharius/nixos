@@ -39,44 +39,61 @@
       # Atuin filter modes
       atuin-local = "ATUIN_FILTER_MODE=host atuin search -i";
       atuin-global = "ATUIN_FILTER_MODE=global atuin search -i";
-
-      # RDP aliases for external window connection
-      rdp-win11 = "nohup xfreerdp /u:marcin /v:192.168.50.6 /dynamic-resolution /cert:ignore /audio-mode:1 &>/dev/null";
     };
 
     bashrcExtra = ''
 
-      # Load ble.sh if available
-      if [[ -f ${pkgs.blesh}/share/blesh/ble.sh ]]; then
-        source ${pkgs.blesh}/share/blesh/ble.sh --noattach
-      fi
+       # Load ble.sh if available
+       if [[ -f ${pkgs.blesh}/share/blesh/ble.sh ]]; then
+         source ${pkgs.blesh}/share/blesh/ble.sh --noattach
+       fi
 
-      eval "$(starship init bash)"
+       eval "$(starship init bash)"
 
-      # Atuin integration
-      if command -v atuin &> /dev/null; then
-        eval "$(${pkgs.atuin}/bin/atuin init bash)"
-      fi
+       # Atuin integration
+       if command -v atuin &> /dev/null; then
+         eval "$(${pkgs.atuin}/bin/atuin init bash)"
+       fi
 
-      # Zoxide integration
-      if command -v zoxide &> /dev/null; then
-        eval "$(${pkgs.zoxide}/bin/zoxide init bash)"
-      fi
+       # Zoxide integration
+       if command -v zoxide &> /dev/null; then
+         eval "$(${pkgs.zoxide}/bin/zoxide init bash)"
+       fi
 
-      # Attach ble.sh after integrations
-      [[ ''${BLE_VERSION-} ]] && ble-attach || true
+       # Attach ble.sh after integrations
+       [[ ''${BLE_VERSION-} ]] && ble-attach || true
 
-      # Yazi shell wrapper for cd on exit
-      if command -v yazi &> /dev/null; then
-        function y() {
-          local tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
-          yazi "$@" --cwd-file="$tmp"
-          if cwd="$(cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
-            builtin cd -- "$cwd"
-          fi
-          rm -f -- "$tmp"
-        }
-      fi
+       # Yazi shell wrapper for cd on exit
+       if command -v yazi &> /dev/null; then
+         function y() {
+           local tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
+           yazi "$@" --cwd-file="$tmp"
+           if cwd="$(cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+             builtin cd -- "$cwd"
+           fi
+           rm -f -- "$tmp"
+         }
+       fi
+             # RDP connection to Windows VM
+       # Usage: rdp-win11           → connects as marcin (default)
+       #        rdp-win11 otheruser → connects as that user
+       # Passwords stored in GNOME Keyring: secret-tool store --label="win11 RDP <user>" service rdp-win11 username <user>
+      function rdp-win11() {
+         local user=''${1:-marcin}
+         local pass
+         local empty=""
+         pass=$(secret-tool lookup service rdp-win11 username "$user" 2>/dev/null)
+         if [[ -z "$pass" ]]; then
+             echo "No keyring entry found for user '$user'."
+             echo "Store it with: secret-tool store --label=\"win11 RDP $user\" service rdp-win11 username $user"
+         return 1
+         fi
+         nohup xfreerdp3 /u:"$user" /d:"$empty" /v:192.168.50.6 \
+           /dynamic-resolution /cert:ignore /audio-mode:1 \
+           /p:"$pass" &>/dev/null &
+         disown
+         echo "RDP session started as $user (PID $!)"
+       }
     '';
   };
 }
