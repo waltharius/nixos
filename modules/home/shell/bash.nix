@@ -88,7 +88,7 @@
              echo "Store it with: secret-tool store --label=\"win11 RDP $user\" service rdp-win11 username $user"
          return 1
          fi
-         nohup xfreerdp3 /u:"$user" /d:"$empty" /v:192.168.50.6 \
+         nohup xfreerdp /u:"$user" /d:"$empty" /v:192.168.50.6 \
            /dynamic-resolution /cert:ignore /audio-mode:1 \
            /p:"$pass" &>/dev/null &
          disown
