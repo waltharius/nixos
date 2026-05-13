@@ -15,7 +15,11 @@
 #     This avoids secrets appearing in `systemctl show` env dumps.
 #   - sops-nix does NOT run as a systemd service — it is an activation script.
 #     No Requires/After on sops-nix.service is needed or possible.
-#   - --filter-colors allows excluding navigation highlights (e.g. grey #aaaaaa).
+#
+# Image env vars (verified via podman inspect):
+#   ZOTERO_USER_ID     — Zotero numeric user/library ID
+#   ZOTERO_API_KEY     — Zotero API key
+#   READWISE_API_KEY   — Readwise API token
 #
 # Scheduling:
 #   Syncs every 6 hours by default. Adjust timer via cfg.syncInterval.
@@ -35,7 +39,9 @@ with lib; let
   cfg = config.services.server-role.zotero2readwise;
 
   # Assemble the EnvironmentFile from SOPS-decrypted secrets at runtime.
-  # Using a file prevents secrets appearing in systemd unit environment dumps.
+  # Variable names verified against image defaults via:
+  #   podman inspect zotero2readwise --format '{{.Config.Env}}'
+  # Result: ZOTERO_USER_ID, ZOTERO_API_KEY, READWISE_API_KEY
   prepScript = pkgs.writeShellScript "zotero2readwise-prep" ''
     set -euo pipefail
 
@@ -44,9 +50,9 @@ with lib; let
 
     install -m 0600 /dev/null "$ENV_FILE"
 
-    printf 'READWISE_API_TOKEN=%s\n' "$(cat "$SECRETS_DIR/zotero2readwise-readwise-token")" >> "$ENV_FILE"
-    printf 'ZOTERO_API_KEY=%s\n'     "$(cat "$SECRETS_DIR/zotero2readwise-zotero-key")"     >> "$ENV_FILE"
-    printf 'ZOTERO_LIBRARY_ID=%s\n'  "$(cat "$SECRETS_DIR/zotero2readwise-zotero-id")"      >> "$ENV_FILE"
+    printf 'READWISE_API_KEY=%s\n' "$(cat "$SECRETS_DIR/zotero2readwise-readwise-token")" >> "$ENV_FILE"
+    printf 'ZOTERO_API_KEY=%s\n'   "$(cat "$SECRETS_DIR/zotero2readwise-zotero-key")"     >> "$ENV_FILE"
+    printf 'ZOTERO_USER_ID=%s\n'   "$(cat "$SECRETS_DIR/zotero2readwise-zotero-id")"      >> "$ENV_FILE"
   '';
 
   cleanupScript = pkgs.writeShellScript "zotero2readwise-cleanup" ''
