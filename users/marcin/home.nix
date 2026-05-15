@@ -58,6 +58,7 @@ in {
     #    ../../modules/home/tools/hugo.nix
     ../../modules/home/tools/buku.nix
     ../../modules/home/desktop/gnome.nix
+    ../../modules/home/tools/writing.nix
   ];
 
   #  programs.hugo = {
