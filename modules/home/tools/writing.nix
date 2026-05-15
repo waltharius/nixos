@@ -32,11 +32,6 @@
       # Winetricks — installs Windows runtime dependencies inside a Wine prefix
       # Required for: .NET 4.8, core fonts, VC++ redistributables
       winetricks
-
-      # Bottles — GUI Wine prefix manager
-      # Creates isolated per-app prefixes; prevents Wine updates from affecting
-      # working prefixes by keeping each app's Wine environment separate.
-      bottles
     ]
     ++ (with pkgs; [
       # cabextract required by some winetricks components
@@ -45,6 +40,11 @@
       # p7zip for unpacking some Windows installers
       p7zip
     ]);
+
+  # Bottles via Flatpak — official distribution, avoids nixpkgs openldap build issue
+  services.flatpak.packages = [
+    "com.usebottles.bottles"
+  ];
 
   # Backup helper: snapshot the entire Bottles Scrivener prefix to ~/backups/
   # Run this manually after successful Scrivener activation.
