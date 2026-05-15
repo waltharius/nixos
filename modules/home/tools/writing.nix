@@ -27,7 +27,7 @@
     [
       # Wine — 64-bit, WOW64 (supports both 32 and 64-bit Windows apps)
       # Scrivener 3 Windows is a 64-bit installer; wineWowPackages.stable handles both.
-      wineWowPackages.stable
+      wineWow64Packages.stable
 
       # Winetricks — installs Windows runtime dependencies inside a Wine prefix
       # Required for: .NET 4.8, core fonts, VC++ redistributables
