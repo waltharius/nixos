@@ -23,15 +23,10 @@
   pkgs-unstable,
   ...
 }: {
-  home.packages = with pkgs;
-    [
-      cabextract
-      p7zip
-    ]
-    ++ (with pkgs-unstable; [
-      bottles # or manage via nix-flatpak if you prefer
-    ]);
-
+  home.packages = with pkgs; [
+    cabextract
+    p7zip
+  ];
   # Bottles via Flatpak — official distribution, avoids nixpkgs openldap build issue
   services.flatpak.packages = [
     "com.usebottles.bottles"
