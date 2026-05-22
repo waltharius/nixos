@@ -234,6 +234,8 @@ in {
       ocrmypdf
       tesseract
       libsecret
+      pdftk
+      qpdf
 
       # Nix tools
       nix-prefetch-github
