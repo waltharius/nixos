@@ -15,7 +15,7 @@
       lt = "eza --tree --hyperlink --group-directories-first --color=auto --icons --git";
 
       # Git shortcuts
-      gs = "git status";
+      gst = "git status";
       ga = "git add";
       gc = "git commit";
       gp = "git push";

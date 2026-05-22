@@ -236,6 +236,7 @@ in {
       libsecret
       pdftk
       qpdf
+      ghostscript
 
       # Nix tools
       nix-prefetch-github
