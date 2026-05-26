@@ -43,9 +43,9 @@
   # ---------------------------------------------------------------------------
   users.users.ollama = {
     isSystemUser = true;
-    group        = "ollama";
-    home         = "/mnt/data/ollama";
-    extraGroups  = [ "render" "video" ];
+    group = "ollama";
+    home = "/mnt/data/ollama";
+    extraGroups = ["render" "video"];
   };
   users.groups.ollama = {};
 
@@ -66,15 +66,16 @@
     acceleration = "cuda";
 
     environmentVariables = {
-      CUDA_VISIBLE_DEVICES     = "0,1";
-      OLLAMA_GPU_OVERHEAD      = "0";
-      OLLAMA_KEEP_ALIVE        = "-1";
-      OLLAMA_MAX_LOADED_MODELS = "2";
-      OLLAMA_NUM_PARALLEL      = "2";
-      OLLAMA_FLASH_ATTENTION   = "1";
-      OLLAMA_MODELS            = "/mnt/data/ollama/models";
-      TMPDIR                   = "/mnt/data/ollama/tmp";
-      OLLAMA_TMPDIR            = "/mnt/data/ollama/tmp";
+      CUDA_VISIBLE_DEVICES = "0,1";
+      OLLAMA_GPU_OVERHEAD = "512000000";
+      OLLAMA_KEEP_ALIVE = "-1";
+      OLLAMA_MAX_LOADED_MODELS = "1";
+      OLLAMA_NUM_PARALLEL = "1";
+      OLLAMA_FLASH_ATTENTION = "1";
+      OLLAMA_KV_CACHE_TYPE = "q8_0";
+      OLLAMA_MODELS = "/mnt/data/ollama/models";
+      TMPDIR = "/mnt/data/ollama/tmp";
+      OLLAMA_TMPDIR = "/mnt/data/ollama/tmp";
     };
   };
 
@@ -82,23 +83,23 @@
   # systemd service overrides
   # ---------------------------------------------------------------------------
   systemd.services.ollama = {
-    after    = [ "mnt-data.mount" ];
-    requires = [ "mnt-data.mount" ];
+    after = ["mnt-data.mount"];
+    requires = ["mnt-data.mount"];
 
     serviceConfig = {
-      Restart        = "on-failure";
-      RestartSec     = "10s";
+      Restart = "on-failure";
+      RestartSec = "10s";
       OOMScoreAdjust = 500;
 
       PrivateNetwork = lib.mkForce false;
-      PrivateUsers   = lib.mkForce false;
-      PrivateTmp     = lib.mkForce false;
+      PrivateUsers = lib.mkForce false;
+      PrivateTmp = lib.mkForce false;
       PrivateDevices = lib.mkForce false;
-      ProtectHome    = lib.mkForce false;
+      ProtectHome = lib.mkForce false;
 
-      DynamicUser    = lib.mkForce false;
-      User           = lib.mkForce "ollama";
-      Group          = lib.mkForce "ollama";
+      DynamicUser = lib.mkForce false;
+      User = lib.mkForce "ollama";
+      Group = lib.mkForce "ollama";
 
       ExecStartPre = [
         "${pkgs.coreutils}/bin/mkdir -p /mnt/data/ollama/models"
@@ -120,8 +121,8 @@
   # Keep podman1 and cni-podman0 entries so config survives Podman upgrades
   # that may rename the bridge.
   # ---------------------------------------------------------------------------
-  networking.firewall.interfaces."incusbr0".allowedTCPPorts   = [ 11434 ];
-  networking.firewall.interfaces."podman0".allowedTCPPorts     = [ 11434 ];
-  networking.firewall.interfaces."podman1".allowedTCPPorts     = [ 11434 ];
-  networking.firewall.interfaces."cni-podman0".allowedTCPPorts = [ 11434 ];
+  networking.firewall.interfaces."incusbr0".allowedTCPPorts = [11434];
+  networking.firewall.interfaces."podman0".allowedTCPPorts = [11434];
+  networking.firewall.interfaces."podman1".allowedTCPPorts = [11434];
+  networking.firewall.interfaces."cni-podman0".allowedTCPPorts = [11434];
 }
