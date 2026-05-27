@@ -200,7 +200,7 @@ in {
       # Emacs (simple installation - manages its own packages from ~/.emacs.d)
       # NOTE: doom-emacs is installed via programs.doom-emacs module
       emacs
-      texlive.combinde.scheme-full
+      texlive.combined.scheme-full
       gnupg
       pinentry-gnome3
 
