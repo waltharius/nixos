@@ -1,6 +1,7 @@
 {
   self,
   config,
+  lib,
   ...
 }: {
   # NOTE: system.rebuild.enableNg was removed in 26.05.
