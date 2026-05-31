@@ -79,25 +79,24 @@
   # system.nixos.label sets the string shown in /boot/loader/entries/*.conf
   # as the boot entry title. systemd-boot displays it directly in the menu.
   #
-  # Format: "auto-upgrade-DD-MM-YYYY" for automatic upgrades.
-  # For manual rebuilds the label is whatever you set it to, or the default
-  # nixos-version string if not overridden.
+  # base.nix sets a lib.mkDefault label with the git rev for manual rebuilds.
+  # This lib.mkForce wins during automated nixos-upgrade runs and stamps
+  # the build date instead.
   #
-  # The label is evaluated at *build time*, so we use a build-time timestamp
-  # via builtins.currentTime (seconds since epoch) converted to a date string
-  # through pkgs.runCommand. This means every nixos-rebuild bakes the current
-  # date into the label — including manual rebuilds. That is fine and expected.
+  # The label is evaluated at *build time* using builtins.currentTime
+  # (seconds since epoch at Nix evaluation), converted to DD-MM-YYYY via
+  # a small derivation. Every nixos-rebuild bakes the current date in.
   # ---------------------------------------------------------------------------
-  system.nixos.label =
+  system.nixos.label = lib.mkForce (
     let
-      # Convert epoch → DD-MM-YYYY at build time using coreutils date
       buildDate = builtins.readFile (
         pkgs.runCommand "build-date" {} ''
           echo -n $(${pkgs.coreutils}/bin/date -d @${toString builtins.currentTime} +%d-%m-%Y) > $out
         ''
       );
     in
-      "auto-upgrade-${buildDate}";
+      "auto-upgrade-${buildDate}"
+  );
 
   systemd.services.notify-upgrade-failure = {
     serviceConfig = {
