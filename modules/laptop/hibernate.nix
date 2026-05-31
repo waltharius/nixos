@@ -1,4 +1,4 @@
-# modules/laptop/hiberante.nix
+# modules/laptop/hibernate.nix
 # Suspend-then-hibernate configuration
 # System suspends to RAM, then automatically hibernates to disk after delay
 # This saves battery while maintaining fast resume from suspend
@@ -19,19 +19,22 @@
   ];
 
   # Systemd sleep configuration
-  systemd.sleep.extraConfig = ''
-    # Hibernate after X hours of suspend
-    HibernateDelaySec=8h
+  # NOTE: systemd.sleep.extraConfig was removed in NixOS 26.05.
+  # The structured option systemd.sleep.settings.Sleep must be used instead.
+  # This maps directly to /etc/systemd/sleep.conf.d/*.conf sections.
+  systemd.sleep.settings.Sleep = {
+    # Hibernate after 8 hours of suspend
+    HibernateDelaySec = "8h";
 
     # Use 'mem' suspend state (suspend-to-RAM)
-    SuspendState=mem
-  '';
+    SuspendState = "mem";
+  };
 
   # Logind configuration for lid and power button
   services.logind = {
     settings = {
       Login = {
-        # This should make suspend the laptop even when external monitors plugged in
+        # Suspend the laptop even when external monitors are plugged in
         HandleLidSwitchDocked = "suspend";
 
         HandlePowerKey = "suspend";
