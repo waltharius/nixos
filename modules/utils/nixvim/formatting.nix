@@ -1,4 +1,5 @@
 # Formatting Configuration
+# nodePackages has been removed in nixpkgs 26.05 — packages are now at top level.
 {pkgs, ...}: {
   plugins.conform-nvim = {
     enable = true;
@@ -29,7 +30,7 @@
     alejandra
     stylua
     black
-    nodePackages.prettier
+    prettier
     shfmt
   ];
 }
