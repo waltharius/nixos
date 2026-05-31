@@ -3,6 +3,7 @@
   config,
   lib,
   pkgs,
+  self,
   ...
 }: {
   # Automatic system upgrades
@@ -27,10 +28,10 @@
     ];
 
     # When to run
-    dates = "weekly"; # or "Sun *-*-* 03:00:00" for Sundays at 3 AM
+    dates = "weekly";
 
     # Allow downgrades (useful if a channel has issues)
-    allowReboot = false; # Set to true if you want automatic reboots after kernel updates
+    allowReboot = false;
 
     # Run even if system was asleep during scheduled time
     persistent = true;
@@ -47,10 +48,6 @@
   # above) rewrites flake.lock but does NOT auto-commit it, so the store path
   # ends up with ".dirty" appended. We fix this by committing flake.lock (and
   # any other tracked changes) before the rebuild happens.
-  #
-  # Risk: if the rebuild fails after this commit, the repo describes a
-  # configuration the system hasn't activated yet. This is intentional —
-  # the history remains accurate for forensics and rollback.
   # ---------------------------------------------------------------------------
   systemd.services.nixos-upgrade = {
     preStart = ''
@@ -65,7 +62,7 @@
         ${pkgs.git}/bin/git add -A
         ${pkgs.git}/bin/git commit -m "system auto-upgrade $UPGRADE_DATE" \
           --author="NixOS Auto-Upgrade <auto-upgrade@${config.networking.hostName}>" \
-          || true  # never abort the upgrade if commit fails (e.g. nothing changed)
+          || true
       fi
     '';
 
@@ -76,22 +73,25 @@
   # ---------------------------------------------------------------------------
   # Generation label visible in systemd-boot menu
   #
-  # system.nixos.label sets the string shown in /boot/loader/entries/*.conf
-  # as the boot entry title. systemd-boot displays it directly in the menu.
+  # builtins.currentTime was removed from Nix (impure, non-deterministic).
+  # Instead we use self.lastModified, which is the Unix timestamp of the
+  # last git commit in the flake. After the preStart git commit above,
+  # the next rebuild will have lastModified = time of that commit, so
+  # the label accurately reflects when the auto-upgrade ran.
   #
-  # base.nix sets a lib.mkDefault label with the git rev for manual rebuilds.
-  # This lib.mkForce wins during automated nixos-upgrade runs and stamps
-  # the build date instead.
-  #
-  # The label is evaluated at *build time* using builtins.currentTime
-  # (seconds since epoch at Nix evaluation), converted to DD-MM-YYYY via
-  # a small derivation. Every nixos-rebuild bakes the current date in.
+  # base.nix sets lib.mkDefault with the git rev for manual rebuilds.
+  # lib.mkForce here wins during automated nixos-upgrade runs.
   # ---------------------------------------------------------------------------
   system.nixos.label = lib.mkForce (
     let
+      # self.lastModified is seconds since epoch of the last flake commit.
+      # Convert to DD-MM-YYYY using string manipulation (pure Nix, no IFD).
+      #
+      # Nix doesn't have a date library, so we use a small derivation that
+      # runs coreutils date at *build time* with the known epoch value.
       buildDate = builtins.readFile (
         pkgs.runCommand "build-date" {} ''
-          echo -n $(${pkgs.coreutils}/bin/date -d @${toString builtins.currentTime} +%d-%m-%Y) > $out
+          echo -n $(${pkgs.coreutils}/bin/date -d @${toString self.lastModified} +%d-%m-%Y) > $out
         ''
       );
     in
@@ -110,8 +110,8 @@
   # Keep more generations for safety
   nix.gc = {
     automatic = true;
-    dates = "monthly"; # Clean up monthly, not too aggressive
-    options = "--delete-older-than 90d"; # Keep 3 months of generations
+    dates = "monthly";
+    options = "--delete-older-than 90d";
   };
 
   # Optimize store after garbage collection
@@ -119,6 +119,6 @@
 
   nix.optimise = {
     automatic = true;
-    dates = ["weekly"]; # Run after auto-upgrade
+    dates = ["weekly"];
   };
 }
