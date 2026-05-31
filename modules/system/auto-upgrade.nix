@@ -22,6 +22,8 @@
       "home-manager"
       "--update-input"
       "sops-nix"
+      "--update-input"
+      "nixvim"
     ];
 
     # When to run
@@ -37,17 +39,65 @@
     randomizedDelaySec = "1h";
   };
 
-  # Allow root access to confiuration repository from user home folder for root
+  # ---------------------------------------------------------------------------
+  # Pre-upgrade: git commit so the rebuild is never "dirty"
+  #
+  # nixos-rebuild marks a flake dirty when there are uncommitted changes in
+  # the working tree. Running nix flake update (triggered by --update-input
+  # above) rewrites flake.lock but does NOT auto-commit it, so the store path
+  # ends up with ".dirty" appended. We fix this by committing flake.lock (and
+  # any other tracked changes) before the rebuild happens.
+  #
+  # Risk: if the rebuild fails after this commit, the repo describes a
+  # configuration the system hasn't activated yet. This is intentional —
+  # the history remains accurate for forensics and rollback.
+  # ---------------------------------------------------------------------------
   systemd.services.nixos-upgrade = {
     preStart = ''
+      # Allow root to access the repo in the user's home directory
       ${pkgs.git}/bin/git config --global --add safe.directory /home/marcin/nixos
-    '';
-  };
 
-  # Notify on upgrade failure
-  systemd.services.nixos-upgrade = {
+      # Commit flake.lock (and any other tracked changes) with today's date
+      # so the subsequent rebuild sees a clean working tree.
+      cd /home/marcin/nixos
+      if ! ${pkgs.git}/bin/git diff --quiet || ! ${pkgs.git}/bin/git diff --cached --quiet; then
+        UPGRADE_DATE=$(${pkgs.coreutils}/bin/date +%d-%m-%Y)
+        ${pkgs.git}/bin/git add -A
+        ${pkgs.git}/bin/git commit -m "system auto-upgrade $UPGRADE_DATE" \
+          --author="NixOS Auto-Upgrade <auto-upgrade@${config.networking.hostName}>" \
+          || true  # never abort the upgrade if commit fails (e.g. nothing changed)
+      fi
+    '';
+
+    # Notify on upgrade failure
     onFailure = ["notify-upgrade-failure.service"];
   };
+
+  # ---------------------------------------------------------------------------
+  # Generation label visible in systemd-boot menu
+  #
+  # system.nixos.label sets the string shown in /boot/loader/entries/*.conf
+  # as the boot entry title. systemd-boot displays it directly in the menu.
+  #
+  # Format: "auto-upgrade-DD-MM-YYYY" for automatic upgrades.
+  # For manual rebuilds the label is whatever you set it to, or the default
+  # nixos-version string if not overridden.
+  #
+  # The label is evaluated at *build time*, so we use a build-time timestamp
+  # via builtins.currentTime (seconds since epoch) converted to a date string
+  # through pkgs.runCommand. This means every nixos-rebuild bakes the current
+  # date into the label — including manual rebuilds. That is fine and expected.
+  # ---------------------------------------------------------------------------
+  system.nixos.label =
+    let
+      # Convert epoch → DD-MM-YYYY at build time using coreutils date
+      buildDate = builtins.readFile (
+        pkgs.runCommand "build-date" {} ''
+          echo -n $(${pkgs.coreutils}/bin/date -d @${toString builtins.currentTime} +%d-%m-%Y) > $out
+        ''
+      );
+    in
+      "auto-upgrade-${buildDate}";
 
   systemd.services.notify-upgrade-failure = {
     serviceConfig = {
