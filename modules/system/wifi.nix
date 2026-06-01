@@ -44,8 +44,8 @@ in {
 
   # Entire wifi.env file containing all WiFi passwords
   sops.secrets."wifi-env-file" = {
-    sopsFile = ../../secrets/wifi.yaml;
-    format = "yaml";
+    sopsFile = ../../secrets/wifi.env;
+    format = "dotenv";
     restartUnits = ["NetworkManager.service"];
     mode = "0600";
     owner = "root";
