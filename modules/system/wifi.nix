@@ -5,6 +5,10 @@
 # Usage:
 # - Permanent networks (home, work) defined here with encrypted passwords
 # - Ad-hoc networks (cafes, hotels) added with: nmcli device wifi connect "SSID" password "pass"
+#
+# NOTE (NixOS 26.05+): Do NOT set networking.wireless.enable = false.
+# NetworkManager now delegates wpa_supplicant to the networking.wireless
+# module internally. Forcing it off breaks WiFi entirely.
 {
   config,
   lib,
@@ -21,10 +25,9 @@
       hostname
     } or "192.168.50.99"; # Fallback IP if host unknown
 in {
-  # Disable wpa_supplicant (conflicts with NetworkManager)
-  networking.wireless.enable = lib.mkForce false;
-
   # Enable NetworkManager
+  # Note: networking.wireless is managed internally by NetworkManager in 26.05+
+  # Do NOT set networking.wireless.enable = false here.
   networking.networkmanager = {
     enable = true;
 
@@ -41,8 +44,8 @@ in {
 
   # Entire wifi.env file containing all WiFi passwords
   sops.secrets."wifi-env-file" = {
-    sopsFile = ../../secrets/wifi.env;
-    format = "dotenv";
+    sopsFile = ../../secrets/wifi.yaml;
+    format = "yaml";
     restartUnits = ["NetworkManager.service"];
     mode = "0600";
     owner = "root";
@@ -207,10 +210,8 @@ in {
                     continue
 
                 # Inject password after [wifi-security] section using safe string split
-                # This avoids regex interpretation of backslash sequences like \x, \n, etc.
                 if "\n[wifi-security]\n" in content:
                     parts = content.split("\n[wifi-security]\n", 1)
-                    # Build new content with password safely inserted (no escaping issues)
                     content = (
                         parts[0] +
                         "\n[wifi-security]\n" +
