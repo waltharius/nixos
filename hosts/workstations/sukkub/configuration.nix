@@ -37,6 +37,11 @@
   systemd.services."serial-getty@".enable       = false;
 
   nixpkgs.config.allowUnfree = true;
+  # Required for NVIDIA legacy drivers (470.xx for Maxwell/Quadro M2000M).
+  # legacy_470 is not covered by the generic allowUnfree flag — it needs
+  # an explicit licence acceptance per NVIDIA's redistribution terms.
+  nixpkgs.config.nvidia.acceptLicense = true;
+
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   environment.systemPackages = with pkgs; [
