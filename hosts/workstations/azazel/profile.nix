@@ -43,4 +43,8 @@
     ../../../modules/services/tailscale.nix
     ../../../modules/services/podman.nix
   ];
+
+  # Enable SOPS secrets management (age key at /var/lib/sops-nix/key.txt).
+  # Must be set per-host because the secrets module is opt-in.
+  services.secrets.enable = true;
 }
