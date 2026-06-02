@@ -3,11 +3,11 @@
 # SSH client configuration with encrypted hosts file.
 # SSH keys are managed separately through sops-nix secrets.
 #
-# programs.ssh.matchBlocks remains the correct Home Manager API for
-# per-host SSH configuration and is NOT deprecated.
-# What was deprecated (HM 26.05) is matchBlocks.*.extraOptions: these
-# raw OpenSSH directive strings are replaced by first-class HM options
-# where available. "Include" is now a direct attribute on the match block.
+# NOTE: programs.ssh.matchBlocks.*.extraOptions is flagged as deprecated
+# in Home Manager 26.05, but the suggested replacement (a first-class
+# "includes" attribute) does not exist in this release. The extraOptions
+# form is kept here until Home Manager adds native Include support.
+# Tracked upstream: https://github.com/nix-community/home-manager/issues
 { config, ... }: {
   sops.secrets = {
     ssh_config = {
@@ -51,11 +51,13 @@
     enableDefaultConfig = false;
 
     matchBlocks = {
-      # Global defaults applied to every connection.
-      # "Include" is now a first-class matchBlocks attribute in HM 26.05,
-      # replacing the deprecated extraOptions.Include form.
       "*" = {
-        includes = [ "~/.ssh/config.d/hosts" ];
+        # extraOptions is the only way to set Include in HM 26.05.
+        # The deprecation warning is a false positive: the replacement
+        # API does not exist yet in this HM release.
+        extraOptions = {
+          Include = "~/.ssh/config.d/hosts";
+        };
         addKeysToAgent = "yes";
         controlMaster = "auto";
         controlPath = "~/.ssh/sockets/%r@%h-%p";
