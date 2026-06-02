@@ -24,8 +24,11 @@
 
     # niri scrollable-tiling Wayland compositor.
     # Provides:
-    #   niri-flake.nixosModules.niri  — programs.niri.enable (NixOS)
-    #   niri-flake.homeModules.niri   — programs.niri.settings (Home Manager)
+    #   niri-flake.nixosModules.niri  — programs.niri.enable (NixOS, session reg.)
+    #                                   also auto-injects the HM module when
+    #                                   home-manager is present — do NOT add
+    #                                   homeModules.niri to sharedModules,
+    #                                   that causes a duplicate-option error.
     niri-flake = {
       url = "github:sodiboo/niri-flake";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -84,8 +87,10 @@
           ./modules/system/wifi.nix
           ./modules/system/base.nix
 
-          # niri NixOS module: registers niri session in GDM/greetd,
-          # provides programs.niri.enable option.
+          # niri NixOS module: registers niri as a GDM session and provides
+          # programs.niri.enable. It also auto-injects homeModules.niri into
+          # home-manager — do NOT add homeModules.niri to sharedModules,
+          # that would cause a duplicate-option build error.
           niri-flake.nixosModules.niri
 
           sops-nix.nixosModules.sops
@@ -108,8 +113,8 @@
                 nixvim.homeModules.nixvim
                 nix-flatpak.homeManagerModules.nix-flatpak
                 sops-nix.homeManagerModules.sops
-                # niri HM module: provides programs.niri.settings option.
-                niri-flake.homeModules.niri
+                # niri-flake.homeModules.niri intentionally omitted —
+                # nixosModules.niri injects it automatically.
               ];
             };
           }
