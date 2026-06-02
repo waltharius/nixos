@@ -20,11 +20,15 @@
 #   services.swayidle    — idle: lock at 5 min, suspend at 10 min
 #   systemd.user.services.polkit-agent  — GUI privilege dialogs
 #
-# SCHEMA NOTE (niri-flake / niri-stable 25.02):
-#   focus-ring and border use nested submodules:
-#     focus-ring.active.color   focus-ring.active.width
-#     focus-ring.inactive.color
-#   NOT flat fields: active-color / inactive-color / width
+# SCHEMA NOTE (niri-flake / niri-stable 26.05):
+#   focus-ring.width    — top-level width of the ring (float-or-int)
+#   focus-ring.active   — null or <decoration>  where <decoration> is attrTag:
+#                           { color = "<css-color>"; }
+#                         or
+#                           { gradient = { from=...; to=...; ... }; }
+#   focus-ring.inactive — same type as active
+#
+#   width MUST NOT be nested inside active/inactive.
 { config, lib, pkgs, ... }:
 let
   cfg      = config.marcin.desktop;
@@ -70,13 +74,15 @@ lib.mkIf niri {
       ];
       default-column-width = { proportion = 0.5; };
 
-      # focus-ring uses nested submodules in niri-flake schema.
-      # active.color / inactive.color / active.width
+      # focus-ring schema (niri-flake 26.05):
+      #   width   — separate numeric field, NOT inside active/inactive
+      #   active  — attrTag: either { color = "…"; } or { gradient = {…}; }
+      #   inactive — same attrTag type
       focus-ring = {
         enable = true;
-        active.color   = "#7aa2f7";
-        active.width   = 2;
-        inactive.color = "#3b4261";
+        width  = 2;
+        active   = { color = "#7aa2f7"; };
+        inactive = { color = "#3b4261"; };
       };
 
       border.enable = false;
