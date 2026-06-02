@@ -15,8 +15,8 @@
 # 3. In the host profile (users/marcin/profiles/<hostname>.nix) add
 #    the DE name to marcin.desktop:
 #
-#      marcin.desktop = [ "gnome" "sway" ];   # both active
-#      marcin.desktop = "hyprland";           # single value also works
+#      marcin.desktop = [ "gnome" "sway" ];     # both active
+#      marcin.desktop = "hyprland";             # single value also works
 #
 # MULTIPLE DEs ON ONE HOST
 # ------------------------
@@ -38,11 +38,10 @@ let
   # Feature flags — add one line here for each new DE.
   gnome = lib.elem "gnome" desktops;
   niri  = lib.elem "niri"  desktops;
-  # sway  = lib.elem "sway"  desktops;   # future example
+  # sway  = lib.elem "sway"  desktops;      # future example
   # hypr  = lib.elem "hyprland" desktops;
 
-  # GNOME extensions list, defined here so it can be reused in both
-  # home.packages and dconf.settings.
+  # GNOME extensions list — reused in home.packages and dconf.settings.
   gnomeExtensions = with pkgs.gnomeExtensions; [
     appindicator
     run-or-raise
@@ -87,6 +86,13 @@ in {
         };
         "org/gnome/settings-daemon/plugins/power" = {
           lid-close-suspend-with-external-monitor = true;
+        };
+        # Ptyxis terminal zoom — set to 120 % so the font is readable at
+        # any screen density (4K on sukkub, FHD on azazel).
+        # 1.0 = 100 %, 1.2 = 120 %, 1.5 = 150 %, etc.
+        # Ptyxis applies this value to every new window and tab.
+        "org/gnome/Ptyxis" = {
+          text-scale-factor = 1.2;
         };
       };
 

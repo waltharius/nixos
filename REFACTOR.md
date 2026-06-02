@@ -1,527 +1,212 @@
-# Server Infrastructure Refactoring - COMPLETED
+# NixOS Repository — Refactoring Log
 
-## Summary
+This document is the living record of every intentional structural change made
+to the repository. It replaces speculative planning with a factual history:
+each completed phase is marked ✅, known pending work is listed at the bottom.
 
-This refactoring has successfully restructured the server configuration to provide a scalable, secure, and maintainable infrastructure with centralized deployment using Colmena.
+---
 
-## Goals Achieved
+## Phase 1 — Server Infrastructure (completed)
 
-✅ Unified server configuration structure  
-✅ Colmena-based centralized deployment  
-✅ Shared SOPS keys for simplified secret management  
-✅ Proxmox LXC template for rapid server provisioning  
-✅ Role-based service modules  
-✅ Secure admin user (nixadm) with root SSH disabled  
-✅ FreeIPA DNS integration  
-✅ Automatic Atuin login across all servers  
-✅ Base-LXC module for common container configuration  
+Restructured the server side of the repository to support scalable,
+Colmena-based deployment of Proxmox LXC containers.
 
-## Changes Made
-
-### 1. Directory Structure
-
-**Before:**
-```
-hosts/
-  containers/
-    nixos-test/
-modules/
-  home/
-    server-profile.nix
-```
-
-**After:**
-```
-hosts/
-  servers/              # Unified location for all servers
-    nixos-test/         # Template & testing
-    actual-budget/      # Actual Budget service
-modules/
-  servers/              # Server-specific modules
-    base-lxc.nix        # Common LXC configuration
-    users.nix           # nixadm user definition
-    roles/              # Service modules
-      actual-budget.nix
-users/
-  nixadm/               # Dedicated admin user
-    home.nix
-scripts/
-  create-server-from-template.sh  # Automation script
-colmena.nix             # Deployment targets
-```
-
-### 2. Colmena Integration
-
-**New file:** `colmena.nix`
-
-- Centralized deployment configuration
-- All servers defined in one place
-- Tag-based deployment (`@production`, `@lxc`, `@test`)
-- Consistent deployment settings
+**Key outcomes:**
+- `hosts/servers/` replaces the old `hosts/containers/`
+- `modules/servers/base-lxc.nix` provides a common baseline for every container
+- `modules/servers/roles/` holds opt-in service modules (`actual-budget.nix`, …)
+- `users/nixadm/` — dedicated admin user; root SSH disabled on all servers
+- `colmena.nix` — single-file deployment manifest with tag-based targeting
+- Shared SOPS key (`&servers-shared`) so every LXC can decrypt secrets without
+  per-host re-encryption
+- Proxmox template (ID 9000) for 5-minute new-server provisioning
+- `scripts/create-server-from-template.sh` — automation helper
 
 **Deployment workflow:**
 ```bash
-# Deploy to single server
-colmena apply --on nixos-test
-
-# Deploy to tagged servers
-colmena apply --on @production
-
-# Deploy to all servers
-colmena apply
+colmena apply --on <hostname>   # single host
+colmena apply --on @production  # by tag
+colmena apply                   # all hosts
 ```
 
-### 3. Base LXC Module
+**Adding a new server:**
+1. Clone template: `./scripts/create-server-from-template.sh <name> <id> <ip>`
+2. Add entry to `colmena.nix`
+3. Create `hosts/servers/<name>/configuration.nix` importing `base-lxc.nix` and
+   the desired role module(s)
+4. `colmena apply --on <name>`
 
-**New file:** `modules/servers/base-lxc.nix`
+---
 
-Provides common configuration for all LXC containers:
+## Phase 2 — Workstation `profile.nix` (completed)
 
-- ✅ nixadm user with sudo
-- ✅ Root SSH disabled
-- ✅ FreeIPA DNS configuration
-- ✅ Common firewall ports (22, 5006)
-- ✅ Nix sandbox disabled (for LXC)
-- ✅ Trusted users for Colmena
-- ✅ SOPS configuration
-- ✅ Automatic Atuin login
-- ✅ Home-manager integration
+Decoupled per-host feature selection from hardware configuration.
+Previously, `configuration.nix` on each workstation imported every module
+directly. Now the split is:
 
-### 4. Shared SOPS Keys
+| File | Purpose |
+|------|---------|
+| `hosts/workstations/<host>/configuration.nix` | Hardware only (filesystem, kernel, networking, locale) |
+| `hosts/workstations/<host>/profile.nix` | Feature selection — the only file to edit when enabling/disabling a module |
+| `hosts/workstations/<host>/tlp.nix` | Per-host TLP power tuning |
+| `hosts/workstations/<host>/hibernate.nix` | Per-host hibernate/suspend policy |
 
-**Strategy:** All servers share a single SOPS key
+**`flake.nix`** calls `mkHost` which automatically imports `profile.nix`,
+so no other file changes when a new workstation is added.
 
-**Benefits:**
-- ✅ Simplified secret management
-- ✅ Single encryption for all servers
-- ✅ Template includes the key
-- ✅ New servers work immediately
+**Adding a new workstation:**
+1. Create `hosts/workstations/<name>/` with `configuration.nix`,
+   `hardware-configuration.nix`, `profile.nix`, `tlp.nix`, `hibernate.nix`
+2. Add the host to `flake.nix` with `mkHost`
+3. Add `users/marcin/profiles/<name>.nix` (see Phase 4)
+4. That is all — no other file needs to change
 
-**Configuration in `.sops.yaml`:**
-```yaml
-keys:
-  - &servers-shared age1qu4pnzn2teff7m78nrhzq4vct4qczp2ajhfda559xgpk2n08qswqzyh2aw
+---
 
-creation_rules:
-  - path_regex: secrets/atuin-(password|key)\.txt$
-    key_groups:
-      - age:
-          - *admin
-          - *servers-shared
+## Phase 3 — Dead file cleanup (completed)
+
+Removed modules that were superseded by the per-host split in Phase 2:
+
+- ~~`modules/laptop/tlp.nix`~~ — replaced by `hosts/workstations/*/tlp.nix`
+- ~~`modules/laptop/hibernate.nix`~~ — replaced by `hosts/workstations/*/hibernate.nix`
+
+`modules/laptop/` now contains only actively-imported modules:
+`acpi-fix.nix`, `acpi-suspend.nix`, `fingerprint.nix`, `nvidia.nix`,
+`suspend-fix.nix`, `thunderbolt.nix`, `thunderbolt-coldboot-fix.nix`,
+`thunderbolt-hibernate-fix.nix`.
+
+---
+
+## Phase 4 — Home Manager modularisation (completed)
+
+Split the 300-line `users/marcin/home.nix` monolith into focused modules.
+
+### New structure
+
+```
+users/marcin/
+├── home.nix                    # entry point — identity, sops, imports
+├── base/                       # identical on every host
+│   ├── git.nix                 # programs.git identity & settings
+│   ├── fonts.nix               # fontconfig + custom font symlink
+│   ├── packages.nix            # all home.packages
+│   ├── environment.nix         # sessionVariables
+│   ├── nextcloud.nix           # Nextcloud sync-exclude.lst
+│   ├── autostart.nix           # XDG autostart .desktop entries
+│   ├── solaar.nix              # Logitech MX Keys S + MX Master 3S config
+│   └── desktop-extensions.nix # marcin.desktop option — see below
+└── profiles/
+    ├── azazel.nix              # marcin.desktop = "gnome"
+    └── sukkub.nix              # marcin.desktop = "gnome" (niri-ready)
 ```
 
-**Key location on all servers:**
-```
-/var/lib/sops-nix/key.txt
-```
+### `marcin.desktop` — per-host DE selection
 
-**IMPORTANT:** `age.generateKey = false` in `modules/system/secrets.nix` prevents unique key generation.
+`desktop-extensions.nix` declares a custom NixOS option:
 
-### 5. Proxmox LXC Template
-
-**Template ID:** 9000  
-**Name:** `nixos-base-template`  
-**Based on:** nixos-test (ID 109)
-
-**Contains:**
-- ✅ Shared SOPS key at `/var/lib/sops-nix/key.txt`
-- ✅ nixadm user configured
-- ✅ All base-lxc.nix settings
-- ✅ Sandbox disabled
-- ✅ Ready for immediate deployment
-
-**Creation script:** `scripts/create-server-from-template.sh`
-
-**Usage:**
-```bash
-./scripts/create-server-from-template.sh hostname 111 192.168.50.11
-```
-
-### 6. Role-Based Service Modules
-
-**New directory:** `modules/servers/roles/`
-
-**Current roles:**
-- `actual-budget.nix` - Actual Budget service
-
-**Pattern for new services:**
 ```nix
-{ config, lib, pkgs, ... }:
-
-with lib;
-let
-  cfg = config.services.server-role.service-name;
-in {
-  options.services.server-role.service-name = {
-    enable = mkEnableOption "service-name role";
-    # service-specific options
-  };
-
-  config = mkIf cfg.enable {
-    # service configuration
-  };
-}
-```
-
-### 7. Security Improvements
-
-**nixadm user:**
-- Dedicated admin user (not root)
-- Passwordless sudo (wheel group)
-- SSH key authentication only
-- Same shell environment across all servers
-
-**Root account:**
-- SSH disabled: `PermitRootLogin = "no"`
-- Still accessible via Proxmox console (emergency)
-- No password authentication
-
-**Nix settings:**
-```nix
-nix.settings = {
-  trusted-users = [ "nixadm" "root" "@wheel" ];
-  sandbox = false;  # Required for LXC
+options.marcin.desktop = lib.mkOption {
+  type = with lib.types; either str (listOf str);
+  default = [];
 };
 ```
 
-### 8. FreeIPA Integration
+Each host profile sets this option. The module then activates only the
+configuration blocks that belong to the listed DE(s).
 
-**DNS only** (not full LDAP/Kerberos):
+**Adding a new desktop environment (e.g. Sway, Hyprland):**
+1. Add a feature flag in `desktop-extensions.nix`:
+   ```nix
+   sway = lib.elem "sway" desktops;
+   ```
+2. Add a `lib.mkIf sway { … }` block with the packages and config files
+   needed by that DE.
+3. In the host profile set:
+   ```nix
+   marcin.desktop = "sway";          # single DE
+   marcin.desktop = [ "gnome" "sway" ]; # both active simultaneously
+   ```
+4. No other file changes.
 
+**Switching sukkub to niri:**
+Edit `users/marcin/profiles/sukkub.nix`:
 ```nix
-networking = {
-  domain = "home.lan";
-  nameservers = [ "192.168.50.1" ];
-  search = [ "home.lan" ];
-};
+marcin.desktop = "niri";          # niri only
+# or
+marcin.desktop = [ "gnome" "niri" ]; # both
 ```
+Then fill in the niri block in `base/desktop-extensions.nix`.
 
-**Benefits:**
-- ✅ Hostname resolution (`actual.home.lan`)
-- ✅ Service discovery
-- ✅ Maintains declarative user management
-- ✅ No complex Kerberos setup needed
+---
 
-### 9. Atuin Integration
+## Pending / Backlog
 
-**Automatic login on all servers:**
+Items noted during the refactoring sessions, to be addressed in future sessions.
 
-```nix
-# In modules/servers/base-lxc.nix
-systemd.user.services.atuin-auto-login = {
-  description = "Automatic Atuin login";
-  wantedBy = [ "default.target" ];
-  serviceConfig = {
-    Type = "oneshot";
-    ExecStart = pkgs.writeShellScript "atuin-login" ''
-      export ATUIN_PASSWORD=$(cat ${config.sops.secrets.atuin-password.path})
-      ${pkgs.atuin}/bin/atuin login -u waltharius -k "$(cat ${config.sops.secrets.atuin-key.path})" -p "$ATUIN_PASSWORD"
-      ${pkgs.atuin}/bin/atuin sync
-    '';
-  };
-};
-```
+### Short term
 
-**Result:** All servers share command history automatically.
+- [ ] **`services.secrets.enable` default** — evaluate making it `true` by
+  default in `modules/system/secrets.nix` since every workstation enables it;
+  discuss trade-offs (bootstrap, server hosts that don't use it)
 
-## Implementation Timeline
+- [ ] **Yazi issues** (regression from recent config changes):
+  - TOML parse error at startup (`[[open.rules]]` missing `url`/`mime`)
+  - Right-column preview not working
+  - `README.md` opens in OnlyOffice instead of Neovim
+  - Folder icons showing as ANSI characters instead of Nerd Font glyphs
 
-### Phase 1: Structure ✅
-- Created `hosts/servers/` directory
-- Created `modules/servers/` directory
-- Created `users/nixadm/` directory
-- Moved nixos-test from `hosts/containers/`
+- [ ] **NVIDIA on sukkub** — verify driver and power management after full
+  reboot; no errors observed yet but not stress-tested
 
-### Phase 2: Base Configuration ✅
-- Created `modules/servers/base-lxc.nix`
-- Created `modules/servers/users.nix`
-- Created `users/nixadm/home.nix`
-- Configured FreeIPA DNS
-- Disabled root SSH
+### Medium term
 
-### Phase 3: SOPS Integration ✅
-- Disabled `age.generateKey`
-- Shared key deployed to nixos-test
-- Updated `.sops.yaml` with `servers-shared` key
-- Encrypted Atuin secrets
+- [ ] **Flatpak auto-update on laptops** — investigate `nix-flatpak`
+  `services.flatpak.update.auto.enable`; assess safety (no Nix rollback for
+  Flatpak apps, acceptable for Signal/Spotify/Brave)
 
-### Phase 4: Colmena Setup ✅
-- Created `colmena.nix`
-- Migrated nixos-test deployment
-- Tested deployment workflow
-- Added deployment tags
+- [ ] **Niri setup on sukkub** — fill in the niri block in
+  `base/desktop-extensions.nix` (packages: niri, waybar, mako, swaylock, …)
+  and test Wayland-native workflow
 
-### Phase 5: Template Creation ✅
-- Created Proxmox template from nixos-test
-- Template ID: 9000
-- Created automation script
-- Documented template usage
+### Long term
 
-### Phase 6: First Service ✅
-- Created `modules/servers/roles/actual-budget.nix`
-- Created `hosts/servers/actual-budget/`
-- Deployed via Colmena
-- Configured HTTPS with Caddy
-- Tested service functionality
-
-## Files Created
-
-### New Files
-```
-colmena.nix
-modules/servers/base-lxc.nix
-modules/servers/users.nix
-modules/servers/roles/actual-budget.nix
-users/nixadm/home.nix
-hosts/servers/nixos-test/configuration.nix
-hosts/servers/nixos-test/hardware-configuration.nix
-hosts/servers/actual-budget/configuration.nix
-hosts/servers/actual-budget/hardware-configuration.nix
-scripts/create-server-from-template.sh
-secrets/atuin-password.txt (encrypted)
-secrets/atuin-key.txt (encrypted)
-docs/SERVER-DEPLOYMENT.org
-```
-
-### Modified Files
-```
-flake.nix
-  - Updated paths: hosts/containers → hosts/servers
-  - Changed targetUser to "nixadm"
-  - Added trusted-users and sandbox settings
-  - Updated home-manager user from root to nixadm
-
-.sops.yaml
-  - Added &servers-shared key
-  - Updated Atuin secret rules
-  - Renamed &nixos-test to &servers-shared
-
-modules/system/secrets.nix
-  - Changed age.generateKey to false
-
-README.org
-  - Added server infrastructure section
-  - Updated repository structure
-  - Added Colmena usage
-  - Added SOPS shared key documentation
-```
-
-### Removed Files
-```
-modules/home/server-profile.nix (replaced by users/nixadm/home.nix)
-hosts/containers/ (moved to hosts/servers/)
-```
-
-## Known Issues & Solutions
-
-### Issue 1: Bootstrap Chicken-Egg Problem ✅ SOLVED
-
-**Problem:** Initial deployment fails because Colmena tries to SSH as `nixadm`, but user doesn't exist yet.
-
-**Solution:** Template already contains nixadm user. All new servers cloned from template work immediately.
-
-### Issue 2: Trusted Keys Error ✅ SOLVED
-
-**Problem:** Colmena fails to copy store paths to server.
-
-**Solution:** Added to `base-lxc.nix`:
-```nix
-nix.settings.trusted-users = [ "nixadm" "root" "@wheel" ];
-```
-
-### Issue 3: Starship Errors During Activation ✅ SOLVED
-
-**Problem:** Starship errors in non-interactive shells (TERM=dumb).
-
-**Solution:** Added check in `users/nixadm/home.nix`:
-```nix
-programs.bash.initExtra = ''
-  if [[ $- == *i* ]] && [[ "$TERM" != "dumb" ]]; then
-    eval "$(starship init bash)"
-  fi
-'';
-```
-
-### Issue 4: Actual Budget SharedArrayBuffer Error ✅ SOLVED
-
-**Problem:** Actual Budget requires HTTPS with specific security headers.
-
-**Solution:** Configured Caddy reverse proxy with required headers:
-```caddyfile
-actual.home.lan:443 {
-    tls /etc/ssl/local/actual.crt /etc/ssl/local/actual.key
-    reverse_proxy 192.168.50.11:5006
-    
-    header {
-        Cross-Origin-Embedder-Policy "require-corp"
-        Cross-Origin-Opener-Policy "same-origin"
-    }
-}
-```
-
-## Deployment Workflow
-
-### 1. Create New Server
-
-```bash
-# Create LXC from template
-./scripts/create-server-from-template.sh bookstack 112 192.168.50.12
-```
-
-### 2. Add to Colmena
-
-```nix
-# In colmena.nix
-bookstack = mkServerDeployment "bookstack" "192.168.50.12" ["production" "lxc"];
-```
-
-### 3. Create Configuration
-
-```bash
-mkdir -p hosts/servers/bookstack
-
-# Create configuration.nix
-cat > hosts/servers/bookstack/configuration.nix <<EOF
-{...}: {
-  imports = [
-    ./hardware-configuration.nix
-    ../../../modules/servers/base-lxc.nix
-    ../../../modules/servers/roles/bookstack.nix
-  ];
-  
-  networking.hostName = "bookstack";
-  system.stateVersion = "25.11";
-  
-  services.server-role.bookstack.enable = true;
-}
-EOF
-```
-
-### 4. Create Role Module (if needed)
-
-```bash
-cat > modules/servers/roles/bookstack.nix <<EOF
-{ config, lib, pkgs, ... }:
-
-with lib;
-let
-  cfg = config.services.server-role.bookstack;
-in {
-  options.services.server-role.bookstack = {
-    enable = mkEnableOption "bookstack role";
-    port = mkOption {
-      type = types.port;
-      default = 8080;
-      description = "Port to run BookStack on";
-    };
-  };
-
-  config = mkIf cfg.enable {
-    # Service configuration here
-  };
-}
-EOF
-```
-
-### 5. Deploy
-
-```bash
-colmena apply --on bookstack
-```
-
-## Testing Checklist
-
-- [x] `nix flake check` passes
-- [x] Deployed successfully to nixos-test
-- [x] Can SSH as nixadm
-- [x] Root SSH disabled
-- [x] Atuin works and syncs
-- [x] Starship prompt displays correctly
-- [x] Sudo works without password
-- [x] Colmena deploy works with nixadm user
-- [x] SOPS decryption works
-- [x] Template created successfully
-- [x] New server created from template
-- [x] actual-budget deployed and working
-- [x] HTTPS configured with proper headers
-- [x] FreeIPA DNS resolution works
-- [x] Documentation updated
-
-## Benefits Realized
-
-### Operational
-- ✅ **5-minute server deployment** (from template to running service)
-- ✅ **Single command deployment** across all servers
-- ✅ **Consistent configuration** on all servers
-- ✅ **Unified secret management** with shared key
-- ✅ **Centralized command history** via Atuin
-
-### Security
-- ✅ **No root SSH access** on any server
-- ✅ **SSH key authentication only**
-- ✅ **Encrypted secrets** at rest
-- ✅ **Audit trail** with dedicated admin user
-- ✅ **Emergency access** via Proxmox console
-
-### Scalability
-- ✅ **Template-based provisioning** (not manual setup)
-- ✅ **Role-based modules** for easy service addition
-- ✅ **Tag-based deployment** for selective updates
-- ✅ **Multi-architecture support** ready (ARM, x86)
-
-### Maintainability
-- ✅ **Declarative configuration** for all settings
-- ✅ **Version control** for all changes
-- ✅ **Atomic updates** with rollback capability
-- ✅ **Consistent tooling** across all servers
-
-## Future Enhancements
-
-### Short Term
-- [ ] Add more service roles (BookStack, Immich, Gitea)
-- [ ] Automated backup configuration
-- [ ] Monitoring integration (Prometheus/Grafana)
-- [ ] Log aggregation
-
-### Medium Term
+- [ ] Add more server roles (BookStack, Immich, Gitea)
+- [ ] Automated backup configuration for servers
+- [ ] Monitoring stack (Prometheus + Grafana)
 - [ ] ARM server support (Raspberry Pi)
-- [ ] VM template (in addition to LXC)
-- [ ] Automated certificate renewal
-- [ ] Service discovery automation
 
-### Long Term
-- [ ] Kubernetes integration for container orchestration
-- [ ] Multi-site replication
-- [ ] Disaster recovery automation
-- [ ] Performance monitoring and optimization
+---
 
-## Lessons Learned
+## Repository Structure (current)
 
-1. **Template-based approach is powerful** - 90% time savings on new server deployment
-2. **Shared SOPS key simplifies operations** - No need to re-encrypt for each server
-3. **Colmena tag system is useful** - Deploy to subsets easily (`@production`, `@test`)
-4. **Base module reduces duplication** - Common config in one place
-5. **Role modules scale well** - Easy to add new services
-6. **FreeIPA DNS is sufficient** - No need for full LDAP/Kerberos
-7. **Starship needs TERM check** - Prevent errors in non-interactive shells
-8. **HTTPS headers matter** - Some apps require specific security headers
-
-## Conclusion
-
-The server infrastructure refactoring has successfully achieved all its goals:
-
-✅ Scalable architecture supporting rapid server deployment  
-✅ Secure configuration with proper user management  
-✅ Centralized deployment with Colmena  
-✅ Simplified secret management with shared keys  
-✅ Template-based provisioning for consistency  
-✅ Well-documented processes and workflows  
-
-The infrastructure is now production-ready and can easily scale to support dozens of services.
-
-## Resources
-
-- [Colmena Documentation](https://colmena.cli.rs/)
-- [sops-nix](https://github.com/Mic92/sops-nix)
-- [NixOS Manual](https://nixos.org/manual/nixos/stable/)
-- [Server Deployment Guide](docs/SERVER-DEPLOYMENT.org)
+```
+nixos/
+├── flake.nix                   # inputs, mkHost helper, nixosConfigurations
+├── flake.lock
+├── colmena.nix                 # server deployment targets
+├── .sops.yaml                  # SOPS age key registry
+├── secrets/                    # encrypted secret files
+├── hosts/
+│   ├── workstations/
+│   │   ├── azazel/             # ThinkPad T16 Gen3
+│   │   └── sukkub/             # ThinkPad P50 (test/POC)
+│   ├── servers/
+│   │   ├── nixos-test/
+│   │   └── actual-budget/
+│   ├── physical/               # altair (bare-metal homelab)
+│   └── virtual/                # VMs
+├── modules/
+│   ├── system/                 # NixOS system-level modules
+│   ├── laptop/                 # laptop hardware modules
+│   ├── servers/                # server-specific modules
+│   ├── services/               # shared services (ssh, tailscale, …)
+│   ├── home/                   # Home Manager modules
+│   └── utils/                  # yazi, nixvim, …
+├── users/
+│   ├── marcin/                 # workstation user (see Phase 4)
+│   └── nixadm/                 # server admin user
+├── packages/                   # custom Nix packages
+├── scripts/                    # helper shell scripts
+├── fonts/                      # custom font files
+└── docs/                       # supplementary documentation
+```
