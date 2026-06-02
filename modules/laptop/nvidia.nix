@@ -6,14 +6,39 @@
 # by the current stable NVIDIA driver (595.x+). The last driver branch with
 # official Maxwell support is 470.xx. Using nvidiaPackages.legacy_470 here.
 # See: https://www.nvidia.com/en-us/drivers/unix/legacy-gpu/
+#
+# PRIME MODE: offload (not sync)
+# --------------------------------
+# PRIME sync.enable=true makes Intel own the display and NVIDIA render
+# everything. GNOME has special integration that handles this transparently.
+# Non-GNOME Wayland compositors (niri, sway, hyprland) do NOT have this
+# integration — they crash or produce a black screen when sync is active,
+# because they cannot negotiate GBM buffer handoff correctly with the
+# legacy_470 driver on Maxwell.
+#
+# PRIME offload is the correct mode for mixed-DE setups: Intel drives the
+# display natively (faster resume, lower power), and NVIDIA is activated
+# explicitly per-application with `nvidia-offload <cmd>` or the
+# __NV_PRIME_RENDER_OFFLOAD env var. This works identically under GNOME
+# and niri.
 {
   config,
   lib,
   pkgs,
   ...
-}: {
+}: let
+  # Wrapper script that sets the three env vars needed to offload a single
+  # application to the NVIDIA GPU. Usage: nvidia-offload <command> [args…]
+  nvidia-offload = pkgs.writeShellScriptBin "nvidia-offload" ''
+    export __NV_PRIME_RENDER_OFFLOAD=1
+    export __NV_PRIME_RENDER_OFFLOAD_PROVIDER=NVIDIA-G0
+    export __GLX_VENDOR_LIBRARY_NAME=nvidia
+    export __EGL_VENDOR_LIBRARY_FILENAMES=${config.hardware.nvidia.package}/share/glvnd/egl_vendor.d/10_nvidia.json
+    exec "$@"
+  '';
+in {
   hardware.graphics = {
-    enable = true;
+    enable      = true;
     enable32Bit = true;
   };
 
@@ -39,14 +64,16 @@
 
     nvidiaSettings = true;
 
-    # PRIME Sync: Intel manages the display, NVIDIA renders everything.
+    # PRIME Offload: Intel drives the display; NVIDIA renders only when
+    # explicitly requested via the nvidia-offload wrapper or the env vars.
     # Bus IDs verified via lspci on ThinkPad P50:
     #   00:02.0 Intel HD Graphics 530  → PCI:0:2:0
     #   01:00.0 Quadro M2000M          → PCI:1:0:0
     # If you move this config to a different machine, verify with:
     #   lspci | grep -E "VGA|3D"
     prime = {
-      sync.enable = true;
+      offload.enable            = true;
+      offload.enableOffloadCmd  = false;  # we ship our own wrapper below
       intelBusId  = "PCI:0:2:0";
       nvidiaBusId = "PCI:1:0:0";
     };
@@ -57,7 +84,8 @@
     RUNTIME_PM_DRIVER_BLACKLIST = "nvidia nouveau";
   };
 
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = [
     nvtopPackages.nvidia
-  ];
+    nvidia-offload
+  ] ++ (with pkgs; []);
 }

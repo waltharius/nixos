@@ -28,9 +28,6 @@ lib.mkIf niri {
     };
 
     # Built-in 4K panel: scale 2.0 for crisp HiDPI rendering.
-    # External monitors are auto-detected at 1.0 scale.
-    # Override per-monitor if needed once you know the output names
-    # (run `niri msg outputs` inside a running niri session).
     outputs."eDP-1".scale = 2.0;
 
     layout = {
@@ -42,22 +39,22 @@ lib.mkIf niri {
         { proportion = 0.67; }
       ];
       default-column-width = { proportion = 0.5; };
-
-      # focus-ring schema (niri-flake 26.05):
-      #   width   — separate numeric field, NOT inside active/inactive
-      #   active  — attrTag: either { color = "…"; } or { gradient = {…}; }
-      #   inactive — same attrTag type
       focus-ring = {
         enable   = true;
         width    = 2;
         active   = { color = "#7aa2f7"; };
         inactive = { color = "#3b4261"; };
       };
-
       border.enable = false;
     };
 
     animations.enable = true;
+
+    # Spawn niri's own portal helper so screen sharing works without GNOME.
+    # DISPLAY env is intentionally absent — niri runs pure Wayland.
+    spawn-at-startup = [
+      { command = [ "${pkgs.xdg-desktop-portal}/libexec/xdg-desktop-portal" ]; }
+    ];
 
     window-rules = [
       { matches = [{ app-id = "org.gnome.Calculator"; }]; open-floating = true; }
@@ -65,34 +62,31 @@ lib.mkIf niri {
       { matches = [{ title  = ".*[Pp]assword.*";       }]; open-floating = true; }
     ];
 
-    # ---------------------------------------------------------------------------
-    # Keybindings
-    # ---------------------------------------------------------------------------
     binds = {
-      # ── Applications ────────────────────────────────────────────────────────
+      # Applications
       "Super+T".action.spawn       = [ "ptyxis" ];
       "Super+E".action.spawn       = [ "nautilus" ];
       "Super+F".action.spawn       = [ "brave" ];
       "Ctrl+Alt+E".action.spawn    = [ "emacs" ];
       "Ctrl+Q".action.spawn        = [ "signal-desktop" ];
 
-      # ── Launcher ────────────────────────────────────────────────────────────
+      # Launcher
       "Super+D".action.spawn       = [ "rofi" "-show" "drun" ];
       "Super+Space".action.spawn   = [ "rofi" "-show" "drun" ];
 
-      # ── Focus ───────────────────────────────────────────────────────────────
+      # Focus
       "Super+H".action.focus-column-left  = {};
       "Super+L".action.focus-column-right = {};
       "Super+J".action.focus-window-down  = {};
       "Super+K".action.focus-window-up    = {};
 
-      # ── Move ────────────────────────────────────────────────────────────────
+      # Move
       "Super+Shift+H".action.move-column-left  = {};
       "Super+Shift+L".action.move-column-right = {};
       "Super+Shift+J".action.move-window-down  = {};
       "Super+Shift+K".action.move-window-up    = {};
 
-      # ── Resize ──────────────────────────────────────────────────────────────
+      # Resize
       "Super+Ctrl+H".action.set-column-width  = "-10%";
       "Super+Ctrl+L".action.set-column-width  = "+10%";
       "Super+Ctrl+K".action.set-window-height = "-10%";
@@ -102,7 +96,7 @@ lib.mkIf niri {
       "Super+M".action.maximize-column            = {};
       "Super+Shift+M".action.fullscreen-window     = {};
 
-      # ── Workspaces (1-4) ────────────────────────────────────────────────────
+      # Workspaces
       "Super+1".action.focus-workspace = 1;
       "Super+2".action.focus-workspace = 2;
       "Super+3".action.focus-workspace = 3;
@@ -111,27 +105,25 @@ lib.mkIf niri {
       "Super+Shift+2".action.move-window-to-workspace = 2;
       "Super+Shift+3".action.move-window-to-workspace = 3;
       "Super+Shift+4".action.move-window-to-workspace = 4;
-
-      # ── Workspace navigation ─────────────────────────────────────────────────
       "Super+W".action.focus-workspace-up   = {};
       "Super+S".action.focus-workspace-down = {};
 
-      # ── Monitors ────────────────────────────────────────────────────────────
-      "Super+Comma".action.focus-monitor-left         = {};
-      "Super+Period".action.focus-monitor-right        = {};
+      # Monitors
+      "Super+Comma".action.focus-monitor-left          = {};
+      "Super+Period".action.focus-monitor-right         = {};
       "Super+Shift+Comma".action.move-window-to-monitor-left  = {};
       "Super+Shift+Period".action.move-window-to-monitor-right = {};
 
-      # ── Screenshot ──────────────────────────────────────────────────────────
+      # Screenshot
       "Print".action.spawn       = [ "sh" "-c" ''grim -g "$(slurp)" - | wl-copy'' ];
       "Shift+Print".action.spawn = [ "sh" "-c" "grim - | wl-copy" ];
 
-      # ── Window misc ─────────────────────────────────────────────────────────
-      "Super+Q".action.close-window          = {};
-      "Super+V".action.toggle-window-floating = {};
-      "Super+C".action.center-column          = {};
+      # Window misc
+      "Super+Q".action.close-window           = {};
+      "Super+V".action.toggle-window-floating  = {};
+      "Super+C".action.center-column           = {};
 
-      # ── System ──────────────────────────────────────────────────────────────
+      # System
       "Super+Alt+L".action.spawn = [ "swaylock" ];
       "Super+Alt+Q".action.quit  = {};
     };
@@ -214,27 +206,24 @@ lib.mkIf niri {
   };
 
   # ---------------------------------------------------------------------------
-  # Mako — notification daemon (HM 26.05 API)
+  # Mako
   # ---------------------------------------------------------------------------
-  # All visual options moved under services.mako.settings with kebab-case names.
-  # The old camelCase top-level options (borderRadius, textColor, …) are
-  # deprecated aliases that will eventually be removed.
   services.mako = {
     enable = true;
     settings = {
-      default-timeout = 5000;
-      layer           = "overlay";
-      anchor          = "top-right";
-      width           = 400;
-      margin          = "8";
-      padding         = "12";
-      border-radius   = 6;
-      border-size     = 1;
+      default-timeout  = 5000;
+      layer            = "overlay";
+      anchor           = "top-right";
+      width            = 400;
+      margin           = "8";
+      padding          = "12";
+      border-radius    = 6;
+      border-size      = 1;
       background-color = "#1a1b26ee";
-      text-color      = "#c0caf5";
-      border-color    = "#3b4261";
-      progress-color  = "over #7aa2f7";
-      font            = "JetBrainsMono Nerd Font 12";
+      text-color       = "#c0caf5";
+      border-color     = "#3b4261";
+      progress-color   = "over #7aa2f7";
+      font             = "JetBrainsMono Nerd Font 12";
     };
     extraConfig = ''
       [urgency=high]
@@ -244,9 +233,8 @@ lib.mkIf niri {
   };
 
   # ---------------------------------------------------------------------------
-  # Rofi — application launcher (Wayland)
+  # Rofi
   # ---------------------------------------------------------------------------
-  # Since nixpkgs 26.05, rofi-wayland has been merged into rofi.
   programs.rofi = {
     enable   = true;
     package  = pkgs.rofi;
@@ -262,7 +250,7 @@ lib.mkIf niri {
   };
 
   # ---------------------------------------------------------------------------
-  # Swaylock — screen locker
+  # Swaylock
   # ---------------------------------------------------------------------------
   programs.swaylock = {
     enable  = true;
@@ -283,20 +271,15 @@ lib.mkIf niri {
   };
 
   # ---------------------------------------------------------------------------
-  # Swayidle — idle management (HM 26.05 API)
+  # Swayidle
   # ---------------------------------------------------------------------------
-  # Breaking changes in HM 26.05:
-  #   - systemdTarget (string)  →  systemdTargets (list of strings)
-  #   - events (list of attrs)  →  events (attrset keyed by event name)
   services.swayidle = {
     enable         = true;
-    # systemdTargets replaces the singular systemdTarget from HM < 26.05.
     systemdTargets = [ "niri.service" ];
     timeouts = [
       { timeout = 300; command = "${pkgs.swaylock}/bin/swaylock -f"; }
       { timeout = 600; command = "systemctl suspend"; }
     ];
-    # events is now an attrset: { event-name = "command"; }
     events = {
       before-sleep = "${pkgs.swaylock}/bin/swaylock -f";
       lock         = "${pkgs.swaylock}/bin/swaylock -f";
@@ -304,7 +287,7 @@ lib.mkIf niri {
   };
 
   # ---------------------------------------------------------------------------
-  # Polkit agent — GUI privilege dialogs in non-GNOME session
+  # Polkit agent
   # ---------------------------------------------------------------------------
   systemd.user.services.polkit-agent = {
     Unit = {

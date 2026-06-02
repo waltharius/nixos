@@ -9,9 +9,14 @@
 # This module handles:
 #   - Enabling the niri session (programs.niri.enable)
 #   - Wayland portal configuration
-#   - NVIDIA + Wayland environment variables (for PRIME sync on sukkub)
 #   - polkit + dbus (required for non-GNOME sessions)
 #   - Screenshot and clipboard tools
+#
+# NVIDIA env vars are intentionally NOT set here.
+# With PRIME offload (Intel drives the display), setting GBM_BACKEND=nvidia-drm
+# or __GLX_VENDOR_LIBRARY_NAME=nvidia globally breaks GDM and any app that
+# renders on Intel. These vars should only be set per-application via the
+# nvidia-offload wrapper script provided by modules/laptop/nvidia.nix.
 #
 # Import from hosts/workstations/<hostname>/profile.nix.
 #
@@ -39,16 +44,6 @@
   xdg.portal = {
     enable       = true;
     extraPortals = [ pkgs.xdg-desktop-portal-gnome ];
-  };
-
-  # NVIDIA Wayland environment variables (safe to set system-wide;
-  # on Intel-only hosts like azazel these are harmless no-ops).
-  environment.sessionVariables = {
-    GBM_BACKEND               = "nvidia-drm";
-    __GLX_VENDOR_LIBRARY_NAME = "nvidia";
-    WLR_NO_HARDWARE_CURSORS   = "1";
-    NIXOS_OZONE_WL            = "1";
-    ELECTRON_OZONE_PLATFORM_HINT = "wayland";
   };
 
   environment.systemPackages = with pkgs; [
