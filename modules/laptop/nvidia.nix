@@ -72,8 +72,8 @@ in {
     # If you move this config to a different machine, verify with:
     #   lspci | grep -E "VGA|3D"
     prime = {
-      offload.enable            = true;
-      offload.enableOffloadCmd  = false;  # we ship our own wrapper below
+      offload.enable           = true;
+      offload.enableOffloadCmd = false;  # we ship our own wrapper below
       intelBusId  = "PCI:0:2:0";
       nvidiaBusId = "PCI:1:0:0";
     };
@@ -84,8 +84,8 @@ in {
     RUNTIME_PM_DRIVER_BLACKLIST = "nvidia nouveau";
   };
 
-  environment.systemPackages = [
+  environment.systemPackages = with pkgs; [
     nvtopPackages.nvidia
     nvidia-offload
-  ] ++ (with pkgs; []);
+  ];
 }
