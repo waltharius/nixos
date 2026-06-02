@@ -19,11 +19,12 @@
 # via an additive extraPortals list — the NixOS module system merges lists
 # automatically, so there is no duplication.
 #
-# xdg.portal.config.common.default = "*" instructs the portal dispatcher
-# (xdg-desktop-portal itself) to use the first available backend for
-# interfaces that have no explicit mapping. This replaces the deprecated
-# xdg.portal.gtkUsePortal flag removed in NixOS 24.11.
-{ pkgs, ... }: {
+# xdg.portal.config.common.default is set here with lib.mkDefault so that
+# other modules (e.g. desktop-specific ones) can override it with lib.mkForce
+# without triggering a "conflicting definition values" evaluation error.
+# Using plain "=" assignment in two modules causes that error even when the
+# values are identical, because Nix treats them as independent definitions.
+{ lib, pkgs, ... }: {
   services.flatpak.enable = true;
 
   xdg.portal = {
@@ -31,7 +32,9 @@
     # GTK portal acts as a universal fallback for all desktop environments.
     # DE-specific portals are appended by their respective desktop modules.
     extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
-    # Use the first available backend as a fallback for unmapped interfaces.
-    config.common.default = "*";
+    # lib.mkDefault allows DE-specific modules to override this value.
+    # Never use a plain assignment here — any other module setting the same
+    # option without a priority annotation will cause an evaluation error.
+    config.common.default = lib.mkDefault "*";
   };
 }

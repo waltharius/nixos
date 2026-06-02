@@ -68,17 +68,6 @@ lib.mkIf niri {
     # ---------------------------------------------------------------------------
     # Keybindings
     # ---------------------------------------------------------------------------
-    # All actions use attrTag syntax (niri-flake requirement):
-    #   no-arg action : "Key".action.action-name = {}
-    #   string arg    : "Key".action.set-column-width = "-10%"
-    #   int arg       : "Key".action.focus-workspace = 1
-    #   spawn         : "Key".action.spawn = [ "cmd" "arg" ]
-    #
-    # Super          — focus / launch
-    # Super+Shift    — move windows
-    # Super+Ctrl     — resize
-    # Super+Alt      — system (lock, quit)
-    # ---------------------------------------------------------------------------
     binds = {
       # ── Applications ────────────────────────────────────────────────────────
       "Super+T".action.spawn       = [ "ptyxis" ];
@@ -114,8 +103,6 @@ lib.mkIf niri {
       "Super+Shift+M".action.fullscreen-window     = {};
 
       # ── Workspaces (1-4) ────────────────────────────────────────────────────
-      # Super+1..4: switch to workspace by index
-      # Super+Shift+1..4: move focused window to workspace
       "Super+1".action.focus-workspace = 1;
       "Super+2".action.focus-workspace = 2;
       "Super+3".action.focus-workspace = 3;
@@ -135,14 +122,14 @@ lib.mkIf niri {
       "Super+Shift+Comma".action.move-window-to-monitor-left  = {};
       "Super+Shift+Period".action.move-window-to-monitor-right = {};
 
-      # ── Screenshot — selection to clipboard ─────────────────────────────────
+      # ── Screenshot ──────────────────────────────────────────────────────────
       "Print".action.spawn       = [ "sh" "-c" ''grim -g "$(slurp)" - | wl-copy'' ];
       "Shift+Print".action.spawn = [ "sh" "-c" "grim - | wl-copy" ];
 
       # ── Window misc ─────────────────────────────────────────────────────────
-      "Super+Q".action.close-window         = {};
+      "Super+Q".action.close-window          = {};
       "Super+V".action.toggle-window-floating = {};
-      "Super+C".action.center-column         = {};
+      "Super+C".action.center-column          = {};
 
       # ── System ──────────────────────────────────────────────────────────────
       "Super+Alt+L".action.spawn = [ "swaylock" ];
@@ -227,23 +214,28 @@ lib.mkIf niri {
   };
 
   # ---------------------------------------------------------------------------
-  # Mako — notification daemon
+  # Mako — notification daemon (HM 26.05 API)
   # ---------------------------------------------------------------------------
+  # All visual options moved under services.mako.settings with kebab-case names.
+  # The old camelCase top-level options (borderRadius, textColor, …) are
+  # deprecated aliases that will eventually be removed.
   services.mako = {
-    enable         = true;
-    defaultTimeout = 5000;
-    layer          = "overlay";
-    anchor         = "top-right";
-    width          = 400;
-    margin         = "8";
-    padding        = "12";
-    borderRadius   = 6;
-    borderSize     = 1;
-    backgroundColor = "#1a1b26ee";
-    textColor      = "#c0caf5";
-    borderColor    = "#3b4261";
-    progressColor  = "over #7aa2f7";
-    font           = "JetBrainsMono Nerd Font 12";
+    enable = true;
+    settings = {
+      default-timeout = 5000;
+      layer           = "overlay";
+      anchor          = "top-right";
+      width           = 400;
+      margin          = "8";
+      padding         = "12";
+      border-radius   = 6;
+      border-size     = 1;
+      background-color = "#1a1b26ee";
+      text-color      = "#c0caf5";
+      border-color    = "#3b4261";
+      progress-color  = "over #7aa2f7";
+      font            = "JetBrainsMono Nerd Font 12";
+    };
     extraConfig = ''
       [urgency=high]
       border-color=#f7768e
@@ -255,7 +247,6 @@ lib.mkIf niri {
   # Rofi — application launcher (Wayland)
   # ---------------------------------------------------------------------------
   # Since nixpkgs 26.05, rofi-wayland has been merged into rofi.
-  # The single `pkgs.rofi` package now includes Wayland support automatically.
   programs.rofi = {
     enable   = true;
     package  = pkgs.rofi;
@@ -292,22 +283,24 @@ lib.mkIf niri {
   };
 
   # ---------------------------------------------------------------------------
-  # Swayidle — idle management
+  # Swayidle — idle management (HM 26.05 API)
   # ---------------------------------------------------------------------------
-  # 5 min idle  → lock (swaylock)
-  # 10 min idle → suspend
-  # before-sleep / lock event → also lock immediately
+  # Breaking changes in HM 26.05:
+  #   - systemdTarget (string)  →  systemdTargets (list of strings)
+  #   - events (list of attrs)  →  events (attrset keyed by event name)
   services.swayidle = {
-    enable        = true;
-    systemdTarget = "niri.service";
+    enable         = true;
+    # systemdTargets replaces the singular systemdTarget from HM < 26.05.
+    systemdTargets = [ "niri.service" ];
     timeouts = [
       { timeout = 300; command = "${pkgs.swaylock}/bin/swaylock -f"; }
       { timeout = 600; command = "systemctl suspend"; }
     ];
-    events = [
-      { event = "before-sleep"; command = "${pkgs.swaylock}/bin/swaylock -f"; }
-      { event = "lock";         command = "${pkgs.swaylock}/bin/swaylock -f"; }
-    ];
+    # events is now an attrset: { event-name = "command"; }
+    events = {
+      before-sleep = "${pkgs.swaylock}/bin/swaylock -f";
+      lock         = "${pkgs.swaylock}/bin/swaylock -f";
+    };
   };
 
   # ---------------------------------------------------------------------------

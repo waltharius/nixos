@@ -14,6 +14,13 @@
 #   - Screenshot and clipboard tools
 #
 # Import from hosts/workstations/<hostname>/profile.nix.
+#
+# XDG portal note:
+#   xdg.portal.config.common.default is intentionally NOT set here.
+#   flatpak.nix owns that option (set to "*" via lib.mkDefault) so that
+#   any DE-specific module can override it with lib.mkForce if needed.
+#   Setting it in two places without priority annotations causes a
+#   "conflicting definition values" evaluation error.
 { pkgs, ... }: {
 
   # Register niri as a valid GDM session.
@@ -27,10 +34,11 @@
   # xdg-desktop-portal: needed for screen sharing, file picker, etc.
   # gnome portal is kept as fallback alongside niri's own portal
   # (registered automatically by niri-flake when programs.niri.enable = true).
+  # config.common.default is managed exclusively by flatpak.nix (mkDefault = "*")
+  # to avoid conflicting definitions across modules.
   xdg.portal = {
-    enable        = true;
-    extraPortals  = [ pkgs.xdg-desktop-portal-gnome ];
-    config.common.default = "gnome";
+    enable       = true;
+    extraPortals = [ pkgs.xdg-desktop-portal-gnome ];
   };
 
   # NVIDIA Wayland environment variables (safe to set system-wide;
