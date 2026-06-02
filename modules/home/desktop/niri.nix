@@ -19,6 +19,12 @@
 #   programs.swaylock    — screen locker
 #   services.swayidle    — idle: lock at 5 min, suspend at 10 min
 #   systemd.user.services.polkit-agent  — GUI privilege dialogs
+#
+# SCHEMA NOTE (niri-flake / niri-stable 25.02):
+#   focus-ring and border use nested submodules:
+#     focus-ring.active.color   focus-ring.active.width
+#     focus-ring.inactive.color
+#   NOT flat fields: active-color / inactive-color / width
 { config, lib, pkgs, ... }:
 let
   cfg      = config.marcin.desktop;
@@ -63,12 +69,16 @@ lib.mkIf niri {
         { proportion = 0.67; }
       ];
       default-column-width = { proportion = 0.5; };
+
+      # focus-ring uses nested submodules in niri-flake schema.
+      # active.color / inactive.color / active.width
       focus-ring = {
-        enable         = true;
-        width          = 2;
-        active-color   = "#7aa2f7";
-        inactive-color = "#3b4261";
+        enable = true;
+        active.color   = "#7aa2f7";
+        active.width   = 2;
+        inactive.color = "#3b4261";
       };
+
       border.enable = false;
     };
 
@@ -114,9 +124,9 @@ lib.mkIf niri {
       "Super+Ctrl+L".action = "set-column-width +10%";
       "Super+Ctrl+K".action = "set-window-height -10%";
       "Super+Ctrl+J".action = "set-window-height +10%";
-      "Super+R".action      = "switch-preset-column-width";
+      "Super+R".action       = "switch-preset-column-width";
       "Super+Shift+R".action = "reset-window-height";
-      "Super+M".action      = "maximize-column";
+      "Super+M".action       = "maximize-column";
       "Super+Shift+M".action = "fullscreen-window";
 
       # Column width presets (1-4)
@@ -126,18 +136,14 @@ lib.mkIf niri {
       "Super+4".action = "set-column-width 100%";
 
       # Workspaces
-      "Super+W".action       = "focus-workspace-up";
-      "Super+S".action       = "focus-workspace-down";
-      "Super+Shift+W".action = "move-window-to-workspace-up";
-      "Super+Shift+S".action = "move-window-to-workspace-down";
-
-      # Overview (equivalent of GNOME Activities)
-      "Super+O".action     = "toggle-overview";
-      "Super+grave".action = "toggle-overview";
+      "Super+W".action = "focus-workspace-up";
+      "Super+S".action = "focus-workspace-down";
+      # move-window-to-workspace-up/down requires niri-unstable; omitted.
+      # Use move-window-to-workspace with a number if needed.
 
       # Monitors
-      "Super+Comma".action       = "focus-monitor-left";
-      "Super+Period".action      = "focus-monitor-right";
+      "Super+Comma".action        = "focus-monitor-left";
+      "Super+Period".action       = "focus-monitor-right";
       "Super+Shift+Comma".action  = "move-window-to-monitor-left";
       "Super+Shift+Period".action = "move-window-to-monitor-right";
 
