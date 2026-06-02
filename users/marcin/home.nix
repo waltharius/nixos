@@ -16,6 +16,14 @@
 # 2. Set marcin.desktop to the DE(s) you want active on that host.
 # 3. Add the profile to the imports list below using the same pattern.
 # That is all — no other file needs to change.
+#
+# HOW TO ADD A NEW DESKTOP ENVIRONMENT MODULE
+# -------------------------------------------
+# Desktop environment HM modules (like niri.nix, gnome.nix) must always be
+# in the static imports list here. They CANNOT be imported conditionally
+# inside lib.mkIf blocks — that is a Nix module system limitation (imports
+# are resolved before condition evaluation). Each module guards itself
+# internally with lib.mkIf based on the marcin.desktop option.
 {
   config,
   pkgs,
@@ -37,7 +45,7 @@
   };
 
   imports = [
-    # --- shared service / utility modules (modules/) ---
+    # --- shared service / utility modules ---
     ../../modules/services/ssh.nix
     ../../modules/services/ssh-askpass.nix
     ../../modules/utils/yazi.nix
@@ -48,7 +56,12 @@
     ../../modules/home/shell/bash.nix
     ../../modules/home/shell/starship.nix
     ../../modules/home/terminal/tmux.nix
+
+    # --- desktop environment HM modules ---
+    # These must be listed here (static imports), not inside lib.mkIf blocks.
+    # Each module activates itself conditionally based on marcin.desktop.
     ../../modules/home/desktop/gnome.nix
+    ../../modules/home/desktop/niri.nix
 
     # --- base config (identical on every host) ---
     ./base/git.nix

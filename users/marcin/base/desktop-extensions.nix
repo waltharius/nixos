@@ -2,41 +2,33 @@
 #
 # Desktop-environment-specific HM configuration for marcin.
 #
-# This module is DE-agnostic by design: it reads the marcin.desktop
-# option (set in each host's profile.nix) and activates only the
-# configuration that belongs to the active DE(s).
+# IMPORTANT: Desktop environment modules (gnome.nix, niri.nix, …) must be
+# listed in the static imports list in users/marcin/home.nix — NOT imported
+# here inside lib.mkIf blocks. The Nix module system resolves imports before
+# evaluating conditions, so conditional imports are not possible.
 #
-# HOW TO ADD A NEW DESKTOP ENVIRONMENT
-# -------------------------------------
-# 1. Add a new boolean flag in the "feature flags" let-binding below,
-#    following the gnome / niri pattern.
-# 2. Add the packages, config files, and dconf/wayland settings for
-#    that DE inside a lib.mkIf block, guarded by the new flag.
-# 3. In the host profile (users/marcin/profiles/<hostname>.nix) add
-#    the DE name to marcin.desktop:
+# This file handles only configuration that cannot live in the DE module
+# itself because it references options declared by another module (e.g.
+# GNOME extensions require gnomeExtensions list defined here).
 #
-#      marcin.desktop = [ "gnome" "sway" ];     # both active
-#      marcin.desktop = "hyprland";             # single value also works
-#
-# MULTIPLE DEs ON ONE HOST
-# ------------------------
-# Setting marcin.desktop to a list activates all listed DEs at once.
-# Each DE block is independently guarded so they compose without conflict.
-#
-# REMOVING A DE
-# -------------
-# Set marcin.desktop to a list that omits the DE name, or set it to []
-# to disable all DE-specific configuration while keeping base packages.
+# HOW TO SWITCH / ADD DEs
+# -----------------------
+# 1. Add the DE module to the static imports in users/marcin/home.nix.
+# 2. Add a feature flag (lib.elem … desktops) in this file if you need
+#    DE-specific config here (e.g. dconf, run-or-raise shortcuts).
+# 3. Set marcin.desktop in the host profile:
+#      marcin.desktop = [ "gnome" "niri" ];   # both active
+#      marcin.desktop = "niri";               # niri only
+#      marcin.desktop = [ "gnome" "hyprland" ]; # future example
 { config, lib, pkgs, customPkgs, ... }:
 let
   cfg      = config.marcin.desktop;
   desktops = lib.toList cfg;
 
-  # Feature flags — add one line here for each new DE.
+  # Feature flags — one per DE.
   gnome = lib.elem "gnome" desktops;
-  niri  = lib.elem "niri"  desktops;
-  # sway  = lib.elem "sway"  desktops;
-  # hypr  = lib.elem "hyprland" desktops;
+  # niri config lives entirely in modules/home/desktop/niri.nix.
+  # No extra config needed here for niri.
 
   gnomeExtensions = with pkgs.gnomeExtensions; [
     appindicator
@@ -60,46 +52,33 @@ in {
         "gnome"     — GNOME Shell with extensions
         "niri"      — niri scrollable-tiling Wayland compositor
       A single string is equivalent to a one-element list.
-      Set from the host profile: users/marcin/profiles/<hostname>.nix.
+      Set in: users/marcin/profiles/<hostname>.nix
     '';
   };
 
-  config = lib.mkMerge [
+  config = lib.mkIf gnome {
+    home.packages = gnomeExtensions;
 
-    # -------------------------------------------------------------------------
-    # GNOME
-    # -------------------------------------------------------------------------
-    (lib.mkIf gnome {
-      home.packages = gnomeExtensions;
-
-      dconf.settings = {
-        "org/gnome/shell" = {
-          disable-user-extensions = false;
-          enabled-extensions  = map (e: e.extensionUuid) gnomeExtensions;
-          disabled-extensions = lib.gvariant.mkEmptyArray lib.gvariant.type.string;
-        };
-        "org/gnome/settings-daemon/plugins/power" = {
-          lid-close-suspend-with-external-monitor = true;
-        };
-        "org/gnome/Ptyxis" = {
-          text-scale-factor = 1.2;
-        };
+    dconf.settings = {
+      "org/gnome/shell" = {
+        disable-user-extensions = false;
+        enabled-extensions  = map (e: e.extensionUuid) gnomeExtensions;
+        disabled-extensions = lib.gvariant.mkEmptyArray lib.gvariant.type.string;
       };
+      "org/gnome/settings-daemon/plugins/power" = {
+        lid-close-suspend-with-external-monitor = true;
+      };
+      "org/gnome/Ptyxis" = {
+        text-scale-factor = 1.2;
+      };
+    };
 
-      xdg.configFile."run-or-raise/shortcuts.conf".text = ''
-        <Control><Alt>e,${pkgs.emacs}/bin/emacs,emacs
-        <Super>f,${pkgs.brave}/bin/brave,,
-        <Super>e,nautilus,org.gnome.Nautilus
-        <Super>t,ptyxis,org.gnome.Ptyxis
-        <Control>q,${pkgs.signal-desktop}/bin/signal-desktop,signal
-      '';
-    })
-
-    # -------------------------------------------------------------------------
-    # Niri
-    # -------------------------------------------------------------------------
-    (lib.mkIf niri {
-      imports = [ ../../../modules/home/desktop/niri.nix ];
-    })
-  ];
+    xdg.configFile."run-or-raise/shortcuts.conf".text = ''
+      <Control><Alt>e,${pkgs.emacs}/bin/emacs,emacs
+      <Super>f,${pkgs.brave}/bin/brave,,
+      <Super>e,nautilus,org.gnome.Nautilus
+      <Super>t,ptyxis,org.gnome.Ptyxis
+      <Control>q,${pkgs.signal-desktop}/bin/signal-desktop,signal
+    '';
+  };
 }
