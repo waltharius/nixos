@@ -1,34 +1,3 @@
-# modules/home/desktop/niri.nix
-#
-# Home Manager configuration for the niri Wayland compositor session.
-#
-# This module is ALWAYS imported (via users/marcin/home.nix) but produces
-# no configuration unless "niri" is present in marcin.desktop. This is
-# required because Nix module imports cannot be conditional (lib.mkIf
-# cannot wrap an import statement).
-#
-# To enable niri on a host, set in users/marcin/profiles/<hostname>.nix:
-#   marcin.desktop = [ "gnome" "niri" ];   # alongside GNOME
-#   marcin.desktop = "niri";               # niri only
-#
-# Components activated when niri is enabled:
-#   programs.niri        — compositor config (keybindings, layout, outputs)
-#   programs.waybar      — minimal top bar
-#   services.mako        — notification daemon
-#   programs.rofi        — application launcher (Wayland variant)
-#   programs.swaylock    — screen locker
-#   services.swayidle    — idle: lock at 5 min, suspend at 10 min
-#   systemd.user.services.polkit-agent  — GUI privilege dialogs
-#
-# SCHEMA NOTE (niri-flake / niri-stable 26.05):
-#   focus-ring.width    — top-level width of the ring (float-or-int)
-#   focus-ring.active   — null or <decoration>  where <decoration> is attrTag:
-#                           { color = "<css-color>"; }
-#                         or
-#                           { gradient = { from=...; to=...; ... }; }
-#   focus-ring.inactive — same type as active
-#
-#   width MUST NOT be nested inside active/inactive.
 { config, lib, pkgs, ... }:
 let
   cfg      = config.marcin.desktop;
@@ -79,8 +48,8 @@ lib.mkIf niri {
       #   active  — attrTag: either { color = "…"; } or { gradient = {…}; }
       #   inactive — same attrTag type
       focus-ring = {
-        enable = true;
-        width  = 2;
+        enable   = true;
+        width    = 2;
         active   = { color = "#7aa2f7"; };
         inactive = { color = "#3b4261"; };
       };
@@ -96,75 +65,88 @@ lib.mkIf niri {
       { matches = [{ title  = ".*[Pp]assword.*";       }]; open-floating = true; }
     ];
 
+    # ---------------------------------------------------------------------------
     # Keybindings
+    # ---------------------------------------------------------------------------
+    # All actions use attrTag syntax (niri-flake requirement):
+    #   no-arg action : "Key".action.action-name = {}
+    #   string arg    : "Key".action.set-column-width = "-10%"
+    #   int arg       : "Key".action.focus-workspace = 1
+    #   spawn         : "Key".action.spawn = [ "cmd" "arg" ]
+    #
     # Super          — focus / launch
     # Super+Shift    — move windows
     # Super+Ctrl     — resize
     # Super+Alt      — system (lock, quit)
+    # ---------------------------------------------------------------------------
     binds = {
-      # Applications
-      "Super+T".action.spawn      = [ "ptyxis" ];
-      "Super+E".action.spawn      = [ "nautilus" ];
-      "Super+F".action.spawn      = [ "brave" ];
-      "Ctrl+Alt+E".action.spawn   = [ "emacs" ];
-      "Ctrl+Q".action.spawn       = [ "signal-desktop" ];
+      # ── Applications ────────────────────────────────────────────────────────
+      "Super+T".action.spawn       = [ "ptyxis" ];
+      "Super+E".action.spawn       = [ "nautilus" ];
+      "Super+F".action.spawn       = [ "brave" ];
+      "Ctrl+Alt+E".action.spawn    = [ "emacs" ];
+      "Ctrl+Q".action.spawn        = [ "signal-desktop" ];
 
-      # Launcher
-      "Super+D".action.spawn      = [ "rofi" "-show" "drun" ];
-      "Super+Space".action.spawn  = [ "rofi" "-show" "drun" ];
+      # ── Launcher ────────────────────────────────────────────────────────────
+      "Super+D".action.spawn       = [ "rofi" "-show" "drun" ];
+      "Super+Space".action.spawn   = [ "rofi" "-show" "drun" ];
 
-      # Focus
-      "Super+H".action = "focus-column-left";
-      "Super+L".action = "focus-column-right";
-      "Super+J".action = "focus-window-down";
-      "Super+K".action = "focus-window-up";
+      # ── Focus ───────────────────────────────────────────────────────────────
+      "Super+H".action.focus-column-left  = {};
+      "Super+L".action.focus-column-right = {};
+      "Super+J".action.focus-window-down  = {};
+      "Super+K".action.focus-window-up    = {};
 
-      # Move
-      "Super+Shift+H".action = "move-column-left";
-      "Super+Shift+L".action = "move-column-right";
-      "Super+Shift+J".action = "move-window-down";
-      "Super+Shift+K".action = "move-window-up";
+      # ── Move ────────────────────────────────────────────────────────────────
+      "Super+Shift+H".action.move-column-left  = {};
+      "Super+Shift+L".action.move-column-right = {};
+      "Super+Shift+J".action.move-window-down  = {};
+      "Super+Shift+K".action.move-window-up    = {};
 
-      # Resize
-      "Super+Ctrl+H".action = "set-column-width -10%";
-      "Super+Ctrl+L".action = "set-column-width +10%";
-      "Super+Ctrl+K".action = "set-window-height -10%";
-      "Super+Ctrl+J".action = "set-window-height +10%";
-      "Super+R".action       = "switch-preset-column-width";
-      "Super+Shift+R".action = "reset-window-height";
-      "Super+M".action       = "maximize-column";
-      "Super+Shift+M".action = "fullscreen-window";
+      # ── Resize ──────────────────────────────────────────────────────────────
+      "Super+Ctrl+H".action.set-column-width  = "-10%";
+      "Super+Ctrl+L".action.set-column-width  = "+10%";
+      "Super+Ctrl+K".action.set-window-height = "-10%";
+      "Super+Ctrl+J".action.set-window-height = "+10%";
+      "Super+R".action.switch-preset-column-width = {};
+      "Super+Shift+R".action.reset-window-height  = {};
+      "Super+M".action.maximize-column            = {};
+      "Super+Shift+M".action.fullscreen-window     = {};
 
-      # Column width presets (1-4)
-      "Super+1".action = "set-column-width 33%";
-      "Super+2".action = "set-column-width 50%";
-      "Super+3".action = "set-column-width 67%";
-      "Super+4".action = "set-column-width 100%";
+      # ── Workspaces (1-4) ────────────────────────────────────────────────────
+      # Super+1..4: switch to workspace by index
+      # Super+Shift+1..4: move focused window to workspace
+      "Super+1".action.focus-workspace = 1;
+      "Super+2".action.focus-workspace = 2;
+      "Super+3".action.focus-workspace = 3;
+      "Super+4".action.focus-workspace = 4;
+      "Super+Shift+1".action.move-window-to-workspace = 1;
+      "Super+Shift+2".action.move-window-to-workspace = 2;
+      "Super+Shift+3".action.move-window-to-workspace = 3;
+      "Super+Shift+4".action.move-window-to-workspace = 4;
 
-      # Workspaces
-      "Super+W".action = "focus-workspace-up";
-      "Super+S".action = "focus-workspace-down";
-      # move-window-to-workspace-up/down requires niri-unstable; omitted.
-      # Use move-window-to-workspace with a number if needed.
+      # ── Workspace navigation ─────────────────────────────────────────────────
+      "Super+W".action.focus-workspace-up   = {};
+      "Super+S".action.focus-workspace-down = {};
 
-      # Monitors
-      "Super+Comma".action        = "focus-monitor-left";
-      "Super+Period".action       = "focus-monitor-right";
-      "Super+Shift+Comma".action  = "move-window-to-monitor-left";
-      "Super+Shift+Period".action = "move-window-to-monitor-right";
+      # ── Monitors ────────────────────────────────────────────────────────────
+      "Super+Comma".action.focus-monitor-left         = {};
+      "Super+Period".action.focus-monitor-right        = {};
+      "Super+Shift+Comma".action.move-window-to-monitor-left  = {};
+      "Super+Shift+Period".action.move-window-to-monitor-right = {};
 
-      # Screenshot — selection to clipboard
+      # ── Screenshot — selection to clipboard ─────────────────────────────────
       "Print".action.spawn       = [ "sh" "-c" ''grim -g "$(slurp)" - | wl-copy'' ];
       "Shift+Print".action.spawn = [ "sh" "-c" "grim - | wl-copy" ];
 
-      # Window misc
-      "Super+Q".action = "close-window";
-      "Super+V".action = "toggle-window-floating";
-      "Super+C".action = "center-column";
+      # ── Window misc ─────────────────────────────────────────────────────────
+      "Super+Q".action.close-window         = {};
+      "Super+V".action.toggle-window-floating = {};
+      "Super+C".action.center-column         = {};
 
-      # System
+      # ── System ──────────────────────────────────────────────────────────────
       "Super+Alt+L".action.spawn = [ "swaylock" ];
-      "Super+Alt+Q".action       = "quit";
+      "Super+Alt+Q".action.quit  = {};
     };
   };
 
