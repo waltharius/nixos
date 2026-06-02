@@ -254,9 +254,11 @@ lib.mkIf niri {
   # ---------------------------------------------------------------------------
   # Rofi — application launcher (Wayland)
   # ---------------------------------------------------------------------------
+  # Since nixpkgs 26.05, rofi-wayland has been merged into rofi.
+  # The single `pkgs.rofi` package now includes Wayland support automatically.
   programs.rofi = {
     enable   = true;
-    package  = pkgs.rofi-wayland;
+    package  = pkgs.rofi;
     terminal = "ptyxis";
     theme    = "gruvbox-dark-soft";
     extraConfig = {
