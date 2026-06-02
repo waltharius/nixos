@@ -1,69 +1,52 @@
 # modules/system/niri.nix
 #
-# System-level configuration required to run niri as a Wayland session.
+# System-level configuration for the niri Wayland compositor session.
 #
-# This module:
-#   - Registers niri as a valid display-manager session
-#   - Configures xdg-desktop-portal for Wayland screen sharing
-#   - Sets environment variables needed for NVIDIA + Wayland (PRIME sync)
-#   - Enables polkit so GUI apps can request elevated privileges
+# Requires niri-flake.nixosModules.niri to be loaded in flake.nix (mkHost).
+# That module registers niri as a session in GDM and provides
+# programs.niri.enable.
 #
-# Import this from the HOST profile (hosts/workstations/<name>/profile.nix).
-# It is intentionally separate from the GNOME system module so both can
-# coexist on the same host without conflict.
-{
-  pkgs,
-  lib,
-  ...
-}: {
-  # Register niri as a wayland session so GDM / greetd can offer it.
-  programs.niri = {
-    enable = true;
-    # The actual configuration lives in the HM module (modules/home/desktop/niri.nix)
-    # so it can be per-user. We only enable the session here.
-  };
+# This module handles:
+#   - Enabling the niri session (programs.niri.enable)
+#   - Wayland portal configuration
+#   - NVIDIA + Wayland environment variables (for PRIME sync on sukkub)
+#   - polkit + dbus (required for non-GNOME sessions)
+#   - Screenshot and clipboard tools
+#
+# Import from hosts/workstations/<hostname>/profile.nix.
+{ pkgs, ... }: {
 
-  # Polkit agent is required for GUI privilege escalation in a non-GNOME session.
+  # Register niri as a valid GDM session.
+  # The actual per-user config (keybindings, layout) lives in
+  # modules/home/desktop/niri.nix via programs.niri.settings.
+  programs.niri.enable = true;
+
   security.polkit.enable = true;
+  services.dbus.enable   = true;
 
-  # xdg-desktop-portal: screen sharing, file picker, etc.
-  # gnome portal is kept as a fallback (works alongside wlr portal).
+  # xdg-desktop-portal: needed for screen sharing, file picker, etc.
+  # gnome portal is kept as fallback alongside niri's own portal
+  # (registered automatically by niri-flake when programs.niri.enable = true).
   xdg.portal = {
-    enable = true;
-    extraPortals = with pkgs; [
-      xdg-desktop-portal-gnome   # fallback / file picker
-    ];
-    # niri registers its own portal via programs.niri.enable; this just
-    # ensures the GNOME fallback is always available.
+    enable        = true;
+    extraPortals  = [ pkgs.xdg-desktop-portal-gnome ];
     config.common.default = "gnome";
   };
 
-  # NVIDIA + Wayland environment variables.
-  # These are needed for niri to use the NVIDIA GPU correctly under PRIME sync.
-  # GBM is the preferred buffer API for Wayland; EGL platform must be set
-  # explicitly because NVIDIA's EGL doesn't auto-detect Wayland on 470.xx.
+  # NVIDIA Wayland environment variables (safe to set system-wide;
+  # on Intel-only hosts like azazel these are harmless no-ops).
   environment.sessionVariables = {
-    # Use GBM backend (required for niri on NVIDIA)
-    GBM_BACKEND            = "nvidia-drm";
-    # Force EGL to use the correct platform
+    GBM_BACKEND               = "nvidia-drm";
     __GLX_VENDOR_LIBRARY_NAME = "nvidia";
-    # Required for hardware-accelerated video decode on Wayland
-    WLR_NO_HARDWARE_CURSORS = "1";
-    # Hint Electron / Chromium apps to use Wayland natively
-    NIXOS_OZONE_WL         = "1";
+    WLR_NO_HARDWARE_CURSORS   = "1";
+    NIXOS_OZONE_WL            = "1";
     ELECTRON_OZONE_PLATFORM_HINT = "wayland";
   };
 
-  # dbus is required by most Wayland compositors and portals.
-  services.dbus.enable = true;
-
   environment.systemPackages = with pkgs; [
-    # polkit authentication agent for non-GNOME sessions
-    polkit_gnome
-    # Wayland clipboard support (required by many TUI/GUI apps)
-    wl-clipboard
-    # Screenshot tools
-    grim    # capture a region or screen
-    slurp   # interactive region selector (used with grim)
+    polkit_gnome   # polkit auth agent for non-GNOME sessions
+    wl-clipboard   # wl-copy / wl-paste (required by many apps)
+    grim           # screenshot: capture screen or region
+    slurp          # screenshot: interactive region selector
   ];
 }

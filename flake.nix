@@ -22,9 +22,16 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # niri scrollable-tiling Wayland compositor.
+    # Provides:
+    #   niri-flake.nixosModules.niri  — programs.niri.enable (NixOS)
+    #   niri-flake.homeModules.niri   — programs.niri.settings (Home Manager)
+    niri-flake = {
+      url = "github:sodiboo/niri-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Declarative disk partitioning.
-    # Required for bare-metal servers: LUKS2/btrfs layout and one-command
-    # disko-install workflow from live USB.
     disko = {
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -37,6 +44,7 @@
     nix-flatpak,
     sops-nix,
     nixvim,
+    niri-flake,
     disko,
     ...
   } @ inputs: let
@@ -49,20 +57,6 @@
 
     customPackages = import ./packages {inherit pkgs;};
 
-    # ---------------------------------------------------------------------------
-    # mkHost: physical workstations (laptops/desktops with desktop environment)
-    # Location: hosts/workstations/<hostname>/
-    #
-    # mkHost loads only the mandatory core modules that every workstation
-    # must have. Everything else — desktop environment, hardware drivers,
-    # power management, optional services — is declared in the per-host
-    # profile.nix file:
-    #
-    #   hosts/workstations/<hostname>/profile.nix
-    #
-    # To add or remove a feature from a single host, edit that host's
-    # profile.nix. To add a feature to all hosts, add it here.
-    # ---------------------------------------------------------------------------
     mkHost = hostname: system:
       nixpkgs.lib.nixosSystem {
         inherit system;
@@ -78,16 +72,10 @@
         modules = [
           {nixpkgs.config.allowUnfree = true;}
 
-          # --- host identity ---
           ./hosts/workstations/${hostname}/configuration.nix
           ./hosts/workstations/${hostname}/hardware-configuration.nix
-
-          # --- per-host feature profile ---
-          # Contains the desktop environment, hardware drivers, power
-          # management, and optional services specific to this machine.
           ./hosts/workstations/${hostname}/profile.nix
 
-          # --- core system (mandatory for every workstation) ---
           ./modules/system/boot.nix
           ./modules/system/networking.nix
           ./modules/system/locale.nix
@@ -96,13 +84,16 @@
           ./modules/system/wifi.nix
           ./modules/system/base.nix
 
-          # --- external modules ---
+          # niri NixOS module: registers niri session in GDM/greetd,
+          # provides programs.niri.enable option.
+          niri-flake.nixosModules.niri
+
           sops-nix.nixosModules.sops
           home-manager.nixosModules.home-manager
           {
             home-manager = {
-              useGlobalPkgs = true;
-              useUserPackages = true;
+              useGlobalPkgs    = true;
+              useUserPackages  = true;
               extraSpecialArgs = {
                 inherit inputs hostname;
                 customPkgs = customPackages;
@@ -117,16 +108,14 @@
                 nixvim.homeModules.nixvim
                 nix-flatpak.homeManagerModules.nix-flatpak
                 sops-nix.homeManagerModules.sops
+                # niri HM module: provides programs.niri.settings option.
+                niri-flake.homeModules.niri
               ];
             };
           }
         ];
       };
 
-    # ---------------------------------------------------------------------------
-    # mkVirtual: LXC containers and VMs (Colmena-managed, no disko)
-    # Location: hosts/virtual/<hostname>/
-    # ---------------------------------------------------------------------------
     mkVirtual = hostname:
       nixpkgs.lib.nixosSystem {
         inherit system;
@@ -136,8 +125,8 @@
           home-manager.nixosModules.home-manager
           {
             home-manager = {
-              useGlobalPkgs = true;
-              useUserPackages = true;
+              useGlobalPkgs    = true;
+              useUserPackages  = true;
               extraSpecialArgs = {
                 inherit inputs;
                 hostname = hostname;
@@ -152,14 +141,6 @@
         ];
       };
 
-    # ---------------------------------------------------------------------------
-    # mkPhysicalServer: bare-metal servers (disko, LUKS2, full hardware)
-    # Location: hosts/physical/<hostname>/
-    # Install from live USB:
-    #   nix run github:nix-community/disko -- --mode disko \
-    #     ./hosts/physical/<hostname>/disko.nix
-    #   nixos-install --flake .#<hostname> --no-root-password
-    # ---------------------------------------------------------------------------
     mkPhysicalServer = hostname:
       nixpkgs.lib.nixosSystem {
         inherit system;
@@ -177,8 +158,8 @@
           home-manager.nixosModules.home-manager
           {
             home-manager = {
-              useGlobalPkgs = true;
-              useUserPackages = true;
+              useGlobalPkgs    = true;
+              useUserPackages  = true;
               extraSpecialArgs = {
                 inherit inputs;
                 hostname = hostname;
@@ -194,19 +175,11 @@
       };
   in {
     nixosConfigurations = {
-      # Workstations (hosts/workstations/)
       sukkub = mkHost "sukkub" "x86_64-linux";
       azazel = mkHost "azazel" "x86_64-linux";
-
-      # Physical bare-metal servers (hosts/physical/)
-      # Install: nix run github:nix-community/disko -- --mode disko \
-      #            ./hosts/physical/altair/disko.nix
-      #          nixos-install --flake .#altair --no-root-password
-      altair = mkPhysicalServer "altair";
-      # dell   = mkPhysicalServer "dell";  # future: Dell T5610
+      altair  = mkPhysicalServer "altair";
     };
 
-    # Colmena deployment for all servers (virtual + physical post-install)
     colmena = import ./colmena.nix {inherit inputs system;};
 
     packages.${system} = customPackages;
