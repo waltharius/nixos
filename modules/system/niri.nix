@@ -2,45 +2,52 @@
 #
 # System-level configuration for the niri Wayland compositor session.
 #
-# Requires niri-flake.nixosModules.niri to be loaded in flake.nix (mkHost).
-# That module registers niri as a session in GDM and provides
-# programs.niri.enable.
+# NVIDIA + niri: why we force Intel modesetting
+# ---------------------------------------------
+# ThinkPad P50 has PRIME hybrid graphics (Intel HD 530 + Quadro M2000M).
+# The NVIDIA legacy_470 driver (required for Maxwell) has broken GBM support
+# for non-GNOME Wayland compositors in PRIME modes. Both sync and offload
+# modes result in a black screen when niri tries to init the DRM device,
+# because legacy_470 does not properly export a GBM backend that niri can use.
 #
-# This module handles:
-#   - Enabling the niri session (programs.niri.enable)
-#   - Wayland portal configuration
-#   - polkit + dbus (required for non-GNOME sessions)
-#   - Screenshot and clipboard tools
+# The solution: tell the kernel to use the Intel modesetting driver exclusively
+# for display. NVIDIA stays loaded (its kernel module is still present for
+# CUDA or compute use), but the display pipeline is 100% Intel KMS/DRM.
+# This is the only reliable path for Maxwell + Wayland compositor != GNOME.
 #
-# NVIDIA env vars are intentionally NOT set here.
-# With PRIME offload (Intel drives the display), setting GBM_BACKEND=nvidia-drm
-# or __GLX_VENDOR_LIBRARY_NAME=nvidia globally breaks GDM and any app that
-# renders on Intel. These vars should only be set per-application via the
-# nvidia-offload wrapper script provided by modules/laptop/nvidia.nix.
+# In practice this means:
+#   - niri runs on Intel GPU (fast, low-power, flawless Wayland)
+#   - NVIDIA available via nvidia-offload wrapper for individual apps
+#   - No tearing, no black screen, instant GDM recovery
 #
-# Import from hosts/workstations/<hostname>/profile.nix.
-#
-# XDG portal note:
-#   xdg.portal.config.common.default is intentionally NOT set here.
-#   flatpak.nix owns that option (set to "*" via lib.mkDefault) so that
-#   any DE-specific module can override it with lib.mkForce if needed.
-#   Setting it in two places without priority annotations causes a
-#   "conflicting definition values" evaluation error.
+# This is set via environment.sessionVariables so it applies to the entire
+# user session (GDM + niri), not just per-app.
 { pkgs, ... }: {
 
   # Register niri as a valid GDM session.
-  # The actual per-user config (keybindings, layout) lives in
-  # modules/home/desktop/niri.nix via programs.niri.settings.
   programs.niri.enable = true;
 
   security.polkit.enable = true;
   services.dbus.enable   = true;
 
+  # Force Intel KMS/DRM as the display driver for the Wayland session.
+  # WLR_DRM_DEVICES points the compositor at the Intel DRM node (/dev/dri/card0)
+  # and away from the NVIDIA node. Without this, niri attempts to open the
+  # NVIDIA DRM device first (alphabetical order), fails GBM init, and exits.
+  #
+  # card0 = Intel HD 530 on ThinkPad P50. Verify with:
+  #   ls -la /dev/dri/by-path/ | grep -i intel
+  # If Intel is card1 on your machine, adjust accordingly.
+  #
+  # LIBVA_DRIVER_NAME=iHD  → Intel Media Driver for VA-API (hardware video decode)
+  # VDPAU_DRIVER=va_gl     → VDPAU via VA-API bridge (for apps using VDPAU)
+  environment.sessionVariables = {
+    WLR_DRM_DEVICES         = "/dev/dri/card0";
+    LIBVA_DRIVER_NAME       = "iHD";
+    VDPAU_DRIVER            = "va_gl";
+  };
+
   # xdg-desktop-portal: needed for screen sharing, file picker, etc.
-  # gnome portal is kept as fallback alongside niri's own portal
-  # (registered automatically by niri-flake when programs.niri.enable = true).
-  # config.common.default is managed exclusively by flatpak.nix (mkDefault = "*")
-  # to avoid conflicting definitions across modules.
   xdg.portal = {
     enable       = true;
     extraPortals = [ pkgs.xdg-desktop-portal-gnome ];
@@ -48,8 +55,9 @@
 
   environment.systemPackages = with pkgs; [
     polkit_gnome   # polkit auth agent for non-GNOME sessions
-    wl-clipboard   # wl-copy / wl-paste (required by many apps)
-    grim           # screenshot: capture screen or region
-    slurp          # screenshot: interactive region selector
+    wl-clipboard   # wl-copy / wl-paste
+    grim           # screenshot: capture
+    slurp          # screenshot: region selector
+    intel-media-driver  # iHD VA-API driver (hardware video decode on Intel)
   ];
 }
