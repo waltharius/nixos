@@ -52,6 +52,16 @@
     # ---------------------------------------------------------------------------
     # mkHost: physical workstations (laptops/desktops with desktop environment)
     # Location: hosts/workstations/<hostname>/
+    #
+    # Module layout after phase 1 refactor:
+    #   modules/system/desktop/  — one DE module per host (gnome, niri-dms, …)
+    #   modules/system/hardware/ — DE-agnostic hardware services (audio,
+    #                                printing, flatpak)
+    #   modules/system/          — core system concerns (boot, network, …)
+    #
+    # Phase 2 will replace the hardcoded desktop module with a per-host
+    # profile.nix so that azazel and sukkub can load different DEs without
+    # changing this function.
     # ---------------------------------------------------------------------------
     mkHost = hostname: system:
       nixpkgs.lib.nixosSystem {
@@ -67,22 +77,38 @@
         };
         modules = [
           {nixpkgs.config.allowUnfree = true;}
+
+          # --- host-specific ---
           ./hosts/workstations/${hostname}/configuration.nix
           ./hosts/workstations/${hostname}/hardware-configuration.nix
+
+          # --- core system ---
           ./modules/system/boot.nix
           ./modules/system/networking.nix
           ./modules/system/locale.nix
-          ./modules/system/gnome.nix
           ./modules/system/secrets.nix
           ./modules/system/sshd.nix
           ./modules/system/wifi.nix
           ./modules/system/auto-upgrade.nix
           ./modules/system/certificates.nix
           ./modules/system/base.nix
-          ./modules/services/solaar.nix
           ./modules/system/plymouth.nix
           ./modules/system/sudo.nix
           ./modules/system/brave.nix
+
+          # --- desktop environment (phase 2: move to per-host profile.nix) ---
+          ./modules/system/desktop/gnome.nix
+
+          # --- DE-agnostic hardware services ---
+          # Separated from gnome.nix so any future DE can reuse them.
+          ./modules/system/hardware/audio.nix
+          ./modules/system/hardware/printing.nix
+          ./modules/system/hardware/flatpak.nix
+
+          # --- optional services ---
+          ./modules/services/solaar.nix
+
+          # --- external modules ---
           sops-nix.nixosModules.sops
           home-manager.nixosModules.home-manager
           {
