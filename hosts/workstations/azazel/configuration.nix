@@ -1,48 +1,35 @@
-# ./hosts/workstations/azazel/configuration.nix
-# Azazel - ThinkPad T16 Gen3 (production host)
-# Hardware: 128GB RAM, nvme, battery
+# hosts/workstations/azazel/configuration.nix
+#
+# Azazel — ThinkPad T16 Gen3 (primary production host).
+# Hardware: AMD Ryzen, 128 GB RAM, NVMe, no discrete GPU.
+#
+# This file contains ONLY what is unique to this physical machine:
+# hostname, user account, state version, and hardware-specific boot
+# settings. Everything else — desktop environment, power management,
+# optional services — lives in profile.nix.
 {
   pkgs,
   hostname,
   ...
 }: {
-  # Hostname
   networking.hostName = hostname;
 
-  # Enable universal secrets management
-  services.secrets.enable = true;
+  # Firmware update support via LVFS.
   services.fwupd.enable = true;
 
-  # Import host-specific modules
-  imports = [
-    ../../../modules/laptop/tlp.nix
-    ../../../modules/laptop/hibernate.nix
-    ../../../modules/laptop/suspend-fix.nix
-    ../../../modules/laptop/acpi-fix.nix
-    ../../../modules/laptop/thunderbolt.nix
-    ../../../modules/system/gaming.nix
-    ../../../modules/laptop/fingerprint.nix
-    ../../../modules/services/tailscale.nix
-    ../../../modules/services/podman.nix
-  ];
-
-  # Allow automatic hibernation. It automaticly handles offset calcukation and setup via EFI variables
+  # systemd in initrd is required for the automatic hibernation offset
+  # calculation and EFI variable setup used by hibernate.nix.
   boot.initrd.systemd.enable = true;
 
-  # User configuration
   users.users.marcin = {
-    isNormalUser = true;
-    description = "Marcin";
-    extraGroups = ["networkmanager" "wheel" "gamemode" "input" "uinput" "plugdev"];
+    isNormalUser  = true;
+    description   = "Marcin";
+    extraGroups   = [ "networkmanager" "wheel" "gamemode" "input" "uinput" "plugdev" ];
   };
 
-  # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
-  # Enable experimental Nix features
-  nix.settings.experimental-features = ["nix-command" "flakes"];
-
-  # System packages
   environment.systemPackages = with pkgs; [
     neovim
     vim
@@ -55,15 +42,16 @@
     killall
   ];
 
-  # Enable Syncthing
   services.syncthing = {
-    enable = true;
+    enable           = true;
     openDefaultPorts = true;
-    user = "marcin";
-    dataDir = "/home/marcin";
-    configDir = "/home/marcin/.config/syncthing";
+    user             = "marcin";
+    dataDir          = "/home/marcin";
+    configDir        = "/home/marcin/.config/syncthing";
   };
 
-  # State version - DO NOT CHANGE after initial installation
+  # DO NOT change stateVersion after the initial installation.
+  # It controls the format of stateful data (databases, dotfiles) and
+  # changing it will not upgrade anything — it only breaks assumptions.
   system.stateVersion = "25.11";
 }

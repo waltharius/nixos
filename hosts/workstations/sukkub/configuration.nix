@@ -1,73 +1,65 @@
-# Sukkub - Lenovo ThinkPad P50 (test/POC host)
-# Hardware: nvme, no battery
+# hosts/workstations/sukkub/configuration.nix
+#
+# Sukkub — ThinkPad P50 (test/POC host).
+# Hardware: Intel Xeon, 32 GB RAM, NVMe, NVIDIA Quadro M2000M (Maxwell).
+#
+# This file contains ONLY what is unique to this physical machine:
+# hostname, user account, state version, hardware-specific boot settings,
+# and quirks that apply nowhere else. Everything else lives in profile.nix.
 {
   pkgs,
   hostname,
   ...
 }: {
-  # Hostname
   networking.hostName = hostname;
 
-  # Enable universal secrets management
-  services.secrets.enable = true;
-
-  # Import host-specific modules
-  imports = [
-    ../../../modules/laptop/tlp.nix
-    ../../../modules/laptop/hibernate.nix
-    ../../../modules/laptop/acpi-suspend.nix
-    ../../../modules/laptop/thunderbolt.nix
-    ../../../modules/system/gaming.nix
-  ];
-
-  # Allow automatic hibernation. It automaticly handles offset calcukation and setup via EFI variables
+  # systemd in initrd is required for the automatic hibernation offset
+  # calculation and EFI variable setup used by hibernate.nix.
   boot.initrd.systemd.enable = true;
 
-  # User configuration
   users.users.marcin = {
-    isNormalUser = true;
-    description = "Marcin";
-    extraGroups = ["networkmanager" "wheel" "gamemode" "input" "uinput" "plugdev"];
-
-    # SSH authorized keys for remote access
+    isNormalUser  = true;
+    description   = "Marcin";
+    extraGroups   = [ "networkmanager" "wheel" "gamemode" "input" "uinput" "plugdev" ];
+    # Authorised key for remote access from the Tabby terminal.
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINhyNxm4pZR9CCnWGlDA+jotcnH5sc53LpSkSLs7XNx0 walth@fedora-laptop-tabby-2025"
     ];
   };
 
-  # Disable serial console services (not needed on laptops)
-  # This eliminates 16-second boot delays for non-existent hardware
-  systemd.services = {
-    "serial-getty@ttyS0".enable = false;
-    "serial-getty@ttyS1".enable = false;
-    "serial-getty@ttyS2".enable = false;
-    "serial-getty@ttyS3".enable = false;
-  };
+  # Disable serial console gettys. sukkub has no serial hardware;
+  # leaving these enabled causes ~16 s boot delays waiting for
+  # non-existent TTY devices.
+  systemd.services."serial-getty@ttyS0".enable = false;
+  systemd.services."serial-getty@ttyS1".enable = false;
+  systemd.services."serial-getty@ttyS2".enable = false;
+  systemd.services."serial-getty@ttyS3".enable = false;
+  systemd.services."serial-getty@".enable       = false;
 
-  # Or more elegantly - disable all serial gettys at once
-  systemd.services."serial-getty@".enable = false;
-
-  # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
-  # Enable experimental Nix features
-  nix.settings.experimental-features = ["nix-command" "flakes"];
-
-  # System packages
   environment.systemPackages = with pkgs; [
-    tlp
-    #mesa-demos
-    #vulkan-tools
+    neovim
+    vim
+    wget
+    curl
+    git
+    btop
+    alacritty
+    ptyxis
+    killall
     texlive.combined.scheme-medium
   ];
+
   services.syncthing = {
-    enable = true;
+    enable           = true;
     openDefaultPorts = true;
-    user = "marcin";
-    dataDir = "/home/marcin";
-    configDir = "/home/marcin/.config/syncthing";
+    user             = "marcin";
+    dataDir          = "/home/marcin";
+    configDir        = "/home/marcin/.config/syncthing";
   };
 
-  # State version - DO NOT CHANGE after initial installation
+  # DO NOT change stateVersion after the initial installation.
   system.stateVersion = "25.11";
 }
