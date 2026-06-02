@@ -20,11 +20,23 @@
 # Verified via /dev/dri/by-path symlinks and readlink on each card node.
 # WLR_DRM_DEVICES must point to card1 (Intel) NOT card0 (NVIDIA).
 #
-# In practice this means:
-#   - niri runs on Intel GPU (fast, low-power, flawless Wayland)
-#   - NVIDIA available via nvidia-offload wrapper for individual apps
-#   - No tearing, no black screen, instant GDM recovery
-{ pkgs, ... }: {
+# WHY NOT environment.sessionVariables?
+# environment.sessionVariables is read by PAM/pam_env when a user session
+# starts — i.e. AFTER GDM has already launched the session binary.
+# GDM itself (the display manager process, running as root / gdm user)
+# never sees those variables. The session binary (niri) is spawned by GDM
+# with GDM's own environment, which does not include sessionVariables.
+#
+# The correct mechanism is environment.variables (sets /etc/environment,
+# read system-wide by PAM before any session starts, including GDM's own
+# child processes) combined with a GDM environment.d drop-in for the
+# variables that must be visible to the Wayland compositor subprocess.
+#
+# environment.variables is used here for LIBVA/VDPAU (safe globally).
+# WLR_DRM_DEVICES is injected via a systemd environment.d drop-in placed
+# in /etc/systemd/system/gdm.service.d/ so that GDM exports it to every
+# session it spawns, including niri.
+{ pkgs, lib, ... }: {
 
   # Register niri as a valid GDM session.
   programs.niri.enable = true;
@@ -32,15 +44,20 @@
   security.polkit.enable = true;
   services.dbus.enable   = true;
 
-  # Force niri to use the Intel DRM node.
-  # card1 = Intel HD 530 on ThinkPad P50 (counter-intuitive — see note above).
-  # Without this, wlroots opens card0 (NVIDIA) first, GBM init fails with
-  # legacy_470, and the compositor exits before rendering anything.
+  # Inject WLR_DRM_DEVICES into GDM's environment so that every session
+  # GDM spawns (including niri) inherits it before the compositor inits DRM.
+  # This is the only reliable way to influence wlroots DRM device selection
+  # when the session is launched by a display manager.
   #
-  # LIBVA_DRIVER_NAME=iHD  -> Intel Media Driver for VA-API (hw video decode)
-  # VDPAU_DRIVER=va_gl     -> VDPAU via VA-API bridge
-  environment.sessionVariables = {
-    WLR_DRM_DEVICES   = "/dev/dri/card1";
+  # card1 = Intel HD 530 on ThinkPad P50.
+  # Without this niri opens card0 (NVIDIA), GBM init fails, black screen.
+  systemd.services.gdm.serviceConfig.Environment = [
+    "WLR_DRM_DEVICES=/dev/dri/card1"
+  ];
+
+  # LIBVA and VDPAU are safe to set globally — they only affect VA-API/VDPAU
+  # consumers (video players, browsers) and do not influence display init.
+  environment.variables = {
     LIBVA_DRIVER_NAME = "iHD";
     VDPAU_DRIVER      = "va_gl";
   };
