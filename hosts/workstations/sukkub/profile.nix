@@ -12,8 +12,9 @@
 # therefore NOT listed here to avoid duplication.
 { ... }: {
   imports = [
-    # --- desktop environment ---
+    # --- desktop environments ---
     ../../../modules/system/desktop/gnome.nix
+    ../../../modules/system/niri.nix        # niri Wayland session
 
     # --- DE-agnostic hardware services ---
     ../../../modules/system/hardware/audio.nix
@@ -40,7 +41,5 @@
     ../../../modules/services/solaar.nix
   ];
 
-  # Enable SOPS secrets management (age key at /var/lib/sops-nix/key.txt).
-  # Must be set per-host because the secrets module is opt-in.
   services.secrets.enable = true;
 }

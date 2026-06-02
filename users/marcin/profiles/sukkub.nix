@@ -2,21 +2,17 @@
 #
 # Home Manager profile for marcin on sukkub (ThinkPad P50).
 #
-# Set marcin.desktop to the DE(s) you want active on this host.
-# See users/marcin/base/desktop-extensions.nix for accepted values
-# and instructions on adding new desktop environments.
+# marcin.desktop controls which DE-specific HM configuration is activated.
+# See users/marcin/base/desktop-extensions.nix for accepted values and
+# instructions on adding new desktop environments.
 #
-# When you are ready to try niri alongside GNOME, change the line below to:
-#   marcin.desktop = [ "gnome" "niri" ];
-# When you want niri only:
-#   marcin.desktop = "niri";
-# Then fill in the niri block in base/desktop-extensions.nix.
+# Both "gnome" and "niri" are active so you can log in to either session
+# from GDM and switch freely. Remove "gnome" once you are comfortable
+# working exclusively in niri.
 { ... }: {
-  # sukkub currently runs GNOME Shell, same as azazel.
-  # Switch to niri here when ready — no other file needs to change.
-  marcin.desktop = "gnome";
+  marcin.desktop = [ "gnome" "niri" ];
 
   # Add sukkub-specific packages here if needed.
-  # For example, NVIDIA monitoring tools:
+  # For example, extra NVIDIA monitoring:
   # home.packages = [ pkgs.nvtopPackages.nvidia ];
 }

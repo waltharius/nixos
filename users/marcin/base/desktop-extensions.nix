@@ -21,8 +21,7 @@
 # MULTIPLE DEs ON ONE HOST
 # ------------------------
 # Setting marcin.desktop to a list activates all listed DEs at once.
-# Each DE block is independently guarded, so they compose without
-# conflict as long as the underlying HM options don't collide.
+# Each DE block is independently guarded so they compose without conflict.
 #
 # REMOVING A DE
 # -------------
@@ -30,18 +29,15 @@
 # to disable all DE-specific configuration while keeping base packages.
 { config, lib, pkgs, customPkgs, ... }:
 let
-  cfg = config.marcin.desktop;
-
-  # Normalise: accept both a single string and a list of strings.
+  cfg      = config.marcin.desktop;
   desktops = lib.toList cfg;
 
   # Feature flags — add one line here for each new DE.
   gnome = lib.elem "gnome" desktops;
   niri  = lib.elem "niri"  desktops;
-  # sway  = lib.elem "sway"  desktops;      # future example
+  # sway  = lib.elem "sway"  desktops;
   # hypr  = lib.elem "hyprland" desktops;
 
-  # GNOME extensions list — reused in home.packages and dconf.settings.
   gnomeExtensions = with pkgs.gnomeExtensions; [
     appindicator
     run-or-raise
@@ -55,9 +51,6 @@ let
     customPkgs.solaar-extension
   ];
 in {
-  # ---------------------------------------------------------------------------
-  # Option declaration
-  # ---------------------------------------------------------------------------
   options.marcin.desktop = lib.mkOption {
     type    = with lib.types; either str (listOf str);
     default = [];
@@ -65,16 +58,17 @@ in {
     description = ''
       Desktop environment(s) active on this host. Accepted values:
         "gnome"     — GNOME Shell with extensions
-        "niri"      — niri (Wayland tiling compositor)
-      A single string is also accepted and is equivalent to a one-element list.
+        "niri"      — niri scrollable-tiling Wayland compositor
+      A single string is equivalent to a one-element list.
       Set from the host profile: users/marcin/profiles/<hostname>.nix.
     '';
   };
 
-  # ---------------------------------------------------------------------------
-  # GNOME configuration (active when "gnome" is in marcin.desktop)
-  # ---------------------------------------------------------------------------
   config = lib.mkMerge [
+
+    # -------------------------------------------------------------------------
+    # GNOME
+    # -------------------------------------------------------------------------
     (lib.mkIf gnome {
       home.packages = gnomeExtensions;
 
@@ -87,10 +81,6 @@ in {
         "org/gnome/settings-daemon/plugins/power" = {
           lid-close-suspend-with-external-monitor = true;
         };
-        # Ptyxis terminal zoom — set to 120 % so the font is readable at
-        # any screen density (4K on sukkub, FHD on azazel).
-        # 1.0 = 100 %, 1.2 = 120 %, 1.5 = 150 %, etc.
-        # Ptyxis applies this value to every new window and tab.
         "org/gnome/Ptyxis" = {
           text-scale-factor = 1.2;
         };
@@ -105,14 +95,11 @@ in {
       '';
     })
 
-    # ---------------------------------------------------------------------------
-    # Niri configuration (active when "niri" is in marcin.desktop)
-    # ---------------------------------------------------------------------------
-    # Add niri-specific packages, waybar config, swaylock, mako, etc. here
-    # when you start the niri setup on sukkub.
+    # -------------------------------------------------------------------------
+    # Niri
+    # -------------------------------------------------------------------------
     (lib.mkIf niri {
-      # home.packages = [ pkgs.niri pkgs.waybar pkgs.mako ... ];
-      # xdg.configFile."niri/config.kdl".text = '''';
+      imports = [ ../../../modules/home/desktop/niri.nix ];
     })
   ];
 }
