@@ -12,9 +12,8 @@
 # configuration layer in NixOS 26.05. This is a known upstream limitation;
 # the options remain effective for Wayland sessions via the XKB subsystem.
 #
-# services.displayManager.gdm.wayland = true is set explicitly for clarity
-# even though it is the default in NixOS 26.05. Explicit values prevent
-# accidental regressions if the upstream default ever changes.
+# services.displayManager.gdm.wayland was removed in NixOS 26.05 / GNOME 50.
+# X11 fallback is no longer supported; GDM always runs on Wayland.
 #
 # gcr-ssh-agent (introduced in GNOME 44) supersedes the legacy SSH agent
 # that was part of gnome-keyring. It correctly handles ed25519 and other
@@ -36,10 +35,7 @@
     autoRepeatInterval = 35;
   };
 
-  services.displayManager.gdm = {
-    enable = true;
-    wayland = true;
-  };
+  services.displayManager.gdm.enable = true;
 
   services.desktopManager.gnome = {
     enable = true;
