@@ -1,76 +1,63 @@
 # NVIDIA graphics driver configuration with PRIME support for laptops
-# Specifically configured for hybrid Intel + NVIDIA graphics (tailored to M2000M)
+# Configured for hybrid Intel + NVIDIA graphics on ThinkPad P50
+# GPU: Quadro M2000M (Maxwell GM107 architecture)
+#
+# DRIVER NOTE: Maxwell-generation GPUs (GM107, GM200 family) are NOT supported
+# by the current stable NVIDIA driver (595.x+). The last driver branch with
+# official Maxwell support is 470.xx. Using nvidiaPackages.legacy_470 here.
+# See: https://www.nvidia.com/en-us/drivers/unix/legacy-gpu/
 {
   config,
   lib,
   pkgs,
   ...
 }: {
-  # Enable OpenGL and graphics drivers
   hardware.graphics = {
     enable = true;
-    enable32Bit = true; # Required for 32-bit games and Steam
+    enable32Bit = true;
   };
 
-  # Load NVIDIA driver for Xorg and Wayland
-  services.xserver.videoDrivers = ["nvidia"];
+  services.xserver.videoDrivers = [ "nvidia" ];
 
   hardware.nvidia = {
-    # Use the stable production driver
-    # For Quadro M2000M (Maxwell architecture), the current stable driver works well
-    package = config.boot.kernelPackages.nvidiaPackages.stable;
+    # legacy_470 is required for Maxwell architecture (Quadro M2000M / GM107).
+    # Do NOT change to "stable" or "beta" — those drivers will ignore this GPU.
+    package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
 
-    # Modesetting is required for most Wayland compositors
+    # Required for Wayland compositors (niri, sway, hyprland, …)
     modesetting.enable = true;
 
-    # NVIDIA power management (experimental but generally safe for laptops)
-    # This helps save power when NVIDIA GPU is not in use
+    # Basic power management — safe for Maxwell.
     powerManagement.enable = true;
 
-    # Fine-grained power management (turns off GPU when not in use)
-    # Can be unstable on some systems - test carefully
-    # TODO - test this after finish testing basic setup.
+    # Fine-grained power management (Turing+ only, NOT supported on Maxwell).
+    # Keep this false — enabling it on M2000M will cause boot issues.
     powerManagement.finegrained = false;
 
-    # Use the open source kernel module (not available for Maxwell architecture)
-    # Quadro M2000M requires the proprietary driver
+    # Open-source kernel module is NOT available for Maxwell.
     open = false;
 
-    # Enable the NVIDIA settings menu accessible via `nvidia-settings`
     nvidiaSettings = true;
 
-    # PRIME configuration for hybrid graphics (laptop-specific)
+    # PRIME Sync: Intel manages the display, NVIDIA renders everything.
+    # Bus IDs verified via lspci on ThinkPad P50:
+    #   00:02.0 Intel HD Graphics 530  → PCI:0:2:0
+    #   01:00.0 Quadro M2000M          → PCI:1:0:0
+    # If you move this config to a different machine, verify with:
+    #   lspci | grep -E "VGA|3D"
     prime = {
-      # This allows Intel to manage displays while NVIDIA renders
-      # Better for Thunderbolt docks than pure offload
       sync.enable = true;
-      # offload.enable = false;
-
-      # If on laptop other than ThinkPad do whats below:
-      # Find your Bus IDs by running: lspci | grep -E "VGA|3D"
-      # The format is: PCI:bus:device:function (converted to decimal)
-      # Example output: 00:02.0 VGA compatible controller: Intel
-      #                 01:00.0 3D controller: NVIDIA
-      # Convert to: "PCI:0:2:0" for Intel, "PCI:1:0:0" for NVIDIA
-
-      #=== YOU MUST UPDATE THESE VALUES based on your system's lspci output ===#
-      intelBusId = "PCI:0:2:0"; # Typical for ThinkPad P50
-      nvidiaBusId = "PCI:1:0:0"; # Typical for ThinkPad P50
+      intelBusId  = "PCI:0:2:0";
+      nvidiaBusId = "PCI:1:0:0";
     };
   };
 
-  # Coordinate with TLP for better power management
-  # TLP should not manage the NVIDIA GPU - let the NVIDIA driver handle it
-  # Remove if not using TLP
+  # Prevent TLP from fighting with the NVIDIA driver over GPU power management.
   services.tlp.settings = {
-    # Exclude NVIDIA GPU from TLP runtime power management
-    # This prevents conflicts between TLP and NVIDIA's own power management
     RUNTIME_PM_DRIVER_BLACKLIST = "nvidia nouveau";
   };
 
-  # Add NVIDIA packages to system environment
   environment.systemPackages = with pkgs; [
-    nvtopPackages.nvidia # GPU monitoring tool
-    nvidia-system-monitor-qt # Alternative GPU monitor with GUI
+    nvtopPackages.nvidia
   ];
 }
