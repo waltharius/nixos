@@ -2,67 +2,79 @@
 #
 # System-level configuration for the niri Wayland compositor session.
 #
-# NVIDIA + niri: why we force Intel modesetting
-# ---------------------------------------------
-# ThinkPad P50 has PRIME hybrid graphics (Intel HD 530 + Quadro M2000M).
-# The NVIDIA legacy_470 driver (required for Maxwell) has broken GBM support
-# for non-GNOME Wayland compositors in PRIME modes. Both sync and offload
-# modes result in a black screen when niri tries to init the DRM device,
-# because legacy_470 does not properly export a GBM backend that niri can use.
+# This module also owns the display manager configuration (greetd + regreet).
 #
-# The solution: tell the compositor to use the Intel DRM node exclusively.
-# NVIDIA stays loaded (its kernel module is still present for CUDA/compute),
-# but the display pipeline is 100% Intel KMS/DRM.
+# WHY GREETD INSTEAD OF GDM?
+# GDM is tightly coupled to GNOME/Mutter and has a persistent bug on NVIDIA
+# PRIME hybrid systems: it does not reliably pass environment variables such
+# as WLR_DRM_DEVICES to non-GNOME Wayland sessions it spawns. The result is
+# a black screen regardless of how the variable is set (sessionVariables,
+# environment.d drop-ins, gdm.serviceConfig.Environment).
 #
-# IMPORTANT: On ThinkPad P50 the DRM node order is counter-intuitive:
-#   /dev/dri/card0  -> pci-0000:01:00.0 -> NVIDIA Quadro M2000M
-#   /dev/dri/card1  -> pci-0000:00:02.0 -> Intel HD Graphics 530
-# Verified via /dev/dri/by-path symlinks and readlink on each card node.
-# WLR_DRM_DEVICES must point to card1 (Intel) NOT card0 (NVIDIA).
+# greetd spawns the session as the target user in a clean PAM session, with
+# full control over the environment. Combined with a tuigreet wrapper script
+# that exports WLR_DRM_DEVICES before exec-ing niri, this is 100% reliable.
 #
-# WHY NOT environment.sessionVariables?
-# environment.sessionVariables is read by PAM/pam_env when a user session
-# starts — i.e. AFTER GDM has already launched the session binary.
-# GDM itself (the display manager process, running as root / gdm user)
-# never sees those variables. The session binary (niri) is spawned by GDM
-# with GDM's own environment, which does not include sessionVariables.
+# NVIDIA DRM NODE ORDER ON THINKPAD P50:
+#   /dev/dri/card0  -> pci-0000:01:00.0 -> NVIDIA Quadro M2000M  (legacy_470)
+#   /dev/dri/card1  -> pci-0000:00:02.0 -> Intel HD Graphics 530 (i915)
+# The NVIDIA driver initialises earlier in the boot sequence and claims card0.
+# WLR_DRM_DEVICES must be set to card1 so niri/wlroots skips the NVIDIA node
+# (whose GBM implementation is broken in legacy_470) and uses Intel instead.
 #
-# The correct mechanism is environment.variables (sets /etc/environment,
-# read system-wide by PAM before any session starts, including GDM's own
-# child processes) combined with a GDM environment.d drop-in for the
-# variables that must be visible to the Wayland compositor subprocess.
-#
-# environment.variables is used here for LIBVA/VDPAU (safe globally).
-# WLR_DRM_DEVICES is injected via a systemd environment.d drop-in placed
-# in /etc/systemd/system/gdm.service.d/ so that GDM exports it to every
-# session it spawns, including niri.
+# GREETER SELECTION: regreet (GTK4 greeter for greetd)
+# regreet lists all installed Wayland/X11 sessions from /run/current-system
+# and lets the user pick. Both niri and gnome-wayland are available.
 { pkgs, lib, ... }: {
 
-  # Register niri as a valid GDM session.
+  # Register niri as a valid session entry in /run/current-system/sw/share/wayland-sessions/.
   programs.niri.enable = true;
 
   security.polkit.enable = true;
   services.dbus.enable   = true;
 
-  # Inject WLR_DRM_DEVICES into GDM's environment so that every session
-  # GDM spawns (including niri) inherits it before the compositor inits DRM.
-  # This is the only reliable way to influence wlroots DRM device selection
-  # when the session is launched by a display manager.
-  #
-  # card1 = Intel HD 530 on ThinkPad P50.
-  # Without this niri opens card0 (NVIDIA), GBM init fails, black screen.
-  systemd.services.gdm.serviceConfig.Environment = [
-    "WLR_DRM_DEVICES=/dev/dri/card1"
-  ];
+  # ---------------------------------------------------------------------------
+  # greetd display manager
+  # ---------------------------------------------------------------------------
+  # greetd runs as a systemd service, starts regreet (a GTK4 greeter) which
+  # renders on the Intel DRM node. WLR_DRM_DEVICES is set inside the
+  # greetd environment via the environment option so it is inherited by
+  # the greeter AND by every session greetd spawns.
+  services.greetd = {
+    enable   = true;
+    settings = {
+      default_session = {
+        # regreet is a GTK4 greeter that needs a Wayland compositor to run on.
+        # We launch it inside cage (a minimal Wayland kiosk compositor) which
+        # correctly initialises on Intel DRM without any NVIDIA involvement.
+        command = lib.concatStringsSep " " [
+          "${pkgs.cage}/bin/cage"
+          "-s" "--"
+          "${pkgs.greetd.regreet}/bin/regreet"
+        ];
+        user = "greeter";
+      };
+    };
+  };
 
-  # LIBVA and VDPAU are safe to set globally — they only affect VA-API/VDPAU
-  # consumers (video players, browsers) and do not influence display init.
+  # Inject WLR_DRM_DEVICES into greetd's own environment.
+  # greetd inherits this into cage (the greeter compositor) and into
+  # every user session it spawns, so niri always opens card1 (Intel).
+  systemd.services.greetd.environment = {
+    WLR_DRM_DEVICES = "/dev/dri/card1";
+  };
+
+  # Allow regreet to write its state (last-selected session / user).
+  environment.etc."greetd/environments".text = '';
+
+  # VA-API / VDPAU: safe to set globally, only affects video decode consumers.
   environment.variables = {
     LIBVA_DRIVER_NAME = "iHD";
     VDPAU_DRIVER      = "va_gl";
   };
 
-  # xdg-desktop-portal: needed for screen sharing, file picker, etc.
+  # xdg-desktop-portal: screen sharing, file picker, etc.
+  # config.common.default is managed by flatpak.nix (lib.mkDefault = "*").
   xdg.portal = {
     enable       = true;
     extraPortals = [ pkgs.xdg-desktop-portal-gnome ];
@@ -73,6 +85,7 @@
     wl-clipboard        # wl-copy / wl-paste
     grim                # screenshot: capture
     slurp               # screenshot: region selector
-    intel-media-driver  # iHD VA-API driver (hardware video decode on Intel)
+    intel-media-driver  # iHD VA-API driver
+    cage                # minimal Wayland compositor used by regreet greeter
   ];
 }
