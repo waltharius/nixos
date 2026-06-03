@@ -6,11 +6,17 @@
 # See users/marcin/base/desktop-extensions.nix for accepted values and
 # instructions on adding new desktop environments.
 #
-# Both "gnome" and "niri" are active so you can log in to either session
-# from GDM and switch freely. Remove "gnome" once you are comfortable
-# working exclusively in niri.
+# TO RE-ENABLE NIRI on sukkub:
+#   1. In hosts/workstations/sukkub/profile.nix add:
+#        imports = [ ../../../modules/system/niri.nix ];
+#        home-manager.users.marcin.imports = [
+#          ../../../modules/home/desktop/niri.nix
+#        ];
+#   2. Change marcin.desktop below to [ "gnome" "niri" ].
+#   modules/system/niri.nix is self-contained — that single import
+#   brings the NixOS session registration, greetd, and all system deps.
 { ... }: {
-  marcin.desktop = [ "gnome" "niri" ];
+  marcin.desktop = "gnome";
 
   # Add sukkub-specific packages here if needed.
   # For example, extra NVIDIA monitoring:
