@@ -10,11 +10,17 @@
 # Modules that are common to every workstation (boot, networking, locale,
 # secrets, sops, home-manager) are loaded by mkHost in flake.nix and are
 # therefore NOT listed here to avoid duplication.
+#
+# NOTE: modules/system/niri.nix is intentionally disabled.
+# It enables greetd which conflicts with GDM from gnome.nix.
+# Only one display manager may be active at a time in NixOS.
+# Re-enable niri.nix (and disable gnome.nix) when ready to
+# migrate away from GNOME — after the keyring issue is resolved.
 { ... }: {
   imports = [
     # --- desktop environments ---
     ../../../modules/system/desktop/gnome.nix
-    ../../../modules/system/niri.nix        # niri Wayland session
+    # ../../../modules/system/niri.nix  # disabled: greetd conflicts with GDM
 
     # --- DE-agnostic hardware services ---
     ../../../modules/system/hardware/audio.nix
