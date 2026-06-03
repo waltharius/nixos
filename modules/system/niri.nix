@@ -1,46 +1,70 @@
 # modules/system/niri.nix
 #
 # System-level configuration for the niri Wayland compositor session.
-# Owns: greetd display manager, gnome-keyring PAM integration, env vars.
+#
+# ARCHIVED — not imported by any host. Kept for future use.
+#
+# HOW TO ACTIVATE ON A HOST:
+#   In the host's profile.nix, replace the gnome.nix import with this file:
+#     - ../../../modules/system/desktop/gnome.nix
+#     + ../../../modules/system/niri.nix
+#   Never import both at once — each owns the display manager.
 #
 # NVIDIA DRM NODE ORDER ON THINKPAD P50:
 #   /dev/dri/card0  -> pci-0000:01:00.0 -> NVIDIA Quadro M2000M  (legacy_470)
 #   /dev/dri/card1  -> pci-0000:00:02.0 -> Intel HD Graphics 530 (i915)
-# WLR_DRM_DEVICES must point to card1 (Intel).
+#   WLR_DRM_DEVICES must point to card1 (Intel iGPU).
 #
 # GNOME KEYRING:
-# gnome-keyring-daemon is started via PAM at login (pam_gnome_keyring.so).
-# This is identical to how GNOME starts it, so all existing secrets
-# (Nextcloud OAuth tokens, SSH keys, Signal DB key) are unlocked
-# automatically when the user logs in through greetd.
+#   gnome-keyring-daemon is started via PAM at login (pam_gnome_keyring.so).
+#   All existing secrets (Nextcloud OAuth tokens, SSH keys) are unlocked
+#   automatically when the user logs in through greetd.
 #
 # SIGNAL:
-# ELECTRON_OZONE_PLATFORM_HINT=wayland forces Electron apps into native
-# Wayland mode. Under XWayland, Electron cannot find the DBus session
-# and falls back to basic_text keyring backend, losing access to secrets.
-# The --password-store=gnome-libsecret flag is set in the niri keybind.
+#   ELECTRON_OZONE_PLATFORM_HINT=wayland forces Electron apps into native
+#   Wayland mode. Under XWayland, Electron cannot find the DBus session
+#   and falls back to basic_text keyring backend.
 #
 # REGREET HIDPI:
-# GDK_SCALE=2 + XCURSOR_SIZE=48 passed inline to cage so the GTK4 greeter
-# is readable on the 4K eDP-1 panel.
+#   GDK_SCALE=2 + XCURSOR_SIZE=48 passed inline to cage so the GTK4 greeter
+#   is readable on the 4K eDP-1 panel.
 #
 # IBUS / GTK_IM_MODULE:
-# services.desktopManager.gnome.enable pulls in ibus and sets
-# GTK_IM_MODULE="ibus" via i18n.inputMethod. We override it to empty
-# with lib.mkForce so niri sessions are not affected. GNOME sessions
-# re-set it themselves via gnome-session environment.
-{ pkgs, lib, ... }: {
+#   services.desktopManager.gnome.enable pulls in ibus and sets
+#   GTK_IM_MODULE="ibus" via i18n.inputMethod. We override it to empty
+#   with lib.mkForce so niri sessions are not affected.
+{ pkgs, lib, config, ... }:
+
+let
+  # Catch accidental double-import with gnome.nix at evaluation time.
+  # gnome.nix sets gdm.enable = true; if that is already set when we
+  # arrive here, the two modules were imported together, which will
+  # produce two conflicting display managers.
+  gdmAlsoEnabled = config.services.displayManager.gdm.enable;
+in
+{
+  assertions = [{
+    assertion = !gdmAlsoEnabled;
+    message   = ''
+      modules/system/niri.nix: GDM is enabled alongside greetd.
+      Do NOT import both modules/system/desktop/gnome.nix and niri.nix.
+      Only one display manager may be active at a time.
+    '';
+  }];
 
   programs.niri.enable = true;
 
   security.polkit.enable = true;
   services.dbus.enable   = true;
 
+  # Explicitly disable GDM — this module owns the display manager.
+  services.displayManager.gdm.enable = false;
+
   # ---------------------------------------------------------------------------
-  # GNOME Keyring via PAM
+  # GNOME Keyring via PAM (greetd owns the session unlock here)
   # ---------------------------------------------------------------------------
-  services.gnome.gnome-keyring.enable = true;
-  security.pam.services.greetd.enableGnomeKeyring = true;
+  services.gnome.gnome-keyring.enable                   = true;
+  security.pam.services.greetd.enableGnomeKeyring       = true;
 
   # ---------------------------------------------------------------------------
   # greetd + regreet + cage
@@ -80,7 +104,6 @@
     # IBus is pulled in by services.desktopManager.gnome and sets
     # GTK_IM_MODULE="ibus" system-wide. Override to empty so niri sessions
     # don't try to connect to an IBus daemon that isn't running.
-    # lib.mkForce is required because ibus.nix sets this with normal priority.
     GTK_IM_MODULE = lib.mkForce "";
     QT_IM_MODULE  = lib.mkForce "";
   };
@@ -100,7 +123,7 @@
     slurp               # screenshot: region selector
     intel-media-driver  # iHD VA-API driver
     cage                # kiosk compositor for regreet
-    regreet             # GTK4 greeter for greetd (renamed from greetd.regreet in 26.05)
+    regreet             # GTK4 greeter for greetd
     libsecret           # secret-tool + gnome-keyring client library
   ];
 }
