@@ -19,11 +19,26 @@
 #
 # HOW TO ADD A NEW DESKTOP ENVIRONMENT MODULE
 # -------------------------------------------
-# Desktop environment HM modules (like niri.nix, gnome.nix) must always be
-# in the static imports list here. They CANNOT be imported conditionally
-# inside lib.mkIf blocks — that is a Nix module system limitation (imports
-# are resolved before condition evaluation). Each module guards itself
-# internally with lib.mkIf based on the marcin.desktop option.
+# Desktop environment HM modules fall into two categories:
+#
+# GLOBAL DEs (e.g. gnome.nix):
+#   The module depends only on standard HM/nixpkgs options. Import it
+#   statically here. It guards itself with lib.mkIf based on marcin.desktop.
+#
+# HOST-SPECIFIC DEs (e.g. niri.nix):
+#   The module depends on options provided by an external flake HM module
+#   (e.g. niri-flake.homeModules.niri). Do NOT import it here — importing
+#   it globally would break hosts that don't load that flake module.
+#   Instead, load it in the host's NixOS profile.nix:
+#
+#     home-manager.users.marcin.imports = [
+#       ../../../modules/home/desktop/niri.nix
+#     ];
+#
+#   The corresponding NixOS module (modules/system/niri.nix) is self-
+#   contained and imports niri-flake.nixosModules.niri itself, which
+#   auto-injects homeModules.niri for home-manager — so niri.nix's
+#   options will be available when the HM module is loaded this way.
 {
   config,
   pkgs,
@@ -57,11 +72,11 @@
     ../../modules/home/shell/starship.nix
     ../../modules/home/terminal/tmux.nix
 
-    # --- desktop environment HM modules ---
-    # These must be listed here (static imports), not inside lib.mkIf blocks.
-    # Each module activates itself conditionally based on marcin.desktop.
+    # --- desktop environment HM modules (global) ---
+    # Only modules that depend solely on standard HM/nixpkgs options.
+    # Host-specific DE modules (niri.nix) are loaded via
+    # home-manager.users.marcin.imports in the host's profile.nix.
     ../../modules/home/desktop/gnome.nix
-    ../../modules/home/desktop/niri.nix
 
     # --- base config (identical on every host) ---
     ./base/git.nix
