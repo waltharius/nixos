@@ -23,12 +23,10 @@
     };
 
     # niri scrollable-tiling Wayland compositor.
-    # Provides:
-    #   niri-flake.nixosModules.niri  — programs.niri.enable (NixOS, session reg.)
-    #                                   also auto-injects the HM module when
-    #                                   home-manager is present — do NOT add
-    #                                   homeModules.niri to sharedModules,
-    #                                   that causes a duplicate-option error.
+    # nixosModules.niri and homeModules.niri are consumed directly by
+    # modules/system/niri.nix (NixOS) and modules/home/desktop/niri.nix (HM).
+    # Neither module is loaded globally — they are imported only by the
+    # host profile that wants niri (see modules/system/niri.nix for details).
     niri-flake = {
       url = "github:sodiboo/niri-flake";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -87,11 +85,9 @@
           ./modules/system/wifi.nix
           ./modules/system/base.nix
 
-          # niri NixOS module: registers niri as a GDM session and provides
-          # programs.niri.enable. It also auto-injects homeModules.niri into
-          # home-manager — do NOT add homeModules.niri to sharedModules,
-          # that would cause a duplicate-option build error.
-          niri-flake.nixosModules.niri
+          # niri is NOT loaded here — it is imported only by the host profile
+          # that needs it (modules/system/niri.nix is self-contained and pulls
+          # in niri-flake.nixosModules.niri itself).
 
           sops-nix.nixosModules.sops
           home-manager.nixosModules.home-manager
@@ -113,8 +109,8 @@
                 nixvim.homeModules.nixvim
                 nix-flatpak.homeManagerModules.nix-flatpak
                 sops-nix.homeManagerModules.sops
-                # niri-flake.homeModules.niri intentionally omitted —
-                # nixosModules.niri injects it automatically.
+                # niri-flake.homeModules.niri is NOT here — it is injected by
+                # modules/home/desktop/niri.nix when a host loads that module.
               ];
             };
           }
