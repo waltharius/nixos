@@ -50,16 +50,11 @@ lib.mkIf niri {
 
     animations.enable = true;
 
-    # Spawn niri's own portal helper so screen sharing works without GNOME.
-    # DISPLAY env is intentionally absent — niri runs pure Wayland.
-    spawn-at-startup = [
-      { command = [ "${pkgs.xdg-desktop-portal}/libexec/xdg-desktop-portal" ]; }
-    ];
-
     window-rules = [
       { matches = [{ app-id = "org.gnome.Calculator"; }]; open-floating = true; }
       { matches = [{ app-id = "org.gnome.Nautilus";   }]; open-floating = true; }
       { matches = [{ title  = ".*[Pp]assword.*";       }]; open-floating = true; }
+      { matches = [{ title  = ".*[Kk]eyring.*";        }]; open-floating = true; }
     ];
 
     binds = {
@@ -68,7 +63,9 @@ lib.mkIf niri {
       "Super+E".action.spawn       = [ "nautilus" ];
       "Super+F".action.spawn       = [ "brave" ];
       "Ctrl+Alt+E".action.spawn    = [ "emacs" ];
-      "Ctrl+Q".action.spawn        = [ "signal-desktop" ];
+      # Signal: --password-store=gnome-libsecret ensures Electron uses the
+      # GNOME Keyring backend even when XDG_CURRENT_DESKTOP != GNOME.
+      "Ctrl+Q".action.spawn        = [ "signal-desktop" "--password-store=gnome-libsecret" ];
 
       # Launcher
       "Super+D".action.spawn       = [ "rofi" "-show" "drun" ];
@@ -109,8 +106,8 @@ lib.mkIf niri {
       "Super+S".action.focus-workspace-down = {};
 
       # Monitors
-      "Super+Comma".action.focus-monitor-left          = {};
-      "Super+Period".action.focus-monitor-right         = {};
+      "Super+Comma".action.focus-monitor-left           = {};
+      "Super+Period".action.focus-monitor-right          = {};
       "Super+Shift+Comma".action.move-window-to-monitor-left  = {};
       "Super+Shift+Period".action.move-window-to-monitor-right = {};
 
