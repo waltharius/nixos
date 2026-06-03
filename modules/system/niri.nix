@@ -13,21 +13,22 @@
 # This is identical to how GNOME starts it, so all existing secrets
 # (Nextcloud OAuth tokens, SSH keys, Signal DB key) are unlocked
 # automatically when the user logs in through greetd.
-# The daemon exports SSH_AUTH_SOCK and GNOME_KEYRING_CONTROL into the
-# systemd --user environment via systemd-environment-d-generator, making
-# them available to all user services including Signal and Nextcloud.
 #
 # SIGNAL:
-# Signal (Electron) uses the libsecret backend for its DB encryption key.
-# With the keyring running and ELECTRON_OZONE_PLATFORM_HINT set, Signal
-# finds gnome-libsecret automatically. The --password-store flag is set
-# via the desktop entry wrapper in modules/system/brave.nix pattern.
+# ELECTRON_OZONE_PLATFORM_HINT=wayland forces Electron apps into native
+# Wayland mode. Under XWayland, Electron cannot find the DBus session
+# and falls back to basic_text keyring backend, losing access to secrets.
+# The --password-store=gnome-libsecret flag is set in the niri keybind.
 #
 # REGREET HIDPI:
-# cage (the kiosk compositor hosting regreet) does not respect output
-# scale from the compositor config. GDK_SCALE=2 forces GTK to render
-# at 2x on the 4K eDP-1 panel. XCURSOR_SIZE=48 prevents a microscopic
-# cursor. WLR_LIBINPUT_NO_DEVICES=0 ensures cage picks up input devices.
+# GDK_SCALE=2 + XCURSOR_SIZE=48 passed inline to cage so the GTK4 greeter
+# is readable on the 4K eDP-1 panel.
+#
+# IBUS / GTK_IM_MODULE:
+# services.desktopManager.gnome.enable pulls in ibus and sets
+# GTK_IM_MODULE="ibus" via i18n.inputMethod. We override it to empty
+# with lib.mkForce so niri sessions are not affected. GNOME sessions
+# re-set it themselves via gnome-session environment.
 { pkgs, lib, ... }: {
 
   programs.niri.enable = true;
@@ -38,11 +39,6 @@
   # ---------------------------------------------------------------------------
   # GNOME Keyring via PAM
   # ---------------------------------------------------------------------------
-  # enableGnomeKeyring injects pam_gnome_keyring.so into the greetd PAM stack.
-  # On successful login it starts gnome-keyring-daemon, unlocks the "login"
-  # keyring with the user password, and exports the socket paths into the
-  # systemd --user environment. All secrets stored while using GNOME are
-  # immediately accessible to niri session apps without any migration.
   services.gnome.gnome-keyring.enable = true;
   security.pam.services.greetd.enableGnomeKeyring = true;
 
@@ -52,16 +48,14 @@
   services.greetd = {
     enable   = true;
     settings.default_session = {
-      # cage: minimal Wayland kiosk compositor, hosts the regreet GTK4 UI.
-      # -s  = handle VT switching
-      # GDK_SCALE=2 is passed inline so the GTK4 greeter renders at HiDPI.
-      # XCURSOR_SIZE=48 prevents microscopic cursor at 4K.
+      # GDK_SCALE=2: regreet (GTK4) renders at HiDPI on the 4K panel.
+      # XCURSOR_SIZE=48: prevents microscopic cursor.
       command = lib.concatStringsSep " " [
         "env"
         "GDK_SCALE=2"
         "XCURSOR_SIZE=48"
         "${pkgs.cage}/bin/cage" "-s" "--"
-        "${pkgs.greetd.regreet}/bin/regreet"
+        "${pkgs.regreet}/bin/regreet"
       ];
       user = "greeter";
     };
@@ -73,23 +67,22 @@
   };
 
   # ---------------------------------------------------------------------------
-  # Session-wide environment variables
+  # Session-wide environment
   # ---------------------------------------------------------------------------
   environment.variables = {
-    # VA-API / VDPAU: Intel decode for all video consumers.
     LIBVA_DRIVER_NAME = "iHD";
     VDPAU_DRIVER      = "va_gl";
 
-    # Tell Electron apps (Signal, VSCode, …) to use Wayland natively.
-    # This is required for libsecret/gnome-keyring to be found correctly;
-    # under XWayland, Electron falls back to basic_text keyring backend.
+    # Native Wayland for Electron: required for libsecret/gnome-keyring
+    # to be found. Under XWayland the DBus session is not visible to Electron.
     ELECTRON_OZONE_PLATFORM_HINT = "wayland";
 
-    # IBus: suppress the "IBus should be called from desktop session" popup.
-    # niri does not use IBus; Polish keyboard layout is handled directly by
-    # libxkbcommon via niri input.keyboard.xkb settings.
-    GTK_IM_MODULE = "";
-    QT_IM_MODULE  = "";
+    # IBus is pulled in by services.desktopManager.gnome and sets
+    # GTK_IM_MODULE="ibus" system-wide. Override to empty so niri sessions
+    # don't try to connect to an IBus daemon that isn't running.
+    # lib.mkForce is required because ibus.nix sets this with normal priority.
+    GTK_IM_MODULE = lib.mkForce "";
+    QT_IM_MODULE  = lib.mkForce "";
   };
 
   # ---------------------------------------------------------------------------
@@ -107,6 +100,7 @@
     slurp               # screenshot: region selector
     intel-media-driver  # iHD VA-API driver
     cage                # kiosk compositor for regreet
+    regreet             # GTK4 greeter for greetd (renamed from greetd.regreet in 26.05)
     libsecret           # secret-tool + gnome-keyring client library
   ];
 }
