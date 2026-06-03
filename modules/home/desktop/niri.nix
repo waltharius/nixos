@@ -27,7 +27,6 @@ lib.mkIf niri {
       mouse.natural-scroll = false;
     };
 
-    # Built-in 4K panel: scale 2.0 for crisp HiDPI rendering.
     outputs."eDP-1".scale = 2.0;
 
     layout = {
@@ -58,32 +57,37 @@ lib.mkIf niri {
     ];
 
     binds = {
-      # Applications
-      "Super+T".action.spawn       = [ "ptyxis" ];
-      "Super+E".action.spawn       = [ "nautilus" ];
-      "Super+F".action.spawn       = [ "brave" ];
-      "Ctrl+Alt+E".action.spawn    = [ "emacs" ];
-      # Signal: --password-store=gnome-libsecret ensures Electron uses the
-      # GNOME Keyring backend even when XDG_CURRENT_DESKTOP != GNOME.
-      "Ctrl+Q".action.spawn        = [ "signal-desktop" "--password-store=gnome-libsecret" ];
+      "Super+T".action.spawn = [ "ptyxis" ];
+      "Super+E".action.spawn = [ "nautilus" ];
+      "Super+F".action.spawn = [ "brave" ];
+      "Ctrl+Q".action.spawn  = [ "signal-desktop" "--password-store=gnome-libsecret" ];
 
-      # Launcher
-      "Super+D".action.spawn       = [ "rofi" "-show" "drun" ];
-      "Super+Space".action.spawn   = [ "rofi" "-show" "drun" ];
+      # emacsclient: open existing frame or create new Wayland window.
+      # --alternate-editor="" → start daemon automatically if not running.
+      # -c → create a new graphical frame.
+      # -n → don't block waiting for the frame to close.
+      # Result: Ctrl+Alt+E always lands you in Emacs immediately, whether
+      # it was already open, minimized, on another workspace, or not started.
+      "Ctrl+Alt+E".action.spawn = [
+        "emacsclient"
+        "--alternate-editor="
+        "-c"
+        "-n"
+      ];
 
-      # Focus
+      "Super+D".action.spawn     = [ "rofi" "-show" "drun" ];
+      "Super+Space".action.spawn = [ "rofi" "-show" "drun" ];
+
       "Super+H".action.focus-column-left  = {};
       "Super+L".action.focus-column-right = {};
       "Super+J".action.focus-window-down  = {};
       "Super+K".action.focus-window-up    = {};
 
-      # Move
       "Super+Shift+H".action.move-column-left  = {};
       "Super+Shift+L".action.move-column-right = {};
       "Super+Shift+J".action.move-window-down  = {};
       "Super+Shift+K".action.move-window-up    = {};
 
-      # Resize
       "Super+Ctrl+H".action.set-column-width  = "-10%";
       "Super+Ctrl+L".action.set-column-width  = "+10%";
       "Super+Ctrl+K".action.set-window-height = "-10%";
@@ -93,7 +97,6 @@ lib.mkIf niri {
       "Super+M".action.maximize-column            = {};
       "Super+Shift+M".action.fullscreen-window     = {};
 
-      # Workspaces
       "Super+1".action.focus-workspace = 1;
       "Super+2".action.focus-workspace = 2;
       "Super+3".action.focus-workspace = 3;
@@ -105,25 +108,37 @@ lib.mkIf niri {
       "Super+W".action.focus-workspace-up   = {};
       "Super+S".action.focus-workspace-down = {};
 
-      # Monitors
-      "Super+Comma".action.focus-monitor-left           = {};
-      "Super+Period".action.focus-monitor-right          = {};
+      "Super+Comma".action.focus-monitor-left            = {};
+      "Super+Period".action.focus-monitor-right           = {};
       "Super+Shift+Comma".action.move-window-to-monitor-left  = {};
       "Super+Shift+Period".action.move-window-to-monitor-right = {};
 
-      # Screenshot
       "Print".action.spawn       = [ "sh" "-c" ''grim -g "$(slurp)" - | wl-copy'' ];
       "Shift+Print".action.spawn = [ "sh" "-c" "grim - | wl-copy" ];
 
-      # Window misc
-      "Super+Q".action.close-window           = {};
-      "Super+V".action.toggle-window-floating  = {};
-      "Super+C".action.center-column           = {};
+      "Super+Q".action.close-window          = {};
+      "Super+V".action.toggle-window-floating = {};
+      "Super+C".action.center-column          = {};
 
-      # System
       "Super+Alt+L".action.spawn = [ "swaylock" ];
       "Super+Alt+Q".action.quit  = {};
     };
+  };
+
+  # ---------------------------------------------------------------------------
+  # Emacs daemon
+  # ---------------------------------------------------------------------------
+  # Starts as a systemd --user service after niri.service is active.
+  # Inherits the complete Wayland session environment: WAYLAND_DISPLAY,
+  # DBUS_SESSION_BUS_ADDRESS, SSH_AUTH_SOCK, GNOME_KEYRING_CONTROL, etc.
+  # This means gpg, tramp, magit, and keyring-dependent packages all work
+  # correctly without extra configuration.
+  #
+  # emacsclient with --alternate-editor="" will start the daemon on demand
+  # if the service hasn't come up yet or crashed, so Ctrl+Alt+E is always safe.
+  services.emacs = {
+    enable               = true;
+    startWithUserSession = true;
   };
 
   # ---------------------------------------------------------------------------
