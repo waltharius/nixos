@@ -4,11 +4,28 @@
 #
 # ARCHIVED — not imported by any host. Kept for future use.
 #
-# HOW TO ACTIVATE ON A HOST:
-#   In the host's profile.nix, replace the gnome.nix import with this file:
-#     - ../../../modules/system/desktop/gnome.nix
-#     + ../../../modules/system/niri.nix
-#   Never import both at once — each owns the display manager.
+# This module is self-contained: it imports niri-flake.nixosModules.niri
+# itself, so a host profile only needs a single line:
+#
+#   imports = [ ../../../modules/system/niri.nix ];
+#
+# The HM configuration is NOT included here — it must be loaded separately
+# in the host profile:
+#
+#   home-manager.users.marcin.imports = [
+#     ../../../modules/home/desktop/niri.nix
+#   ];
+#
+# WHY SEPARATE?
+#   niri-flake.nixosModules.niri used to auto-inject homeModules.niri
+#   into every home-manager user when loaded globally. Now that we load
+#   it only per-host, the auto-injection still happens — but only for
+#   that host. However, modules/home/desktop/niri.nix also explicitly
+#   imports homeModules.niri to be safe and self-documenting.
+#   Do NOT add homeModules.niri to flake.nix sharedModules.
+#
+# NEVER IMPORT BOTH gnome.nix AND niri.nix ON THE SAME HOST.
+#   Each owns the display manager. The assertion below will catch it.
 #
 # NVIDIA DRM NODE ORDER ON THINKPAD P50:
 #   /dev/dri/card0  -> pci-0000:01:00.0 -> NVIDIA Quadro M2000M  (legacy_470)
@@ -33,7 +50,7 @@
 #   services.desktopManager.gnome.enable pulls in ibus and sets
 #   GTK_IM_MODULE="ibus" via i18n.inputMethod. We override it to empty
 #   with lib.mkForce so niri sessions are not affected.
-{ pkgs, lib, config, ... }:
+{ pkgs, lib, config, inputs, ... }:
 
 let
   # Catch accidental double-import with gnome.nix at evaluation time.
@@ -43,6 +60,15 @@ let
   gdmAlsoEnabled = config.services.displayManager.gdm.enable;
 in
 {
+  imports = [
+    # Pull in the upstream niri NixOS module. This registers niri as a
+    # Wayland session and provides the programs.niri.enable option.
+    # It also auto-injects homeModules.niri for any home-manager user
+    # on this host — so do NOT add homeModules.niri to sharedModules
+    # in flake.nix, that would cause a duplicate-option build error.
+    inputs.niri-flake.nixosModules.niri
+  ];
+
   assertions = [{
     assertion = !gdmAlsoEnabled;
     message   = ''
