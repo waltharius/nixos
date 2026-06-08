@@ -10,7 +10,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nix-flatpak.url = "github:gmodena/nix-flatpak";
+    nix-flatpak.url = "github:gmodena/nix-flatpak/v0.5.0";
 
     sops-nix = {
       url = "github:Mic92/sops-nix";
@@ -27,10 +27,10 @@
     # modules/system/niri.nix (NixOS) and modules/home/desktop/niri.nix (HM).
     # Neither module is loaded globally — they are imported only by the
     # host profile that wants niri (see modules/system/niri.nix for details).
-    niri-flake = {
-      url = "github:sodiboo/niri-flake";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    # niri-flake = {
+    #   url = "github:sodiboo/niri-flake";
+    #   inputs.nixpkgs.follows = "nixpkgs";
+    # };
 
     # Declarative disk partitioning.
     disko = {
@@ -45,7 +45,7 @@
     nix-flatpak,
     sops-nix,
     nixvim,
-    niri-flake,
+    #niri-flake,
     disko,
     ...
   } @ inputs: let
@@ -93,8 +93,8 @@
           home-manager.nixosModules.home-manager
           {
             home-manager = {
-              useGlobalPkgs    = true;
-              useUserPackages  = true;
+              useGlobalPkgs = true;
+              useUserPackages = true;
               extraSpecialArgs = {
                 inherit inputs hostname;
                 customPkgs = customPackages;
@@ -126,8 +126,8 @@
           home-manager.nixosModules.home-manager
           {
             home-manager = {
-              useGlobalPkgs    = true;
-              useUserPackages  = true;
+              useGlobalPkgs = true;
+              useUserPackages = true;
               extraSpecialArgs = {
                 inherit inputs;
                 hostname = hostname;
@@ -159,8 +159,8 @@
           home-manager.nixosModules.home-manager
           {
             home-manager = {
-              useGlobalPkgs    = true;
-              useUserPackages  = true;
+              useGlobalPkgs = true;
+              useUserPackages = true;
               extraSpecialArgs = {
                 inherit inputs;
                 hostname = hostname;
@@ -178,7 +178,7 @@
     nixosConfigurations = {
       sukkub = mkHost "sukkub" "x86_64-linux";
       azazel = mkHost "azazel" "x86_64-linux";
-      altair  = mkPhysicalServer "altair";
+      altair = mkPhysicalServer "altair";
     };
 
     colmena = import ./colmena.nix {inherit inputs system;};
