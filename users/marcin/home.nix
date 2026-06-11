@@ -48,50 +48,54 @@
   pkgs-unstable,
   ...
 }: {
-  home.username      = "marcin";
+  home.username = "marcin";
   home.homeDirectory = "/home/marcin";
-  home.stateVersion  = "25.11";
+  home.stateVersion = "25.11";
 
   programs.home-manager.enable = true;
 
   sops = {
-    age.keyFile    = "${config.home.homeDirectory}/.config/sops/age/keys.txt";
+    age.keyFile = "${config.home.homeDirectory}/.config/sops/age/keys.txt";
     defaultSopsFile = ../../secrets/ssh.yaml;
   };
 
-  imports = [
-    # --- shared service / utility modules ---
-    ../../modules/services/ssh.nix
-    ../../modules/services/ssh-askpass.nix
-    ../../modules/utils/yazi.nix
-    ../../modules/utils/nixvim
-    ../../modules/home/tools/zoxide.nix
-    ../../modules/home/tools/atuin.nix
-    ../../modules/home/tools/buku.nix
-    ../../modules/home/shell/bash.nix
-    ../../modules/home/shell/starship.nix
-    ../../modules/home/terminal/tmux.nix
+  imports =
+    [
+      # --- shared service / utility modules ---
+      ../../modules/services/ssh.nix
+      ../../modules/services/ssh-askpass.nix
+      ../../modules/utils/yazi.nix
+      ../../modules/utils/nixvim
+      ../../modules/home/tools/zoxide.nix
+      ../../modules/home/tools/atuin.nix
+      ../../modules/home/tools/buku.nix
+      ../../modules/home/shell/bash.nix
+      ../../modules/home/shell/starship.nix
+      ../../modules/home/terminal/tmux.nix
 
-    # --- desktop environment HM modules (global) ---
-    # Only modules that depend solely on standard HM/nixpkgs options.
-    # Host-specific DE modules (niri.nix) are loaded via
-    # home-manager.users.marcin.imports in the host's profile.nix.
-    ../../modules/home/desktop/gnome.nix
+      # --- desktop environment HM modules (global) ---
+      # Only modules that depend solely on standard HM/nixpkgs options.
+      # Host-specific DE modules (niri.nix) are loaded via
+      # home-manager.users.marcin.imports in the host's profile.nix.
+      ../../modules/home/desktop/gnome.nix
 
-    # --- base config (identical on every host) ---
-    ./base/git.nix
-    ./base/fonts.nix
-    ./base/packages.nix
-    ./base/environment.nix
-    ./base/nextcloud.nix
-    ./base/autostart.nix
-    ./base/solaar.nix
-    ./base/desktop-extensions.nix
+      # --- base config (identical on every host) ---
+      ./base/git.nix
+      ./base/fonts.nix
+      ./base/packages.nix
+      ./base/environment.nix
+      ./base/nextcloud.nix
+      ./base/autostart.nix
+      ./base/solaar.nix
+      ./base/desktop-extensions.nix
 
-    # --- per-host profile ---
-  ] ++ (
-    if hostname == "azazel"      then [ ./profiles/azazel.nix ]
-    else if hostname == "sukkub" then [ ./profiles/sukkub.nix ]
-    else []
-  );
+      # --- per-host profile ---
+    ]
+    ++ (
+      if hostname == "azazel"
+      then [./profiles/azazel.nix]
+      else if hostname == "sukkub"
+      then [./profiles/sukkub.nix]
+      else []
+    );
 }

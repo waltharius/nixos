@@ -20,9 +20,14 @@
 #      marcin.desktop = [ "gnome" "niri" ];   # both active
 #      marcin.desktop = "niri";               # niri only
 #      marcin.desktop = [ "gnome" "hyprland" ]; # future example
-{ config, lib, pkgs, customPkgs, ... }:
-let
-  cfg      = config.marcin.desktop;
+{
+  config,
+  lib,
+  pkgs,
+  customPkgs,
+  ...
+}: let
+  cfg = config.marcin.desktop;
   desktops = lib.toList cfg;
 
   # Feature flags — one per DE.
@@ -44,7 +49,7 @@ let
   ];
 in {
   options.marcin.desktop = lib.mkOption {
-    type    = with lib.types; either str (listOf str);
+    type = with lib.types; either str (listOf str);
     default = [];
     example = lib.literalExpression ''[ "gnome" "niri" ]'';
     description = ''
@@ -62,7 +67,7 @@ in {
     dconf.settings = {
       "org/gnome/shell" = {
         disable-user-extensions = false;
-        enabled-extensions  = map (e: e.extensionUuid) gnomeExtensions;
+        enabled-extensions = map (e: e.extensionUuid) gnomeExtensions;
         disabled-extensions = lib.gvariant.mkEmptyArray lib.gvariant.type.string;
       };
       "org/gnome/settings-daemon/plugins/power" = {
