@@ -7,7 +7,12 @@
 #
 # Packages provided by dedicated HM program modules (git, yazi, atuin,
 # starship, …) are NOT listed here to avoid double-installation.
-{ pkgs, pkgs-unstable, customPkgs, ... }: {
+{
+  pkgs,
+  pkgs-unstable,
+  customPkgs,
+  ...
+}: {
   home.packages = with pkgs; [
     # --- custom packages ---
     customPkgs.rebuild-and-diff
