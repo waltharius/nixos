@@ -117,12 +117,13 @@
 
   systemd.services.avahi-daemon = {
     serviceConfig = {
-      # Cleans /run/avahi-daemon before each start, eliminating stale PID files
-      RuntimeDirectory = "avahi-daemon";
-      RuntimeDirectoryPreserve = "no";
-      # Self-heal if the race still somehow triggers
       Restart = "on-failure";
-      RestartSec = "1s";
+      RestartSec = "2s";
+      StartLimitBurst = 3;
+      StartLimitIntervalSec = "30s";
     };
+    preStart = ''
+      rm -f /run/avahi-daemon/pid
+    '';
   };
 }
