@@ -8,11 +8,7 @@
 #   - Variables referencing user-specific packages (LANGUAGETOOL_JAR → marcin only)
 #   - Variables referencing user-specific paths or secrets
 {config, ...}: {
-  home.sessionVariables = {
-    # Make pkg-config find .pc files from Home Manager packages.
-    # NixOS HM-module puts the user profile at /etc/profiles/per-user/<name>.
-    # This is required for building native Emacs packages (pdf-tools etc.)
-    # that call pkg-config during compilation.
+  programs.bash.sessionVariables = {
     PKG_CONFIG_PATH = "/etc/profiles/per-user/${config.home.username}/lib/pkgconfig";
   };
 }
