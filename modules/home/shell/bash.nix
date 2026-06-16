@@ -42,6 +42,8 @@
     };
 
     bashrcExtra = ''
+       export PKG_CONFIG_PATH="/etc/profiles/per-user/${config.home.username}/lib/pkgconfig''${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+
        # Load ble.sh if available
        if [[ -f ${pkgs.blesh}/share/blesh/ble.sh ]]; then
          source ${pkgs.blesh}/share/blesh/ble.sh --noattach
