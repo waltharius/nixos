@@ -40,7 +40,6 @@
 
     # --- pdf-tools native compilation dependencies ---
     poppler
-    poppler-utils
     pkg-config
     libpng
 
