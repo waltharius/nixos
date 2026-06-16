@@ -72,6 +72,7 @@
       ../../modules/home/shell/bash.nix
       ../../modules/home/shell/starship.nix
       ../../modules/home/terminal/tmux.nix
+      ../../modules/home/shell/environment.nix
 
       # --- desktop environment HM modules (global) ---
       # Only modules that depend solely on standard HM/nixpkgs options.
