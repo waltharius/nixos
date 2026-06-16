@@ -28,11 +28,14 @@
 # re-run it on dependency restarts. hardware.printers is intentionally not
 # used here because it relies on PPD files and does not support IPP
 # Everywhere / driverless printing correctly.
-{ lib, pkgs, ... }: {
-
+{
+  lib,
+  pkgs,
+  ...
+}: {
   services.printing = {
     enable = true;
-    drivers = [ pkgs.cups-filters ];
+    drivers = [pkgs.cups-filters];
     # Disable automatic remote queue discovery to avoid ghost printers.
     extraConf = ''
       BrowseRemoteProtocols none
@@ -68,9 +71,9 @@
   # it is stable across printer reboots.
   systemd.services.cups-add-canon = {
     description = "Register Canon TS8300 printer in CUPS";
-    after = [ "cups.service" "network-online.target" ];
-    wants = [ "cups.service" "network-online.target" ];
-    wantedBy = [ "multi-user.target" ];
+    after = ["cups.service" "network-online.target"];
+    wants = ["cups.service" "network-online.target"];
+    wantedBy = ["multi-user.target"];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -110,5 +113,16 @@
         echo "cups-add-canon: printer already registered, skipping"
       fi
     '';
+  };
+
+  systemd.services.avahi-daemon = {
+    serviceConfig = {
+      # Cleans /run/avahi-daemon before each start, eliminating stale PID files
+      RuntimeDirectory = "avahi-daemon";
+      RuntimeDirectoryPreserve = "no";
+      # Self-heal if the race still somehow triggers
+      Restart = "on-failure";
+      RestartSec = "1s";
+    };
   };
 }
