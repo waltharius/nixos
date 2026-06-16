@@ -42,16 +42,6 @@
     };
 
     bashrcExtra = ''
-
-      # Source HM session variables in non-login interactive shells.
-      # ~/.profile (which sources hm-session-vars.sh) is only read by login
-      # shells. Ptyxis/GNOME Terminal opens non-login shells, so we source
-      # it explicitly here. The __HM_SESS_VARS_SOURCED guard (set by HM)
-      # prevents double-sourcing when a login shell spawns a subshell.
-      if [[ -z "$__HM_SESS_VARS_SOURCED" && -f "$HOME/.profile" ]]; then
-        source "$HOME/.profile"
-      fi
-
        # Load ble.sh if available
        if [[ -f ${pkgs.blesh}/share/blesh/ble.sh ]]; then
          source ${pkgs.blesh}/share/blesh/ble.sh --noattach
