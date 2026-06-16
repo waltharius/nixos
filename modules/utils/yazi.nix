@@ -6,7 +6,7 @@
 # was renamed from "yy" to "y" (a shorter, less conflicting name). The
 # value is set explicitly here so that the behaviour is clear and no
 # evaluation warning is emitted regardless of home.stateVersion.
-{ pkgs, ... }: {
+{pkgs, ...}: {
   programs.yazi = {
     enable = true;
     enableBashIntegration = true;
@@ -15,7 +15,7 @@
 
     settings = {
       mgr = {
-        ratio = [ 1 3 4 ];
+        ratio = [1 3 4];
         sort_by = "natural";
         sort_dir_first = true;
         show_hidden = true;
@@ -36,27 +36,27 @@
         rules = [
           {
             name = "*/";
-            use = [ "edit" "open" "reveal" ];
+            use = ["edit" "open" "reveal"];
           }
           {
             mime = "text/*";
-            use = [ "edit" "reveal" ];
+            use = ["edit" "reveal"];
           }
           {
             mime = "image/*";
-            use = [ "open" "reveal" ];
+            use = ["open" "reveal"];
           }
           {
             mime = "{audio,video}/*";
-            use = [ "play" "reveal" ];
+            use = ["play" "reveal"];
           }
           {
             mime = "inode/x-empty";
-            use = [ "edit" "reveal" ];
+            use = ["edit" "reveal"];
           }
           {
             mime = "application/json";
-            use = [ "edit" "reveal" ];
+            use = ["edit" "reveal"];
           }
         ];
       };
@@ -68,7 +68,7 @@
     ffmpeg
     p7zip
     jq
-    poppler-utils
+    poppler
     imagemagick
     chafa
     bat
