@@ -41,6 +41,8 @@
     # --- pdf-tools native compilation dependencies ---
     poppler
     poppler.dev
+    glib.dev
+    cairo.dev
     pkg-config
     libpng
 
