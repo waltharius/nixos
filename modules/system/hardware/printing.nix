@@ -116,13 +116,23 @@
   };
 
   systemd.services.avahi-daemon = {
-    serviceConfig = {
-      Restart = "on-failure";
-      RestartSec = "2s";
+    unitConfig = {
+      # These belong in [Unit], not [Service]
       StartLimitBurst = 3;
       StartLimitIntervalSec = "30s";
     };
+    serviceConfig = {
+      Restart = "on-failure";
+      RestartSec = "2s";
+    };
     preStart = ''
+      # Ensure the runtime directory exists with correct avahi ownership.
+      # The directory can end up root-owned after botched upgrades or
+      # failed previous starts; avahi drops to uid=999 before writing its
+      # pid file and will fail if it cannot chown the directory itself.
+      mkdir -p /run/avahi-daemon
+      chown avahi:avahi /run/avahi-daemon
+      chmod 0755 /run/avahi-daemon
       rm -f /run/avahi-daemon/pid
     '';
   };
