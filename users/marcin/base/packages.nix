@@ -38,6 +38,12 @@
     onlyoffice-desktopeditors
     flameshot
 
+    # --- pdf-tools native compilation dependencies ---
+    poppler
+    poppler_utils
+    pkg-config
+    libpng
+
     # --- media & entertainment ---
     spotify
     spotify-player
