@@ -20,7 +20,7 @@
 
     # --- GUI applications ---
     blanket
-    # signal-desktop - removed due to CVE issues
+    signal-desktop
     pkgs-unstable.brave
     gnome-secrets
     pkgs-unstable.vivaldi
