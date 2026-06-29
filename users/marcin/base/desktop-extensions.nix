@@ -79,11 +79,11 @@ in {
     };
 
     xdg.configFile."run-or-raise/shortcuts.conf".text = ''
-      <Control><Alt>e,${pkgs.emacs}/bin/emacs,emacs
-      <Super>f,${pkgs.brave}/bin/brave,,
+      <Control><Alt>e,emacs,emacs
+      <Super>f,brave,,
       <Super>e,nautilus,org.gnome.Nautilus
       <Super>t,ptyxis,org.gnome.Ptyxis
-      <Control>q,${pkgs.signal-desktop}/bin/signal-desktop,signal
+      <Control>q,signal-desktop,signal
     '';
   };
 }
