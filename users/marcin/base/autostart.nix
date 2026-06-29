@@ -5,15 +5,17 @@
 # executed by the desktop session on first login, regardless of which
 # desktop environment is active (GNOME, niri, Sway, …).
 #
-# Each entry uses the Nix store path of the executable so the correct
-# binary is launched even after a garbage collection.
-{ pkgs, ... }: {
+# NOTE: Do NOT interpolate pkgs.* store paths here. Doing so forces Nix
+# to evaluate the full build closure of each package at rebuild time,
+# which fails if any transitive build dependency is marked insecure.
+# Bare command names resolve correctly via $PATH in a NixOS session.
+{...}: {
   xdg.configFile = {
     "autostart/signal-desktop.desktop".text = ''
       [Desktop Entry]
       Type=Application
       Name=Signal
-      Exec=${pkgs.signal-desktop}/bin/signal-desktop
+      Exec=signal-desktop
       Terminal=false
     '';
 
@@ -21,7 +23,7 @@
       [Desktop Entry]
       Type=Application
       Name=Ptyxis
-      Exec=${pkgs.ptyxis}/bin/ptyxis
+      Exec=ptyxis
     '';
 
     "autostart/solaar.desktop".text = ''
