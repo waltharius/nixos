@@ -95,6 +95,7 @@
     pdftk
     qpdf
     ghostscript
+    imagemagick
 
     # --- nix tools ---
     nix-prefetch-github
