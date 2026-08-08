@@ -1,111 +1,143 @@
-# Automatic system updates with meaningful generation names
+# Weekly automatic system update.
+#
+# Order of operations (this is the part the old module got wrong):
+#   1. nix flake update              -- refresh the lock file FIRST
+#   2. git commit "OS update <date>" -- record exactly what will be built
+#   3. nix flake check               -- optional gate
+#   4. nixos-rebuild switch          -- build from a clean tree
+#
+# Generations produced here are labelled "up-YYYY-MM-DD". Manual rebuilds are
+# left alone and keep the stock label (the nixpkgs version string), so the two
+# are trivially distinguishable in the boot menu and in `list-generations`.
 {
   config,
   lib,
   pkgs,
   ...
-}: {
-  # Automatic system upgrades
-  system.autoUpgrade = {
-    enable = true;
+}: let
+  repo = "/home/marcin/nixos";
+  host = config.networking.hostName;
 
-    # Use your flake for upgrades
-    flake = "/home/marcin/nixos#${config.networking.hostName}";
+  # Run `nix flake check` before switching. Turn this off for the first few
+  # test runs -- with no checks defined yet it only costs time, and once you
+  # add runNixOSTest for Nextcloud/blog it becomes the actual quality gate.
+  gateOnFlakeCheck = false;
 
-    # Update inputs (nixpkgs, etc.) before upgrading
-    flags = [
-      "--update-input"
-      "nixpkgs"
-      "--update-input"
-      "nixpkgs-unstable"
-      "--update-input"
-      "home-manager"
-      "--update-input"
-      "sops-nix"
-      "--update-input"
-      "nixvim"
-    ];
+  # Flake inputs to refresh. An empty list means "update everything".
+  inputsToUpdate = [
+    "nixpkgs"
+    "nixpkgs-unstable"
+    "home-manager"
+    "sops-nix"
+    "nixvim"
+  ];
 
-    # When to run
-    dates = "weekly";
+  upgradeScript = pkgs.writeShellApplication {
+    name = "nixos-auto-upgrade";
+    runtimeInputs = with pkgs; [git nix nixos-rebuild coreutils];
+    text = ''
+      cd ${repo}
 
-    # Allow downgrades (useful if a channel has issues)
-    allowReboot = false;
+      # The repo lives in a user's home directory, so root has to be told it is
+      # trusted. Scoped to this invocation rather than mutating root's global
+      # gitconfig, and identity is supplied here so no global config is needed.
+      gitc() {
+        git \
+          -c safe.directory=${repo} \
+          -c user.name="NixOS Auto-Upgrade" \
+          -c user.email="auto-upgrade@${host}" \
+          "$@"
+      }
 
-    # Run even if system was asleep during scheduled time
-    persistent = true;
-
-    # Randomize upgrade time within 1 hour window (reduces server load)
-    randomizedDelaySec = "1h";
-  };
-
-  # ---------------------------------------------------------------------------
-  # Pre-upgrade: git commit so the rebuild is never "dirty"
-  #
-  # nixos-rebuild marks a flake dirty when there are uncommitted changes in
-  # the working tree. Running nix flake update (triggered by --update-input
-  # above) rewrites flake.lock but does NOT auto-commit it, so the store path
-  # ends up with ".dirty" appended. We fix this by committing flake.lock (and
-  # any other tracked changes) before the rebuild happens.
-  #
-  # Generation label strategy:
-  #   - nixos-upgrade service passes --system-label auto-upgrade-DD-MM-YYYY
-  #     directly to nixos-rebuild via the Environment override below.
-  #   - Manual nixos-rebuild calls receive no such flag and keep the default
-  #     label (short git rev or "dirty" if working tree is unclean).
-  # ---------------------------------------------------------------------------
-  systemd.services.nixos-upgrade = {
-    environment = {
-      # Inject a dated label that nixos-rebuild picks up via NIXOS_LABEL.
-      # This env var is read by nixos-rebuild and passed as --system-label
-      # to the toplevel derivation, so only automated builds carry the tag.
-      NIXOS_LABEL_PREFIX = "auto-upgrade";
-    };
-
-    preStart = ''
-      # Allow root to access the repo in the user's home directory
-      ${pkgs.git}/bin/git config --global --add safe.directory /home/marcin/nixos
-
-      # Commit flake.lock (and any other tracked changes) with today's date
-      # so the subsequent rebuild sees a clean working tree.
-      cd /home/marcin/nixos
-      if ! ${pkgs.git}/bin/git diff --quiet || ! ${pkgs.git}/bin/git diff --cached --quiet; then
-        UPGRADE_DATE=$(${pkgs.coreutils}/bin/date +%d-%m-%Y)
-        ${pkgs.git}/bin/git add -A
-        ${pkgs.git}/bin/git commit -m "system auto-upgrade $UPGRADE_DATE" \
-          --author="NixOS Auto-Upgrade <auto-upgrade@${config.networking.hostName}>" \
-          || true
+      # Refuse to run on a dirty tree. An unattended job must never build or
+      # commit half-finished manual edits. Untracked files are ignored.
+      if [ -n "$(gitc status --porcelain --untracked-files=no)" ]; then
+        echo "auto-upgrade: working tree is dirty, aborting" >&2
+        exit 1
       fi
 
-      # Export NIXOS_LABEL so nixos-rebuild picks it up as the generation label.
-      # Format: auto-upgrade-DD-MM-YYYY  (dashes only, no spaces or slashes
-      # which are forbidden in NixOS generation label strings).
-      export NIXOS_LABEL="auto-upgrade-$(${pkgs.coreutils}/bin/date +%d-%m-%Y)"
-    '';
+      DATE=$(date +%Y-%m-%d)
 
-    # Notify on upgrade failure
+      # 1. Update the lock file.
+      nix flake update ${lib.escapeShellArgs inputsToUpdate}
+
+      # 2. Commit only flake.lock -- never 'git add -A' as root in a directory
+      #    the user can write to.
+      if ! gitc diff --quiet -- flake.lock; then
+        gitc commit -m "OS update $DATE" -- flake.lock
+      else
+        echo "auto-upgrade: no input changes, rebuilding anyway"
+      fi
+
+      # 3. Gate on the flake's own checks. If the new inputs break evaluation
+      #    or a runNixOSTest, stop here -- the commit stays, but the machine is
+      #    not switched. Set gateOnFlakeCheck = false to skip while testing.
+      if ${lib.boolToString gateOnFlakeCheck}; then
+        if ! nix flake check --no-build; then
+          echo "auto-upgrade: nix flake check failed, not switching" >&2
+          exit 1
+        fi
+      fi
+
+      # 4. Build and switch. NIXOS_LABEL is read at *evaluation* time by
+      #    system.nixos.label (lib.maybeEnv), and builtins.getEnv returns ""
+      #    under flake purity -- hence --impure. Manual rebuilds stay pure and
+      #    therefore keep the default label.
+      NIXOS_LABEL="up-$DATE" nixos-rebuild switch \
+        --flake ${repo}#${host} \
+        --impure \
+        --print-build-logs
+    '';
+  };
+in {
+  systemd.services.nixos-auto-upgrade = {
+    description = "Update flake inputs and switch to the new configuration";
+    after = ["network-online.target"];
+    wants = ["network-online.target"];
     onFailure = ["notify-upgrade-failure.service"];
+
+    # Do not restart or stop this unit as part of the switch it is performing.
+    restartIfChanged = false;
+    unitConfig.X-StopOnRemoval = false;
+
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = lib.getExe upgradeScript;
+      Environment = ["HOME=/root"];
+    };
+  };
+
+  systemd.timers.nixos-auto-upgrade = {
+    wantedBy = ["timers.target"];
+    timerConfig = {
+      OnCalendar = "weekly";
+      Persistent = true; # catch up if the machine was off
+      RandomizedDelaySec = "1h";
+    };
   };
 
   systemd.services.notify-upgrade-failure = {
     serviceConfig = {
       Type = "oneshot";
-      ExecStart = "${lib.getBin pkgs.libnotify}/bin/notify-send 'NixOS upgrade Failed!' 'Check journalctl -u nixos-upgrade'";
+      ExecStart = "${lib.getBin pkgs.libnotify}/bin/notify-send 'NixOS upgrade failed' 'Check journalctl -u nixos-auto-upgrade'";
       User = "marcin";
-      Environment = "DISPLAY=:0";
+      # notify-send needs the session bus, not just DISPLAY. Adjust the UID if
+      # marcin is not uid 1000.
+      Environment = [
+        "DISPLAY=:0"
+        "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
+      ];
     };
   };
 
-  # Keep more generations for safety
   nix.gc = {
     automatic = true;
     dates = "monthly";
     options = "--delete-older-than 90d";
   };
 
-  # Optimize store after garbage collection
-  nix.settings.auto-optimise-store = true;
-
+  # auto-optimise-store and nix.optimise do the same job; keeping only the
+  # scheduled one avoids paying the hashing cost on every single store write.
   nix.optimise = {
     automatic = true;
     dates = ["weekly"];
