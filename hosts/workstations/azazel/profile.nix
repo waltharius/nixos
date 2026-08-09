@@ -10,7 +10,7 @@
 # Modules that are common to every workstation (boot, networking, locale,
 # secrets, sops, home-manager) are loaded by mkHost in flake.nix and are
 # therefore NOT listed here to avoid duplication.
-{ ... }: {
+{...}: {
   imports = [
     # --- desktop environment ---
     ../../../modules/system/desktop/gnome.nix
@@ -19,6 +19,7 @@
     ../../../modules/system/hardware/audio.nix
     ../../../modules/system/hardware/printing.nix
     ../../../modules/system/hardware/flatpak.nix
+    ../../../modules/system/hardware/keyboard-qmk.nix
 
     # --- power management (host-specific) ---
     ./tlp.nix

@@ -15,7 +15,7 @@
 # any host. To activate it on this host: remove gnome.nix below and
 # import ../../../modules/system/niri.nix instead. Never import both at
 # once — each owns the display manager.
-{ ... }: {
+{...}: {
   imports = [
     # --- desktop environment ---
     ../../../modules/system/desktop/gnome.nix
@@ -24,6 +24,7 @@
     ../../../modules/system/hardware/audio.nix
     ../../../modules/system/hardware/printing.nix
     ../../../modules/system/hardware/flatpak.nix
+    ../../../modules/system/hardware/keyboard-qmk.nix
 
     # --- power management (host-specific) ---
     ./tlp.nix
