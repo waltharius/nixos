@@ -24,9 +24,17 @@
   # Using mkOverride 900 avoids the "conflicting definition values" error
   # that occurs when two mkDefault definitions exist at the same priority.
   system.nixos.label = lib.mkOverride 900 (
-    if self ? rev
-    then "manual-${builtins.substring 0 8 self.rev}"
-    else "manual-dirty"
+    let
+      # Set by the auto-upgrade service. Only readable under --impure;
+      # returns "" during normal pure flake evaluation, so manual rebuilds
+      # fall through to the git-revision label below.
+      envLabel = builtins.getEnv "NIXOS_LABEL";
+    in
+      if envLabel != ""
+      then envLabel
+      else if self ? rev
+      then "manual-${builtins.substring 0 8 self.rev}"
+      else "manual-dirty"
   );
 
   # Store full commit hash in /etc for scripting and audit purposes
