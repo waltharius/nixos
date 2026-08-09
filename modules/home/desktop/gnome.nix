@@ -1,7 +1,7 @@
 # ./modules/home/desktop/gnome.nix
 # This is a file configuring additional Gnome settings for users.
 # It should be source in per user home.nix alongsite the ./modules/system/gnome.nix
-{...}: {
+{lib, ...}: {
   dconf.settings = {
     # Clock settings for users in top bar
     "org/gnome/desktop/interface" = {
@@ -19,6 +19,13 @@
     # Proper location must be setup on the system level or manualy
     "org/gnome/desktop/datetime" = {
       automatic-timezone = true;
+    };
+
+    # GNOME/Wayland reads XKB options from dconf, not from
+    # services.xserver.xkb.options. Keep both in sync.
+    "org/gnome/desktop/input-sources" = {
+      sources = [(lib.hm.gvariant.mkTuple ["xkb" "pl"])];
+      xkb-options = ["ctrl:nocaps" "shift:both_capslock"];
     };
   };
 

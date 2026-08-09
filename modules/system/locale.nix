@@ -28,5 +28,8 @@
   services.xserver.xkb = {
     layout = "pl";
     variant = "";
+    # Caps Lock acts as a plain Control key.
+    # Both Shifts pressed together restore the Caps Lock toggle.
+    options = "ctrl:nocaps,shift:both_capslock";
   };
 }
