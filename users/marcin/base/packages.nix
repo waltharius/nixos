@@ -30,6 +30,7 @@
     nextcloud-client
     foliate
     freerdp
+    via
 
     # --- productivity & office ---
     pkgs-unstable.silverbullet
