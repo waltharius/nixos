@@ -38,6 +38,12 @@
     text = ''
       cd ${repo}
 
+      # This service runs as root against a repo in the user's home. Every object
+      # nix or git writes here lands owned by root, which locks the user out of
+      # their own repository. Hand ownership back on every exit path, including
+      # the early aborts below.
+      trap 'chown -R marcin:users ${repo}/.git ${repo}/flake.lock' EXIT
+
       # The repo lives in a user's home directory, so root has to be told it is
       # trusted. Scoped to this invocation rather than mutating root's global
       # gitconfig, and identity is supplied here so no global config is needed.
@@ -68,6 +74,7 @@
       else
         echo "auto-upgrade: no input changes, rebuilding anyway"
       fi
+
 
       # 3. Gate on the flake's own checks. If the new inputs break evaluation
       #    or a runNixOSTest, stop here -- the commit stays, but the machine is

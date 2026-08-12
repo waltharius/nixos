@@ -17,7 +17,10 @@ pkgs.writeShellApplication {
 
     # Build the stuff
     echo "Building new stuff for '$HOSTNAME'..."
-    sudo nixos-rebuild switch --flake ~/nixos#"$HOSTNAME" "$@"
+    # Build and evaluate as the invoking user; --sudo escalates only for the
+    # activation step. Running the whole thing under sudo makes Nix write
+    # root-owned objects into ~/nixos/.git and locks the user out of their repo.
+    nixos-rebuild switch --flake ~/nixos#"$HOSTNAME" --sudo "$@"
 
     # Get new generation after rebuild
     NEW_GEN=$(readlink /run/current-system)
