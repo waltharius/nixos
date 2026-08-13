@@ -43,6 +43,7 @@
     # --- pdf-tools native compilation dependencies ---
     poppler
     poppler.dev
+    poppler-utils
     glib.dev
     cairo.dev
     pkg-config
