@@ -90,6 +90,7 @@
     openssl
     pkgs-unstable.nb
     ocrmypdf
+    jbig2enc
     tesseract
     libsecret
     pdftk
