@@ -78,7 +78,7 @@ in {
     systemd.timers.snapper-writing-frequent = lib.mkIf (cfg.writingSubvolumes != {}) {
       wantedBy = ["timers.target"];
       timerConfig = {
-        OnCalendar = "*:0/${toString cfg.snapshotIntervalMinutes}";
+        OnCalendar = "*-*-* *:0/${toString cfg.snapshotIntervalMinutes}:00";
         Persistent = true;
       };
     };
