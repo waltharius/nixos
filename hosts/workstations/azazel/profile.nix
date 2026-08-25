@@ -12,6 +12,9 @@
 # therefore NOT listed here to avoid duplication.
 {...}: {
   imports = [
+    # --- disk configuration ---
+    ../azazel/btrfs-subvolumes.nix
+
     # --- desktop environment ---
     ../../../modules/system/desktop/gnome.nix
 
