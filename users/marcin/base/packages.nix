@@ -19,6 +19,7 @@
     # --- custom packages ---
     customPkgs.rebuild-and-diff
     customPkgs.solaar-stable
+    customPkgs.btrfs-writing-monitor
 
     # --- GUI applications ---
     blanket

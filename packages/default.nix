@@ -16,6 +16,7 @@
   track-package-deps = pkgs.callPackage ./track-package-deps {};
   track-package-py = pkgs.callPackage ./track-package-py {};
   track-package-simple = pkgs.callPackage ./track-package-simple {};
+  btrfs-writing-monitor = pkgs.callPackage ./btrfs-writing-monitor {};
 
   # Add more custom packages (scripts) here in the future.
   # Scripts should be added to ./packages/<script_folder> folder inside this repository
