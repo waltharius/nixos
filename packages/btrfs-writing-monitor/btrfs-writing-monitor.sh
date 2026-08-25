@@ -33,7 +33,6 @@ usage() {
 cmd_status() {
   for cfg in "${!CONFIG_PATHS[@]}"; do
     local path="${CONFIG_PATHS[$cfg]}"
-    local snap_dir="${path}/.snapshots"
     local total oldest newest limit
 
     total=$(snapper -c "$cfg" list --columns number 2>/dev/null | tail -n +3 | grep -c . || echo 0)
@@ -52,28 +51,46 @@ cmd_status() {
 cmd_list() {
   local cfg="$1"
   local n="${2:-30}"
-  [[ -n "${CONFIG_PATHS[$cfg]:-}" ]] || { echo "Unknown config: $cfg" >&2; exit 1; }
+  [[ -n "${CONFIG_PATHS[$cfg]:-}" ]] || {
+    echo "Unknown config: $cfg" >&2
+    exit 1
+  }
 
-  snapper -c "$cfg" list --columns number,date,description | { head -n2; tail -n "$n"; }
+  snapper -c "$cfg" list --columns number,date,description | {
+    head -n2
+    tail -n "$n"
+  }
 }
 
 cmd_versions() {
   local cfg="$1"
   local rel="$2"
   local path="${CONFIG_PATHS[$cfg]:-}"
-  [[ -n "$path" ]] || { echo "Unknown config: $cfg" >&2; exit 1; }
+  [[ -n "$path" ]] || {
+    echo "Unknown config: $cfg" >&2
+    exit 1
+  }
 
   local base="${path}/.snapshots"
-  [[ -d "$base" ]] || { echo "No .snapshots directory at $base" >&2; exit 1; }
+  [[ -d "$base" ]] || {
+    echo "No .snapshots directory at $base" >&2
+    exit 1
+  }
 
   local prev_hash=""
   local found=0
+  local dir
 
-  for dir in $(ls -1v "$base" 2>/dev/null); do
+  shopt -s nullglob
+  for dir in "$base"/*; do
+    dir="${dir##*/}"
+
     local snap_file="${base}/${dir}/snapshot/${rel}"
     [[ -f "$snap_file" ]] || continue
+
     local hash
     hash=$(sha256sum "$snap_file" | cut -d' ' -f1)
+
     if [[ "$hash" != "$prev_hash" ]]; then
       local when
       when=$(snapper -c "$cfg" list --columns number,date | awk -v n="$dir" '$1==n {for(i=2;i<=NF;i++) printf "%s ", $i; print ""}')
@@ -103,11 +120,17 @@ main() {
   local action="${1:-}"
   shift || true
   case "$action" in
-    status)   cmd_status ;;
-    list)     [[ $# -ge 1 ]] || usage; cmd_list "$@" ;;
-    versions) [[ $# -ge 2 ]] || usage; cmd_versions "$@" ;;
-    size)     cmd_size ;;
-    *)        usage ;;
+  status) cmd_status ;;
+  list)
+    [[ $# -ge 1 ]] || usage
+    cmd_list "$@"
+    ;;
+  versions)
+    [[ $# -ge 2 ]] || usage
+    cmd_versions "$@"
+    ;;
+  size) cmd_size ;;
+  *) usage ;;
   esac
 }
 
