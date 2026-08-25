@@ -30,6 +30,27 @@ in {
     options = mountOpts ++ ["subvol=@home/marcin/syncthing"];
   };
 
+  # Dedicated btrfs subvolumes where Snapper stores snapshots.
+  # They must stay outside the source subvolume so snapshots never
+  # contain their own snapshot storage recursively.
+  fileSystems."/home/marcin/Documents/.snapshots" = {
+    device = btrfsDevice;
+    fsType = "btrfs";
+    options = mountOpts ++ ["subvol=@home/marcin/Documents/.snapshots"];
+  };
+
+  fileSystems."/home/marcin/notes/.snapshots" = {
+    device = btrfsDevice;
+    fsType = "btrfs";
+    options = mountOpts ++ ["subvol=@home/marcin/notes/.snapshots"];
+  };
+
+  fileSystems."/home/marcin/syncthing/.snapshots" = {
+    device = btrfsDevice;
+    fsType = "btrfs";
+    options = mountOpts ++ ["subvol=@home/marcin/syncthing/.snapshots"];
+  };
+
   custom.btrfs = {
     allowUsers = ["marcin"];
     writingSubvolumes = {
