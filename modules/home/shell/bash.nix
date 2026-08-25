@@ -39,6 +39,9 @@
       # Atuin filter modes
       atuin-local = "ATUIN_FILTER_MODE=host atuin search -i";
       atuin-global = "ATUIN_FILTER_MODE=global atuin search -i";
+
+      # BTRFS related
+      bwm = "btrfs-writing-monitor";
     };
 
     bashrcExtra = ''
