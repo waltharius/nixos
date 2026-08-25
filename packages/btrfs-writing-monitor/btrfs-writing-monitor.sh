@@ -111,7 +111,7 @@ cmd_size() {
   for cfg in "${!CONFIG_PATHS[@]}"; do
     local path="${CONFIG_PATHS[$cfg]}"
     echo "== $cfg ($path/.snapshots) =="
-    sudo compsize "${path}/.snapshots"
+    sudo compsize "${path}/.snapshots" || true
     echo
   done
 }
