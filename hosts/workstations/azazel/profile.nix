@@ -14,6 +14,7 @@
   imports = [
     # --- disk configuration ---
     ../azazel/btrfs-subvolumes.nix
+    ../../../modules/system/btrfs.nix
 
     # --- desktop environment ---
     ../../../modules/system/desktop/gnome.nix

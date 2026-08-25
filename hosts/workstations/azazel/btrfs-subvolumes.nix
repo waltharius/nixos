@@ -29,4 +29,13 @@ in {
     fsType = "btrfs";
     options = mountOpts ++ ["subvol=@home/marcin/syncthing"];
   };
+
+  custom.btrfs = {
+    allowUsers = ["marcin"];
+    writingSubvolumes = {
+      documents = "/home/marcin/Documents";
+      notes = "/home/marcin/notes";
+      syncthing = "/home/marcin/syncthing";
+    };
+  };
 }
