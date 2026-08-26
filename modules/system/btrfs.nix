@@ -113,20 +113,33 @@ in {
     # Declaratively lock down both the writing subvolume itself and its
     # ".snapshots" directory on every boot and config activation:
     #
-    # - The subvolume root gets 0700 owned by marcin: only the owning
-    #   user can enter it. This is safe even for apps running under a
-    #   different configured Group= (e.g. Syncthing's `Group=syncthing`),
-    #   because POSIX permission checks match on UID first and stop
-    #   there — group bits are only consulted when the UID does not
-    #   match the file owner. Syncthing here runs as `User=marcin`, so
-    #   it is unaffected.
+    # - The subvolume root gets 0700 owned by marcin. Group is left
+    #   unchanged ("-") deliberately: NixOS does not create a group
+    #   named after the username by default (marcin's actual group is
+    #   whatever `users.users.marcin.group` resolves to, e.g. "users"),
+    #   so forcing a literal "marcin" group here would fail to resolve.
+    #   It also does not matter functionally, since mode 0700 already
+    #   denies all group access regardless of which group is set.
+    #   This is safe even for apps running under a different configured
+    #   Group= (e.g. Syncthing's `Group=syncthing`), because POSIX
+    #   permission checks match on UID first and stop there entirely —
+    #   group bits are only consulted when the UID does not match the
+    #   file owner. Syncthing here runs as `User=marcin`, so it is
+    #   unaffected regardless.
     # - ".snapshots" stays root-only (0750) plus an explicit ACL grant
     #   for the allowed users, since snapper's own ALLOW_USERS option
     #   has no effect on directories we create ourselves.
+    #
+    # Note: systemd-tmpfiles logs a benign "unsafe path transition"
+    # warning when walking from the user-owned subvolume root into the
+    # root-owned .snapshots directory. This is expected and intentional
+    # for this layout (root-owned snapshot storage nested inside a
+    # user-owned directory) — the rules still apply correctly despite
+    # the warning.
     systemd.tmpfiles.rules = lib.concatMap (
       path:
         [
-          "z ${path} 0700 marcin marcin - -"
+          "z ${path} 0700 marcin - - -"
           "z ${path}/.snapshots 0750 root root - -"
         ]
         ++ lib.optional (cfg.allowUsers != []) "a+ ${path}/.snapshots - - - - ${snapshotsAcl}"
