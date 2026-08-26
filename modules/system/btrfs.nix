@@ -1,36 +1,45 @@
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: let
+{ config, lib, pkgs, ... }:
+
+let
   cfg = config.custom.btrfs;
 
-  # Only creates a snapshot for a given writing subvolume if its btrfs
-  # generation number changed since the last check. This prevents idle
-  # periods (e.g. a multi-hour break) from flooding the number-limited
-  # snapshot history with identical, content-free snapshots that would
-  # otherwise evict older, meaningful ones.
+  # Only creates a snapshot for a given writing subvolume if btrfs reports
+  # actual changed files since the last check (via `btrfs subvolume
+  # find-new`), not just a raw generation-number difference.
+  #
+  # Why not just compare the subvolume's Generation field directly: btrfs
+  # bumps a subvolume's root generation on periodic housekeeping
+  # transactions (commit interval, async discard/TRIM processing, etc.)
+  # even when no file inside the subvolume actually changed. Comparing
+  # raw generation numbers alone would create "empty" snapshots during
+  # idle periods, which — combined with the number-based cleanup — could
+  # evict genuinely useful older snapshots. `find-new` operates at the
+  # same file-level granularity as `snapper status`, so it only reports
+  # real content/metadata changes to actual files, filtering out btrfs's
+  # own internal bookkeeping noise.
   writingTick = pkgs.writeShellApplication {
     name = "snapper-writing-tick";
-    runtimeInputs = [pkgs.snapper pkgs.btrfs-progs pkgs.gawk pkgs.coreutils];
+    runtimeInputs = [ pkgs.snapper pkgs.btrfs-progs pkgs.gawk pkgs.coreutils pkgs.gnugrep ];
     text = ''
       state_dir="/var/lib/snapper-writing"
       mkdir -p "$state_dir"
 
       ${lib.concatStrings (lib.mapAttrsToList (name: path: ''
-          gen=$(btrfs subvolume show "${path}" | awk -F: '/Generation:/ {gsub(/[ \t]/,"",$2); print $2}')
-          state_file="$state_dir/${name}.lastgen"
-          last_gen=$(cat "$state_file" 2>/dev/null || echo 0)
-          if [ "$gen" != "$last_gen" ]; then
-            snapper -c ${name} create --cleanup-algorithm number --description auto${toString cfg.snapshotIntervalMinutes}min
-            echo "$gen" > "$state_file"
-          fi
-        '')
-        cfg.writingSubvolumes)}
+        state_file="$state_dir/${name}.lastgen"
+        last_gen=$(cat "$state_file" 2>/dev/null || echo 0)
+
+        changed_files=$(btrfs subvolume find-new "${path}" "$last_gen" | grep -v '^transid marker' || true)
+        current_gen=$(btrfs subvolume show "${path}" | awk -F: '/Generation:/ {gsub(/[ \t]/,"",$2); print $2}')
+
+        if [ -n "$changed_files" ]; then
+          snapper -c ${name} create --cleanup-algorithm number --description auto${toString cfg.snapshotIntervalMinutes}min
+          echo "$current_gen" > "$state_file"
+        fi
+      '') cfg.writingSubvolumes)}
     '';
   };
-in {
+in
+{
   options.custom.btrfs = {
     writingSubvolumes = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
@@ -72,24 +81,22 @@ in {
     services.btrfs.autoScrub = {
       enable = true;
       interval = "monthly";
-      fileSystems = ["/"];
+      fileSystems = [ "/" ];
     };
 
-    services.snapper.configs =
-      lib.mapAttrs (name: path: {
-        SUBVOLUME = path;
-        ALLOW_USERS = cfg.allowUsers;
-        TIMELINE_CREATE = false; # handled by our own change-aware timer below
-        NUMBER_CLEANUP = true;
-        NUMBER_LIMIT = cfg.snapshotNumberLimit;
-        NUMBER_MIN_AGE = 0;
-      })
-      cfg.writingSubvolumes;
+    services.snapper.configs = lib.mapAttrs (name: path: {
+      SUBVOLUME = path;
+      ALLOW_USERS = cfg.allowUsers;
+      TIMELINE_CREATE = false; # handled by our own change-aware timer below
+      NUMBER_CLEANUP = true;
+      NUMBER_LIMIT = cfg.snapshotNumberLimit;
+      NUMBER_MIN_AGE = 0;
+    }) cfg.writingSubvolumes;
 
     services.snapper.cleanupInterval = "1d";
 
     systemd.timers.snapper-writing-frequent = lib.mkIf (cfg.writingSubvolumes != {}) {
-      wantedBy = ["timers.target"];
+      wantedBy = [ "timers.target" ];
       timerConfig = {
         OnCalendar = "*:0/${toString cfg.snapshotIntervalMinutes}";
         Persistent = true;
