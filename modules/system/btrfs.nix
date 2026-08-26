@@ -110,15 +110,25 @@ in {
 
     services.snapper.cleanupInterval = "1d";
 
-    # Declaratively lock down each ".snapshots" directory on every boot
-    # and config activation: root-only base permissions (0750), plus an
-    # explicit ACL grant for the allowed users. This is what actually
-    # restricts access — snapper's ALLOW_USERS option does nothing here
-    # because we create these subvolumes ourselves rather than through
-    # `snapper create-config`.
+    # Declaratively lock down both the writing subvolume itself and its
+    # ".snapshots" directory on every boot and config activation:
+    #
+    # - The subvolume root gets 0700 owned by marcin: only the owning
+    #   user can enter it. This is safe even for apps running under a
+    #   different configured Group= (e.g. Syncthing's `Group=syncthing`),
+    #   because POSIX permission checks match on UID first and stop
+    #   there — group bits are only consulted when the UID does not
+    #   match the file owner. Syncthing here runs as `User=marcin`, so
+    #   it is unaffected.
+    # - ".snapshots" stays root-only (0750) plus an explicit ACL grant
+    #   for the allowed users, since snapper's own ALLOW_USERS option
+    #   has no effect on directories we create ourselves.
     systemd.tmpfiles.rules = lib.concatMap (
       path:
-        ["z ${path}/.snapshots 0750 root root - -"]
+        [
+          "z ${path} 0700 marcin marcin - -"
+          "z ${path}/.snapshots 0750 root root - -"
+        ]
         ++ lib.optional (cfg.allowUsers != []) "a+ ${path}/.snapshots - - - - ${snapshotsAcl}"
     ) (builtins.attrValues cfg.writingSubvolumes);
 
