@@ -1,15 +1,3 @@
-# modules/system/btrfs.nix
-#
-# Shared role for every host whose root filesystem is btrfs.
-# Import this on any btrfs host — it always enables scrub, and
-# conditionally sets up frequent snapshotting for whatever writing
-# subvolumes the host declares via `custom.btrfs.writingSubvolumes`.
-#
-# Design note: snapshot behavior is driven entirely by data (the
-# writingSubvolumes option), not by whether some other file happens
-# to be imported. If a host stops declaring subvolumes here, the
-# snapper configs and timer disappear automatically — no errors about
-# missing subvolumes, no manual cleanup required.
 {
   config,
   lib,
@@ -17,6 +5,31 @@
   ...
 }: let
   cfg = config.custom.btrfs;
+
+  # Only creates a snapshot for a given writing subvolume if its btrfs
+  # generation number changed since the last check. This prevents idle
+  # periods (e.g. a multi-hour break) from flooding the number-limited
+  # snapshot history with identical, content-free snapshots that would
+  # otherwise evict older, meaningful ones.
+  writingTick = pkgs.writeShellApplication {
+    name = "snapper-writing-tick";
+    runtimeInputs = [pkgs.snapper pkgs.btrfs-progs pkgs.gawk pkgs.coreutils];
+    text = ''
+      state_dir="/var/lib/snapper-writing"
+      mkdir -p "$state_dir"
+
+      ${lib.concatStrings (lib.mapAttrsToList (name: path: ''
+          gen=$(btrfs subvolume show "${path}" | awk -F: '/Generation:/ {gsub(/[ \t]/,"",$2); print $2}')
+          state_file="$state_dir/${name}.lastgen"
+          last_gen=$(cat "$state_file" 2>/dev/null || echo 0)
+          if [ "$gen" != "$last_gen" ]; then
+            snapper -c ${name} create --cleanup-algorithm number --description auto${toString cfg.snapshotIntervalMinutes}min
+            echo "$gen" > "$state_file"
+          fi
+        '')
+        cfg.writingSubvolumes)}
+    '';
+  };
 in {
   options.custom.btrfs = {
     writingSubvolumes = lib.mkOption {
@@ -43,12 +56,12 @@ in {
     snapshotIntervalMinutes = lib.mkOption {
       type = lib.types.int;
       default = 3;
-      description = "How often (in minutes) to snapshot the writing subvolumes.";
+      description = "How often (in minutes) to check the writing subvolumes for changes and snapshot them if needed.";
     };
 
     snapshotNumberLimit = lib.mkOption {
       type = lib.types.int;
-      default = 80; # ~4 hours of history at the default 3-minute interval
+      default = 80; # ~4 hours of history at the default 3-minute interval, assuming continuous changes
       description = "Maximum number of frequent snapshots kept per writing subvolume.";
     };
   };
@@ -66,7 +79,7 @@ in {
       lib.mapAttrs (name: path: {
         SUBVOLUME = path;
         ALLOW_USERS = cfg.allowUsers;
-        TIMELINE_CREATE = false; # handled by our own faster timer below
+        TIMELINE_CREATE = false; # handled by our own change-aware timer below
         NUMBER_CLEANUP = true;
         NUMBER_LIMIT = cfg.snapshotNumberLimit;
         NUMBER_MIN_AGE = 0;
@@ -84,10 +97,11 @@ in {
     };
 
     systemd.services.snapper-writing-frequent = lib.mkIf (cfg.writingSubvolumes != {}) {
-      serviceConfig.Type = "oneshot";
-      serviceConfig.ExecStart = lib.concatMapStringsSep "\n" (
-        name: "${pkgs.snapper}/bin/snapper -c ${name} create --cleanup-algorithm number --description auto${toString cfg.snapshotIntervalMinutes}min"
-      ) (builtins.attrNames cfg.writingSubvolumes);
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${writingTick}/bin/snapper-writing-tick";
+        StateDirectory = "snapper-writing"; # systemd creates /var/lib/snapper-writing for us
+      };
     };
   };
 }
