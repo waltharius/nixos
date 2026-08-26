@@ -20,6 +20,7 @@
     customPkgs.rebuild-and-diff
     customPkgs.solaar-stable
     customPkgs.btrfs-writing-monitor
+    customPkgs.pcmanfm-qt-fixed
 
     # --- GUI applications ---
     blanket
@@ -31,7 +32,6 @@
     nextcloud-client
     foliate
     freerdp
-    pcmanfm-qt
     lxqt.libfm-qt
 
     # --- productivity & office ---

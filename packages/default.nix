@@ -17,6 +17,7 @@
   track-package-py = pkgs.callPackage ./track-package-py {};
   track-package-simple = pkgs.callPackage ./track-package-simple {};
   btrfs-writing-monitor = pkgs.callPackage ./btrfs-writing-monitor {};
+  pcmanfm-qt-fixed = pkgs.callPackage ./pcmanfm-qt-fixed {};
 
   # Add more custom packages (scripts) here in the future.
   # Scripts should be added to ./packages/<script_folder> folder inside this repository

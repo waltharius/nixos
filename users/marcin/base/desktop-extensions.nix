@@ -81,7 +81,8 @@ in {
     xdg.configFile."run-or-raise/shortcuts.conf".text = ''
       <Control><Alt>e,emacs,emacs
       <Super>f,brave,,
-      <Super>e,nautilus,org.gnome.Nautilus
+      <Super>e,pcmanfm-qt,pcmanfm-qt
+      <Super>n,nautilus,org.gnome.Nautilus
       <Super>t,ptyxis,org.gnome.Ptyxis
       <Control>q,signal-desktop,signal
     '';
