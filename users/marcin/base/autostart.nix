@@ -35,5 +35,14 @@
       StartupNotify=false
       NoDisplay=true
     '';
+
+    "autostart/thunderbird.desktop".text = ''
+      [Desktop Entry]
+      Type=Application
+      Name=Thunderbird
+      Exec=thunderbird
+      Icon=thunderbird
+      X-GNOME-Autostart-enabled=true
+    '';
   };
 }
