@@ -1,0 +1,233 @@
+#+TITLE: Frequent Btrfs Snapshots for Actively-Edited Content
+#+DESCRIPTION: Design rationale, pitfalls encountered, and operational runbook for the writing-subvolume snapshot system on azazel (documents, notes, syncthing).
+#+STARTUP: overview
+
+* Goal
+
+Protect actively-edited files (book manuscript in OnlyOffice, Org notes,
+Syncthing-synced content) against application-level bugs that corrupt or
+destroy a document mid-edit, without relying on the application's own
+(unreliable) autosave/recovery mechanism. Btrfs snapshots provide a
+recovery point independent of what the application does to the file.
+
+* Architecture summary
+
+- Three dedicated nested btrfs subvolumes under =@home=:
+  =Documents=, =notes=, =syncthing=, each with its own =.snapshots=
+  storage subvolume.
+- =modules/system/btrfs.nix= is the generic role, imported on every
+  btrfs host. It defines =custom.btrfs.writingSubvolumes= (name -> path)
+  and derives everything else from it: snapper configs, permissions,
+  scrub, and the change-aware snapshot timer.
+- Per-host files (e.g. =hosts/workstations/azazel/btrfs-subvolumes.nix=)
+  only declare the =fileSystems= mounts and populate
+  =custom.btrfs.writingSubvolumes= — no logic duplicated per host.
+- Snapshots are taken every =snapshotIntervalMinutes= (default 3), but
+  only when real content changed — see "Generation number is not
+  reliable" below.
+- Retention is count-based only (=NUMBER_LIMIT=, default 80), not
+  time-based — a long idle period does not expire old snapshots, it
+  just stops the counter from advancing.
+- Btrfs scrub is enabled monthly for the whole physical volume as a
+  separate, unrelated protection against silent data corruption.
+
+* Pitfalls encountered (read this before touching the module)
+
+** =.snapshots= must be its own btrfs subvolume, not a plain directory
+Snapper errors with ~IO Error errno:2 (No such file or directory)~ if
+=.snapshots= does not exist as a dedicated subvolume created via
+=btrfs subvolume create=. This is not auto-created by declaring a
+snapper config.
+
+** Raw btrfs generation number is too sensitive to use as a change signal
+Comparing =btrfs subvolume show <path>= Generation field between ticks
+looked like a valid "did anything change" check, but btrfs bumps a
+subvolume's root generation on internal housekeeping transactions
+(commit interval, async discard/TRIM) even with zero real file changes.
+Using it directly would create meaningless snapshots during idle
+periods, which — combined with count-based cleanup — risks evicting
+genuinely useful older snapshots during something as simple as a
+multi-hour break. Fixed by using =btrfs subvolume find-new <path>
+<last_gen>= and checking for actual file-level output instead.
+
+** NixOS =ExecStart= as a joined string silently drops extra commands
+An early version built =ExecStart= via
+~lib.concatMapStringsSep "\n" (...) [...]~ producing one long string.
+Only the first line got the =ExecStart== prefix in the generated unit
+file; systemd silently ignored the rest (~Missing '=', ignoring line~
+in the journal). Two of three writing subvolumes silently never got
+snapshotted for a while. Fixed by wrapping the whole per-subvolume
+logic in a single =writeShellApplication= script instead of trying to
+generate multiple =ExecStart== lines.
+
+** Snapper's =ALLOW_USERS= has no effect on manually created subvolumes
+=ALLOW_USERS= only sets ownership/ACL when snapper itself creates the
+=.snapshots= subvolume via =snapper create-config=, or when =SYNC_ACL=
+is enabled and snapper performs a config-affecting operation. Since
+NixOS's =services.snapper= module never invokes =create-config= (it
+only writes the config file, expecting =.snapshots= to already exist
+— this is a confirmed NixOS-specific limitation, not something we did
+wrong), the ACL was never applied automatically, and the directory kept
+whatever permissions =btrfs subvolume create= happened to produce
+(world-readable). Fixed with two independent, redundant layers:
+- =systemd.tmpfiles.rules= (mode + explicit ACL grant), fully
+  declarative and reproducible from Nix alone.
+- =SYNC_ACL = true;= added to the snapper config as a belt-and-suspenders
+  measure — since our timer regularly calls =snapper create=, this
+  makes snapper itself re-sync the ACL on every snapshot operation too.
+
+** Changing =fileSystems= and doing a live =switch= can kill the graphical session
+Adding/changing mount units for an actively-mounted =/home= tree forces
+systemd to remount them, which requires stopping everything depending
+on that mount first (GDM, the whole session). Rule of thumb going
+forward: any change touching =fileSystems=, =boot.loader=, or
+=swapDevices= should go through =nixos-rebuild boot= + a deliberate
+reboot, never a live =switch=. For anything else, =nixos-rebuild
+dry-activate= before =switch= is enough to confirm nothing risky will
+be stopped/restarted.
+
+* Operational runbook
+
+** Check snapshot counts and freshness per subvolume
+(Alias for =btrfs-writing-monitor= is =bwm=)
+#+begin_src bash
+btrfs-writing-monitor status
+#+end_src
+
+** List the last N snapshots for one subvolume
+#+begin_src bash
+btrfs-writing-monitor list documents 30
+#+end_src
+
+** Find which snapshot actually changed a specific file's content
+#+begin_src bash
+btrfs-writing-monitor versions notes 'journal/some-file.org'
+#+end_src
+Remember: paths containing =!= must be single-quoted to avoid bash
+history expansion.
+
+** Check real disk cost of the snapshot history
+#+begin_src bash
+btrfs-writing-monitor size
+#+end_src
+
+** Restore an older version of a file
+#+begin_src bash
+cp /home/marcin/<subvolume>/.snapshots/<N>/snapshot/<relative/path> \
+   /home/marcin/<subvolume>/<relative/path>.recovered
+#+end_src
+
+* Migrating an existing directory into a dedicated writing subvolume
+
+Use this whenever a new directory (currently a plain folder somewhere
+under =/home=) should get its own frequent-snapshot protection. A plain
+directory cannot be "converted" in place — data has to be moved into a
+freshly created subvolume.
+
+** 1. Check for open file handles before touching anything
+
+#+begin_src bash
+sudo lsof +D /home/marcin/<target-dir>
+sudo fuser -v /home/marcin/<target-dir>
+#+end_src
+
+=lsof +D= descends recursively; a clean run shows no processes holding
+files open in that directory. Watch out for:
+- Syncthing (if the directory is a configured sync folder — stop it
+  with =sudo systemctl stop syncthing=).
+- Editors/office apps with open buffers on files in the directory.
+- A shell with the directory as its current working directory (shows
+  up as type =cwd= in the =lsof= output).
+- Desktop file indexers (tracker-miner, baloo) holding thumbnail/index
+  handles.
+
+** 2. Move the data out, create the subvolume, move the data back in
+
+Run as root, with the target application/service stopped:
+
+#+begin_src bash
+mv /home/marcin/<target-dir> /home/marcin/<target-dir>.old
+btrfs subvolume create /home/marcin/<target-dir>
+cp -a --reflink=always /home/marcin/<target-dir>.old/. /home/marcin/<target-dir>/
+rm -rf /home/marcin/<target-dir>.old
+#+end_src
+
+=--reflink=always= copies via copy-on-write (shared extents), so this
+is near-instant and does not duplicate data on disk, even for a large
+directory. This whole step can be done live, without unmounting
+=/home= or logging out — it only operates on a subdirectory of an
+already-mounted filesystem, not on the mount itself.
+
+** 3. Create the dedicated ".snapshots" storage subvolume
+
+#+begin_src bash
+btrfs subvolume create /home/marcin/<target-dir>/.snapshots
+#+end_src
+
+This must be a separate nested subvolume, not a plain directory — see
+the pitfall above. Restart whatever was stopped in step 1 once this is
+done (e.g. =sudo systemctl start syncthing=).
+
+** 4. Declare the mount in the host-specific Nix file
+
+Add to =hosts/workstations/<host>/btrfs-subvolumes.nix= (reuse the
+existing =btrfsDevice= / =mountOpts= from the same file):
+
+#+begin_src nix
+fileSystems."/home/marcin/<target-dir>" = {
+  device = btrfsDevice;
+  fsType = "btrfs";
+  options = mountOpts ++ [ "subvol=@home/marcin/<target-dir>" ];
+};
+#+end_src
+
+The subvol path is relative to the filesystem root, not to the parent
+mount — verify the exact path with =btrfs subvolume list /= if unsure.
+
+** 5. Register it as a writing subvolume in the same file
+
+#+begin_src nix
+custom.btrfs.writingSubvolumes = {
+  # ... existing entries ...
+  <name> = "/home/marcin/<target-dir>";
+};
+#+end_src
+
+Nothing else needs to change — =modules/system/btrfs.nix= derives the
+snapper config, permissions (tmpfiles + ACL), and the change-aware
+snapshot timer automatically from this option.
+
+** 6. Build, boot, reboot — do not live-switch
+
+Because this changes =fileSystems=:
+
+#+begin_src bash
+nix-instantiate --parse hosts/workstations/<host>/btrfs-subvolumes.nix > /dev/null
+sudo nixos-rebuild dry-build --flake .#<host>
+sudo nixos-rebuild boot --flake .#<host>
+sudo reboot
+#+end_src
+
+** 7. Verify after reboot
+
+#+begin_src bash
+findmnt | grep <target-dir>
+sudo systemctl start snapper-writing-frequent.service
+sudo snapper -c <name> list
+getfacl /home/marcin/<target-dir>/.snapshots
+#+end_src
+
+Expect a real snapshot =#1= with description =auto<N>min=, and a
+=user:marcin:r-x= ACL entry on =.snapshots=.
+
+* Open items
+
+- Offsite backup via =btrbk= to a home-lab server, to cover physical
+  disk failure (snapshots alone only protect against application bugs
+  and accidental deletion on the same disk, not disk-level failure).
+- A periodic git auto-commit process was observed once inside =notes=
+  (via =find-new= showing =.git/index=, =.git/objects/...= changes at
+  a time nothing was manually committed). Not reproduced since; source
+  unknown. No action taken — flagged here in case it recurs and needs
+  tracing to whatever is doing it (Doom Emacs package, cron, or a
+  forgotten manual commit).

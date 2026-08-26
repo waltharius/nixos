@@ -101,6 +101,7 @@ in {
       lib.mapAttrs (name: path: {
         SUBVOLUME = path;
         ALLOW_USERS = cfg.allowUsers;
+        SYNC_ACL = true;
         TIMELINE_CREATE = false; # handled by our own change-aware timer below
         NUMBER_CLEANUP = true;
         NUMBER_LIMIT = cfg.snapshotNumberLimit;
