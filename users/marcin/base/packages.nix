@@ -33,10 +33,6 @@
     freerdp
     pcmanfm-qt
     lxqt.libfm-qt
-    kdePackages.dolphin
-    kdePackages.qtsvg
-    kdePackages.kio-extras
-    kdePackages.plasma-integration
 
     # --- productivity & office ---
     pkgs-unstable.silverbullet
