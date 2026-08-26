@@ -1,6 +1,9 @@
-{ config, lib, pkgs, ... }:
-
-let
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
   cfg = config.custom.btrfs;
 
   # Only creates a snapshot for a given writing subvolume if btrfs reports
@@ -19,27 +22,31 @@ let
   # own internal bookkeeping noise.
   writingTick = pkgs.writeShellApplication {
     name = "snapper-writing-tick";
-    runtimeInputs = [ pkgs.snapper pkgs.btrfs-progs pkgs.gawk pkgs.coreutils pkgs.gnugrep ];
+    runtimeInputs = [pkgs.snapper pkgs.btrfs-progs pkgs.gawk pkgs.coreutils pkgs.gnugrep];
     text = ''
       state_dir="/var/lib/snapper-writing"
       mkdir -p "$state_dir"
 
       ${lib.concatStrings (lib.mapAttrsToList (name: path: ''
-        state_file="$state_dir/${name}.lastgen"
-        last_gen=$(cat "$state_file" 2>/dev/null || echo 0)
+          state_file="$state_dir/${name}.lastgen"
+          last_gen=$(cat "$state_file" 2>/dev/null || echo 0)
 
-        changed_files=$(btrfs subvolume find-new "${path}" "$last_gen" | grep -v '^transid marker' || true)
-        current_gen=$(btrfs subvolume show "${path}" | awk -F: '/Generation:/ {gsub(/[ \t]/,"",$2); print $2}')
+          changed_files=$(btrfs subvolume find-new "${path}" "$last_gen" | grep -v '^transid marker' || true)
+          current_gen=$(btrfs subvolume show "${path}" | awk -F: '/Generation:/ {gsub(/[ \t]/,"",$2); print $2}')
 
-        if [ -n "$changed_files" ]; then
-          snapper -c ${name} create --cleanup-algorithm number --description auto${toString cfg.snapshotIntervalMinutes}min
-          echo "$current_gen" > "$state_file"
-        fi
-      '') cfg.writingSubvolumes)}
+          if [ -n "$changed_files" ]; then
+            snapper -c ${name} create --cleanup-algorithm number --description auto${toString cfg.snapshotIntervalMinutes}min
+            echo "$current_gen" > "$state_file"
+          fi
+        '')
+        cfg.writingSubvolumes)}
     '';
   };
-in
-{
+
+  # ACL argument string for the ".snapshots" directories, e.g. "u:marcin:rx".
+  # Built once here so it can be reused for every writing subvolume below.
+  snapshotsAcl = lib.concatMapStringsSep "," (u: "u:${u}:rx") cfg.allowUsers;
+in {
   options.custom.btrfs = {
     writingSubvolumes = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
@@ -59,7 +66,13 @@ in
     allowUsers = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [];
-      description = "Users allowed to browse/restore snapshots via snapper.";
+      description = ''
+        Users allowed to browse/restore snapshots via snapper. Enforced
+        declaratively via systemd-tmpfiles ACL rules, since the
+        .snapshots directories are created manually (not via
+        `snapper create-config`), so snapper's own ALLOW_USERS setting
+        has no effect on their filesystem permissions.
+      '';
     };
 
     snapshotIntervalMinutes = lib.mkOption {
@@ -81,22 +94,36 @@ in
     services.btrfs.autoScrub = {
       enable = true;
       interval = "monthly";
-      fileSystems = [ "/" ];
+      fileSystems = ["/"];
     };
 
-    services.snapper.configs = lib.mapAttrs (name: path: {
-      SUBVOLUME = path;
-      ALLOW_USERS = cfg.allowUsers;
-      TIMELINE_CREATE = false; # handled by our own change-aware timer below
-      NUMBER_CLEANUP = true;
-      NUMBER_LIMIT = cfg.snapshotNumberLimit;
-      NUMBER_MIN_AGE = 0;
-    }) cfg.writingSubvolumes;
+    services.snapper.configs =
+      lib.mapAttrs (name: path: {
+        SUBVOLUME = path;
+        ALLOW_USERS = cfg.allowUsers;
+        TIMELINE_CREATE = false; # handled by our own change-aware timer below
+        NUMBER_CLEANUP = true;
+        NUMBER_LIMIT = cfg.snapshotNumberLimit;
+        NUMBER_MIN_AGE = 0;
+      })
+      cfg.writingSubvolumes;
 
     services.snapper.cleanupInterval = "1d";
 
+    # Declaratively lock down each ".snapshots" directory on every boot
+    # and config activation: root-only base permissions (0750), plus an
+    # explicit ACL grant for the allowed users. This is what actually
+    # restricts access — snapper's ALLOW_USERS option does nothing here
+    # because we create these subvolumes ourselves rather than through
+    # `snapper create-config`.
+    systemd.tmpfiles.rules = lib.concatMap (
+      path:
+        ["z ${path}/.snapshots 0750 root root - -"]
+        ++ lib.optional (cfg.allowUsers != []) "a+ ${path}/.snapshots - - - - ${snapshotsAcl}"
+    ) (builtins.attrValues cfg.writingSubvolumes);
+
     systemd.timers.snapper-writing-frequent = lib.mkIf (cfg.writingSubvolumes != {}) {
-      wantedBy = [ "timers.target" ];
+      wantedBy = ["timers.target"];
       timerConfig = {
         OnCalendar = "*:0/${toString cfg.snapshotIntervalMinutes}";
         Persistent = true;
