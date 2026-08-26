@@ -56,10 +56,11 @@ cmd_list() {
     exit 1
   }
 
-  snapper -c "$cfg" list --columns number,date,description | {
-    head -n2
-    tail -n "$n"
-  }
+  local output
+  output=$(snapper -c "$cfg" list --columns number,date,description)
+
+  echo "$output" | head -n2
+  echo "$output" | tail -n "$n"
 }
 
 cmd_versions() {
