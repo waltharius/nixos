@@ -79,6 +79,7 @@
       # Host-specific DE modules (niri.nix) are loaded via
       # home-manager.users.marcin.imports in the host's profile.nix.
       ../../modules/home/desktop/gnome.nix
+      ../../modules/home/desktop/qt-theming.nix
 
       # --- base config (identical on every host) ---
       ./base/git.nix
