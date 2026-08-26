@@ -1,4 +1,5 @@
 #+TITLE: Frequent Btrfs Snapshots for Actively-Edited Content
+#+AUTHOR: waltharius
 #+DESCRIPTION: Design rationale, pitfalls encountered, and operational runbook for the writing-subvolume snapshot system on azazel (documents, notes, syncthing).
 #+STARTUP: overview
 
@@ -75,6 +76,11 @@ whatever permissions =btrfs subvolume create= happened to produce
 - =SYNC_ACL = true;= added to the snapper config as a belt-and-suspenders
   measure — since our timer regularly calls =snapper create=, this
   makes snapper itself re-sync the ACL on every snapshot operation too.
+  Overhead is negligible: it is a single =setfacl=-equivalent call on
+  one directory (not recursive into snapshot contents), and it only
+  runs when a snapshot is actually created — which, thanks to the
+  =find-new= guard above, only happens on real changes, not on every
+  3-minute tick.
 
 ** Changing =fileSystems= and doing a live =switch= can kill the graphical session
 Adding/changing mount units for an actively-mounted =/home= tree forces
@@ -86,10 +92,9 @@ reboot, never a live =switch=. For anything else, =nixos-rebuild
 dry-activate= before =switch= is enough to confirm nothing risky will
 be stopped/restarted.
 
-* Operational runbook
+* Operational runbook (high-level tool)
 
 ** Check snapshot counts and freshness per subvolume
-(Alias for =btrfs-writing-monitor= is =bwm=)
 #+begin_src bash
 btrfs-writing-monitor status
 #+end_src
@@ -108,7 +113,7 @@ history expansion.
 
 ** Check real disk cost of the snapshot history
 #+begin_src bash
-btrfs-writing-monitor size
+nix-shell -p compsize --run 'btrfs-writing-monitor size'
 #+end_src
 
 ** Restore an older version of a file
@@ -116,6 +121,94 @@ btrfs-writing-monitor size
 cp /home/marcin/<subvolume>/.snapshots/<N>/snapshot/<relative/path> \
    /home/marcin/<subvolume>/<relative/path>.recovered
 #+end_src
+
+* Reference: raw btrfs and snapper commands
+
+Lower-level commands used while building and debugging this system.
+Useful when =btrfs-writing-monitor= does not cover what you need, or
+when diagnosing a problem in the mechanism itself.
+
+** List all subvolumes on the filesystem
+#+begin_src bash
+sudo btrfs subvolume list /
+#+end_src
+Shows ID, generation, top-level parent, and path for every subvolume,
+including nested ones. Use this to confirm the exact
+=subvol=@home/marcin/...= path to put in a =fileSystems= entry — the
+path shown here is relative to the filesystem root, not to whatever
+subvolume it happens to be mounted under.
+
+** Check a subvolume's generation number
+#+begin_src bash
+sudo btrfs subvolume show /home/marcin/notes
+#+end_src
+The =Generation:= field is the transaction ID of the last change to
+that subvolume's own root. See the pitfall above: this alone is not a
+reliable "did anything change" signal, because btrfs housekeeping
+transactions bump it too.
+
+** Find files changed since a given generation
+#+begin_src bash
+sudo btrfs subvolume find-new /home/marcin/notes <generation>
+#+end_src
+Lists every inode with a generation higher than the one given (one
+line per changed extent/file), ending with a
+~transid marker was <N>~ line. Output containing *only* the marker
+line (no file paths above it) means nothing real changed — this is
+the exact signal =snapper-writing-tick= uses to decide whether to
+snapshot. Get the baseline generation to pass here from
+=/var/lib/snapper-writing/<name>.lastgen= or from a previous
+=btrfs subvolume show= run.
+
+** List snapshots for a config
+#+begin_src bash
+sudo snapper -c notes list
+#+end_src
+Snapshot =#0= is always the live, current state of the subvolume, not
+a real snapshot — it has no date, no description, and cannot be
+deleted or restored from.
+
+** Compare two snapshots to see what actually changed
+#+begin_src bash
+sudo snapper -c notes status <old>..<new>
+#+end_src
+Prints one line per changed path with a flag column (=c= content
+changed, =+= created, =-= deleted, =t= type changed, =p= permissions
+changed). Empty output is a valid, meaningful result meaning nothing
+changed between those two points — not a command failure. Use
+=<N>..0= to compare a past snapshot against the live current state of
+the subvolume.
+
+** Show a detailed diff, not just a file list
+#+begin_src bash
+sudo snapper -c notes diff <old>..<new>
+#+end_src
+Useful for text-based files (Org notes, anything git-tracked); not
+meaningful for binary formats like =.docx= or =.odt=.
+
+** Check the ACL on a =.snapshots= directory
+#+begin_src bash
+getfacl /home/marcin/notes/.snapshots
+#+end_src
+Look for a named entry such as =user:marcin:r-x=. Seeing only the
+standard =user::=, =group::=, =other::= lines (no named user/group
+entries) means there is no real ACL grant — any access you have is
+coming from plain permission bits, not from snapper's
+ALLOW_USERS/SYNC_ACL mechanism.
+
+** Apply tmpfiles rules immediately, without rebooting
+#+begin_src bash
+sudo systemd-tmpfiles --create
+#+end_src
+Note: this logs a benign "unsafe path transition" warning for each
+writing subvolume — expected, see the pitfall above.
+
+** Manually trigger a snapshot check outside the timer schedule
+#+begin_src bash
+sudo systemctl start snapper-writing-frequent.service
+#+end_src
+Useful right after deploying a config change, to establish a fresh
+baseline snapshot without waiting for the next scheduled tick.
 
 * Migrating an existing directory into a dedicated writing subvolume
 
