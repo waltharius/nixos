@@ -66,6 +66,10 @@
     pinentry-gnome3
 
     # --- development tools ---
+    # python3: the ~/.emacs.d pre-commit checks (hooks/lint.py) and the
+    # one-off convert_journal.py migration script. Standard library
+    # only, so no package set is needed with it.
+    python3
     zip
     unzip
     ripgrep
