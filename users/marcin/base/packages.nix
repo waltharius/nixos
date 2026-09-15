@@ -66,10 +66,15 @@
     pinentry-gnome3
 
     # --- development tools ---
-    # python3: the ~/.emacs.d pre-commit checks (hooks/lint.py) and the
-    # one-off convert_journal.py migration script. Standard library
-    # only, so no package set is needed with it.
-    python3
+    # python3 with PyYAML: the ~/.emacs.d pre-commit checks
+    # (hooks/lint.py, standard library only) and tools/obsidian_import.py,
+    # which parses the YAML front matter Obsidian writes. Only the wrapped
+    # interpreter is listed - adding plain python3 next to it would put two
+    # bin/python3 into the profile.
+    (python3.withPackages (ps: with ps; [pyyaml]))
+    # pandoc: markdown -> org conversion for the Obsidian import for Emacs
+    # (tools/obsidian_import.py) and the one-off migration script.
+    pandoc
     zip
     unzip
     ripgrep
