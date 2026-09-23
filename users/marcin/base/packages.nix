@@ -64,6 +64,8 @@
     texlive.combined.scheme-full
     gnupg
     pinentry-gnome3
+    hugo
+    rsync
 
     # --- development tools ---
     # python3 with PyYAML: the ~/.emacs.d pre-commit checks
