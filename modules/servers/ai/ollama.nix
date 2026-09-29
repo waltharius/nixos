@@ -63,7 +63,10 @@
     home = "/mnt/data/ollama";
 
     # Accelerate with CUDA (both RTX 3090s).
-    acceleration = "cuda";
+    # nixpkgs 26.05 removed services.ollama.acceleration; the variant is now
+    # chosen by package. Explicit ollama-cuda avoids depending on whether
+    # nixpkgs.config.cudaSupport reaches the pkgs instance Colmena passes in.
+    package = pkgs.ollama-cuda;
 
     environmentVariables = {
       CUDA_VISIBLE_DEVICES = "0,1";
