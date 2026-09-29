@@ -69,17 +69,17 @@
     };
 
     # DNS resolution via systemd-resolved + FreeIPA
+    # nixpkgs 26.05 converted services.resolved to RFC42-style settings.
+    # DNS and Domains are set explicitly here because LXC hosts do not define
+    # networking.nameservers / networking.search (the module's defaults).
+    # DNSSEC and DNSOverTLS are left at the module default (false).
     services.resolved = {
       enable = true;
-      dnssec = "false";
-      domains = ["home.lan"];
-      fallbackDns = ["9.9.9.9"]; # Quad9 fallback
-      extraConfig = ''
-        [Resolve]
-        DNS=192.168.50.1
-        Domains=home.lan
-        DNSoverTLS=no
-      '';
+      settings.Resolve = {
+        DNS = ["192.168.50.1"]; # pfSense
+        Domains = ["home.lan"];
+        FallbackDNS = ["9.9.9.9"]; # Quad9 fallback
+      };
     };
 
     # Locale and timezone
