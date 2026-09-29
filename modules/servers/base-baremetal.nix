@@ -113,17 +113,15 @@
   networking.search = ["home.lan"];
   networking.nameservers = ["192.168.50.1"];
 
+  # nixpkgs 26.05 converted services.resolved to RFC42-style settings.
+  # Only FallbackDNS needs to be explicit; the module derives the rest:
+  #   DNS        <- networking.nameservers (default)
+  #   Domains    <- networking.search      (default)
+  #   DNSSEC     =  false                  (module default)
+  #   DNSOverTLS =  false                  (module default)
   services.resolved = {
     enable = true;
-    dnssec = "false";
-    domains = ["home.lan"];
-    fallbackDns = ["9.9.9.9"]; # Quad9 fallback
-    extraConfig = ''
-      [Resolve]
-      DNS=192.168.50.1
-      Domains=home.lan
-      DNSoverTLS=no
-    '';
+    settings.Resolve.FallbackDNS = ["9.9.9.9"]; # Quad9 fallback
   };
 
   # ---------------------------------------------------------------------------
