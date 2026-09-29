@@ -57,16 +57,21 @@
     # CUDA binary caches — CRITICAL: must be present BEFORE first
     # nixos-rebuild with NVIDIA drivers. Without these, NixOS compiles
     # CUDA from source which takes 6-12 hours.
+    #
+    # cuda-maintainers.cachix.org was deleted (2026-09-11); the NixOS CUDA
+    # team's cache is now cache.nixos-cuda.org (see wiki.nixos.org/wiki/CUDA).
+    # New substituters only take effect after activation, so a build that
+    # runs before this config is live must pass them via --option.
     # ---------------------------------------------------------------------------
     substituters = [
       "https://cache.nixos.org"
-      "https://cuda-maintainers.cachix.org"
+      "https://cache.nixos-cuda.org"
       "https://nix-community.cachix.org"
     ];
     trusted-public-keys = [
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-      "cuda-maintainers.cachix.org-1:0dq3bujKpuEPMCX6U4WylrUDZ9JyUG0VpVZa7CNfq5E="
-      "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CXrkCWyvRCUSeBc1g="
+      "cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M="
+      "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
     ];
 
     keep-outputs = false;
