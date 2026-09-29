@@ -227,6 +227,28 @@ in {
     # Firewall
     networking.firewall.allowedTCPPorts = [cfg.port];
 
+    # Service ordering on the local MariaDB and Redis.
+    # With database.createLocally = false the upstream module adds NO
+    # after/requires on mysql.service (it only does so when it manages the DB
+    # itself), and it never orders on redis-nextcloud.service. During a switch
+    # that restarts mysql/redis, nextcloud-setup (occ upgrade) and
+    # nextcloud-update-db could then start before the DB/cache accept
+    # connections and fail in OC\Server->boot().
+    systemd.services = let
+      backends = ["mysql.service" "redis-nextcloud.service"];
+    in {
+      nextcloud-setup = {
+        after = backends;
+        requires = backends;
+      };
+      nextcloud-update-db.after = backends;
+      nextcloud-cron.after = backends;
+      phpfpm-nextcloud = {
+        after = backends;
+        wants = backends;
+      };
+    };
+
     #    systemd.services.nextcloud-update-db.enable = mkForce false;
     #    systemd.services.nextcloud-setup = {
     #      wantedBy = mkForce [];
