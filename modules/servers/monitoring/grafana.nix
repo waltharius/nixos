@@ -9,6 +9,12 @@
 # Firewall: port 3000 allowed from 192.168.50.0/24 only (see hardening.nix).
 # Admin password: SOPS secret → /run/secrets/grafana-admin-password
 #                 File must contain a single line: GF_SECURITY_ADMIN_PASSWORD=<pass>
+# Secret key:     SOPS secret → /run/secrets/grafana-secret-key (raw value, no KEY= prefix)
+#                 Read by Grafana's file provider at startup, never lands in the Nix store.
+#                 Currently holds the pre-26.05 default key ("SW2YcwTIb9zpOOhoPsMm") so that
+#                 anything already encrypted in grafana.db stays readable. Changing it breaks
+#                 decryption of existing secrets in the DB — rotate deliberately, see:
+#                 https://github.com/erooke/grafana-secretkey-rotation-tool
 {
   config,
   lib,
@@ -28,6 +34,9 @@
       security = {
         admin_user = "admin";
         # password comes from EnvironmentFile below (SOPS secret)
+        # nixpkgs 26.05: secret_key has no default anymore. "$__file{...}" is
+        # Grafana's file provider syntax (not Nix interpolation — only ${ is).
+        secret_key = "$__file{${config.sops.secrets.grafana-secret-key.path}}";
         disable_gravatar = true;
         cookie_secure = false; # Phase B: set true when behind TLS proxy
         cookie_samesite = "lax";
@@ -157,6 +166,14 @@
     group = "grafana";
     mode = "0400";
     # Key in secrets/altair.yaml: grafana-admin-password
+  };
+
+  sops.secrets.grafana-secret-key = {
+    sopsFile = ../../../secrets/altair.yaml;
+    owner = "grafana";
+    group = "grafana";
+    mode = "0400";
+    # Key in secrets/altair.yaml: grafana-secret-key (raw value, no KEY= prefix)
   };
 
   # Firewall rule: allow Grafana from LAN interface only.
