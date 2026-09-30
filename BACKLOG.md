@@ -70,11 +70,16 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   `modules/system/btrfs.nix`, which needs the writing subvolumes of the
   host's disk layout; add it to sukkub or the Wyse together with that
   layout.
-  - **Atuin key on workstations from sops.** Servers log in with the key from
-    `secrets/atuin-key.txt`; workstations log in by hand, which let an old
-    host sync records under a different key ('attempting to decrypt with
-    incorrect key', repaired on 2026-09-30 with store purge / push --force /
-    pull --force). Log workstations in from sops as well.
+- **Atuin key on workstations from sops.** Servers log in with the key from
+  `secrets/atuin-key.txt`; workstations log in by hand, which let an old
+  host sync records under a different key ('attempting to decrypt with
+  incorrect key', repaired on 2026-09-30 with store purge / push --force /
+  pull --force). Log workstations in from sops as well.
+- **Rotate the Atuin encryption key.** The current key (in
+  `secrets/atuin-key.txt`) was exposed in a chat transcript on 2026-09-30.
+  Generate a new key, re-encrypt the store on one host, push it with
+  `atuin store push --force`, update the sops secret, and log every host in
+  again. Check first which rekey command Atuin 18.15 offers.
 
 ## Infrastructure (outside this repository or later stages)
 
