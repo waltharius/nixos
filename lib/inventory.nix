@@ -6,9 +6,10 @@
 #   hosts/machines/<host>.nix  - one file per machine; the file name is the
 #                                host name. Every *.nix file in the
 #                                directory is loaded automatically.
+#   hosts/devices.nix          - devices that are not NixOS machines
+#                                (address plan, SSH aliases, host keys)
 #
-# The result has the same shape as before the split:
-#   { network = ...; machines.<host> = { ... }; }
+# The result: { network; sops; machines.<host>; devices.<device>; }
 #
 # Any violation aborts evaluation with a list of all problems found, so
 # mistakes surface at `nix flake check` / `nixos-rebuild` / `colmena eval`
@@ -26,6 +27,10 @@
 #   - every machine has an age public key (sops.ageKey) and a known
 #     sops.keySource; files in sops.extraSecrets exist
 #   - every admin key in hosts/fleet.nix is an age public key
+#   - devices follow the same address rules; machines and devices never
+#     share an address
+#   - SSH alias names (machine names, `ssh.aliases`, device `ssh`) are
+#     unique
 {
   lib,
   classes,
@@ -42,7 +47,10 @@
       lib.nameValuePair (lib.removeSuffix ".nix" file) (import ../hosts/machines/${file}))
     machineFiles;
 
-  raw = fleet // {inherit machines;};
+  devices = import ../hosts/devices.nix;
+  deviceNames = builtins.attrNames devices;
+
+  raw = fleet // {inherit machines devices;};
   inherit (raw.network.lan) prefix dhcpPool;
 
   names = builtins.attrNames machines;
@@ -69,13 +77,20 @@
       lib.optional (!isAgeKey key) "hosts/fleet.nix: sops.admins.${n} is not an age public key")
     (raw.sops.admins or {}));
 
+  # Address rules shared by machines and devices.
+  addressErrors = label: ip: let
+    octet = lastOctet ip;
+  in
+    lib.optional (octet == null)
+    "${label}: lan.ip ${ip} is not in ${prefix}.0/24"
+    ++ lib.optional (octet != null && (octet < 1 || octet > 254))
+    "${label}: lan.ip ${ip} is not a usable host address"
+    ++ lib.optional (octet != null && octet >= dhcpPool.first && octet <= dhcpPool.last)
+    "${label}: lan.ip ${ip} is inside the router's DHCP pool (${prefix}.${toString dhcpPool.first}-${toString dhcpPool.last})";
+
   errorsFor = name: let
     m = machines.${name};
     ip = ipOf m;
-    octet =
-      if ip == null
-      then null
-      else lastOctet ip;
   in
     lib.optional (builtins.match "[a-z][a-z0-9-]*" name == null)
     "${name}: hosts/machines/${name}.nix is not a valid host name ([a-z][a-z0-9-]*)"
@@ -85,12 +100,7 @@
     ++ lib.optional (!(m ? system)) "${name}: missing `system`"
     ++ lib.optional (m ? class && builtins.elem m.class classesRequiringIp && ip == null)
     "${name}: class `${m.class}` requires a static `lan.ip`"
-    ++ lib.optional (ip != null && octet == null)
-    "${name}: lan.ip ${ip} is not in ${prefix}.0/24"
-    ++ lib.optional (octet != null && (octet < 1 || octet > 254))
-    "${name}: lan.ip ${ip} is not a usable host address"
-    ++ lib.optional (octet != null && octet >= dhcpPool.first && octet <= dhcpPool.last)
-    "${name}: lan.ip ${ip} is inside the router's DHCP pool (${prefix}.${toString dhcpPool.first}-${toString dhcpPool.last})"
+    ++ lib.optionals (ip != null) (addressErrors name ip)
     ++ lib.optional ((m.users or {}) == {}) "${name}: no `users`"
     ++ lib.optional (m ? class && builtins.elem m.class classesRequiringIp && !((m.users or {}) ? nixadm))
     "${name}: class `${m.class}` requires the nixadm account in `users`"
@@ -107,19 +117,54 @@
       (builtins.filter (g: !(builtins.elem g knownGroups)) (u.groups or [])))
     (m.users or {}));
 
-  # Addresses used by more than one machine.
-  ipOwners = lib.foldl' (acc: name: let
-    ip = ipOf machines.${name};
+  deviceErrorsFor = name: let
+    d = devices.${name};
+    ip = ipOf d;
   in
-    if ip == null
-    then acc
-    else acc // {${ip} = (acc.${ip} or []) ++ [name];}) {}
-  names;
+    lib.optional (builtins.match "[a-z][a-z0-9-]*" name == null)
+    "device ${name}: not a valid name ([a-z][a-z0-9-]*)"
+    ++ lib.optional (machines ? ${name}) "device ${name}: a machine has the same name"
+    ++ lib.optionals (ip != null) (addressErrors "device ${name}" ip)
+    ++ lib.optional (ip == null && lib.any (a: !(a ? hostName)) (lib.attrValues (d.ssh or {})))
+    "device ${name}: an SSH alias without `hostName` needs the device's `lan.ip`";
+
+  # Addresses used by more than one machine or device.
+  addressOwners =
+    map (n: {
+      name = n;
+      ip = ipOf machines.${n};
+    })
+    names
+    ++ map (n: {
+      name = "device ${n}";
+      ip = ipOf devices.${n};
+    })
+    deviceNames;
+  ipOwners =
+    lib.foldl' (acc: o:
+      if o.ip == null
+      then acc
+      else acc // {${o.ip} = (acc.${o.ip} or []) ++ [o.name];}) {}
+    addressOwners;
   duplicateErrors =
-    lib.mapAttrsToList (ip: owners: "lan.ip ${ip} is used by several machines: ${lib.concatStringsSep ", " owners}")
+    lib.mapAttrsToList (ip: owners: "lan.ip ${ip} is used several times: ${lib.concatStringsSep ", " owners}")
     (lib.filterAttrs (_: owners: builtins.length owners > 1) ipOwners);
 
-  errors = adminErrors ++ lib.concatMap errorsFor names ++ duplicateErrors;
+  # SSH aliases: machine names, machine `ssh.aliases`, device `ssh` entries.
+  aliases =
+    names
+    ++ lib.concatMap (n: builtins.attrNames (machines.${n}.ssh.aliases or {})) names
+    ++ lib.concatMap (n: builtins.attrNames (devices.${n}.ssh or {})) deviceNames;
+  aliasErrors =
+    map (a: "SSH alias ${a} is defined several times")
+    (lib.unique (builtins.filter (a: lib.count (x: x == a) aliases > 1) aliases));
+
+  errors =
+    adminErrors
+    ++ lib.concatMap errorsFor names
+    ++ lib.concatMap deviceErrorsFor deviceNames
+    ++ duplicateErrors
+    ++ aliasErrors;
 in
   if errors == []
   then raw

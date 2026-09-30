@@ -17,7 +17,11 @@
 
   classOf = machine: classes.${machine.class};
 
-  hostModules = name: machine: (classOf machine).modules name machine;
+  # Generated from the whole inventory, imported by every host: fleet
+  # known_hosts and the ssh_config texts for admins (lib/ssh.nix).
+  fleetSsh = import ./ssh.nix {inherit lib inventory;};
+
+  hostModules = name: machine: (classOf machine).modules name machine ++ [fleetSsh];
   hostSpecialArgs = name: machine: (classOf machine).specialArgs name machine;
 
   # `lib.nixosSystem` (used for nixosConfigurations) evaluates with the
