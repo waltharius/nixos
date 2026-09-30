@@ -2,7 +2,7 @@
 #
 # Flatpak sandboxed application runtime + XDG Desktop Portals.
 #
-# Extracted from modules/system/desktop/gnome.nix so that Flatpak is
+# Extracted from the GNOME module (now modules/groups/gnome/nixos.nix) so that Flatpak is
 # available regardless of which desktop environment is active.
 #
 # Flatpak and XDG portals are distinct but complementary:

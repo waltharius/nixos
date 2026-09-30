@@ -2,7 +2,7 @@
 #
 # CUPS printing stack + Avahi mDNS + automatic Canon TS8300 registration.
 #
-# Extracted from modules/system/desktop/gnome.nix so that printing works
+# Extracted from the GNOME module (now modules/groups/gnome/nixos.nix) so that printing works
 # independently of the desktop environment. The printer is accessed over
 # the network via IPP Everywhere (driverless), so no vendor PPD is needed.
 #

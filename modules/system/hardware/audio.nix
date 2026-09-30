@@ -2,7 +2,7 @@
 #
 # PipeWire audio stack — desktop-environment-agnostic.
 #
-# Extracted from modules/system/desktop/gnome.nix so that any future
+# Extracted from the GNOME module (now modules/groups/gnome/nixos.nix) so that any future
 # compositor (niri, Hyprland, etc.) can include audio without depending
 # on GNOME. The NixOS module system merges option sets from all imported
 # modules, so splitting this out causes no duplication or conflicts.

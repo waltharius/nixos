@@ -25,6 +25,12 @@
 #                 reservation on the router (laptops roam between networks).
 #   deploy      - Colmena deployment settings. Class defaults come from
 #                 lib/classes.nix; anything set here overrides them.
+#   users       - accounts on the machine and the program groups each one
+#                 uses: users.<name>.groups = [ ... ]. The account must be
+#                 defined in users/<name>/; the groups are listed in
+#                 modules/groups/default.nix. The host gets the system part
+#                 of every group of every user (see lib/users.nix).
+#                 Servers and virtual machines must have nixadm.
 {
   network.lan = {
     # First three octets of the home LAN.
@@ -43,6 +49,19 @@
       system = "x86_64-linux";
       description = "ThinkPad T16 Gen3 - primary workstation";
       tags = ["workstation" "laptop"];
+      users.marcin.groups = [
+        "gnome"
+        "emacs"
+        "office"
+        "latex"
+        "notes"
+        "web"
+        "comms"
+        "media"
+        "gaming"
+        "nix-admin"
+        "cli"
+      ];
     };
 
     sukkub = {
@@ -50,6 +69,19 @@
       system = "x86_64-linux";
       description = "ThinkPad P50 - test/POC workstation";
       tags = ["workstation" "laptop"];
+      users.marcin.groups = [
+        "gnome"
+        "emacs"
+        "office"
+        "latex"
+        "notes"
+        "web"
+        "comms"
+        "media"
+        "gaming"
+        "nix-admin"
+        "cli"
+      ];
     };
 
     # --- Bare-metal servers -------------------------------------------------
@@ -59,6 +91,7 @@
       description = "ASUS ProArt X870E, Ryzen 9 7900, 64 GB DDR5, 2x RTX 3090";
       tags = ["server" "baremetal" "gpu" "llm"];
       lan.ip = "192.168.50.150";
+      users.nixadm.groups = ["cli"];
     };
 
     # --- Virtual machines / containers -------------------------------------
@@ -68,6 +101,7 @@
       description = "Proxmox LXC - Nextcloud, MariaDB, Syncthing";
       tags = ["prod" "lxc" "cloud"];
       lan.ip = "192.168.50.8";
+      users.nixadm.groups = ["cli"];
     };
   };
 }

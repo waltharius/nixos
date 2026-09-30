@@ -2,6 +2,7 @@
   self,
   config,
   lib,
+  pkgs,
   ...
 }: {
   # NOTE: system.rebuild.enableNg was removed in 26.05.
@@ -42,6 +43,17 @@
     if self ? rev
     then self.rev
     else "uncommitted-changes";
+
+  # Basic tools for every user and for root. vim is the rescue editor
+  # (admin accounts get nixvim from Home Manager).
+  environment.systemPackages = with pkgs; [
+    vim
+    wget
+    curl
+    git
+    btop
+    killall
+  ];
 
   # Colmena 0.5 comes from its flake input, built against its own nixpkgs;
   # its maintainers publish those builds in this cache.

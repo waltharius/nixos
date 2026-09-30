@@ -28,7 +28,7 @@ This is my complete NixVim configuration - a declarative, type-safe Neovim setup
 
 #+begin_src nix
 # Repository structure
-~/nixos/modules/utils/nixvim/
+~/nixos/modules/home/admin/nixvim/
 ├── default.nix      # Main entry point
 ├── core.nix         # Editor settings & colorscheme
 ├── plugins.nix      # All plugin configurations
@@ -176,7 +176,7 @@ This opens Telescope buffer picker - the easiest way to switch between open file
 To make buffer navigation easier, you can add these keybindings to ~keymaps.nix~:
 
 #+begin_src nix
-# Add to modules/utils/nixvim/keymaps.nix
+# Add to modules/home/admin/nixvim/keymaps.nix
 {
   mode = "n";
   key = "<Tab>";
@@ -502,7 +502,7 @@ l - log
 ** Module Structure
 
 #+begin_src text
-modules/utils/nixvim/
+modules/home/admin/nixvim/
 ├── default.nix       # Entry point, imports all modules
 ├── core.nix          # Editor options, colorscheme
 ├── plugins.nix       # Plugin declarations
@@ -517,7 +517,7 @@ modules/utils/nixvim/
 
 *** Add a Plugin
 
-Edit ~modules/utils/nixvim/plugins.nix~:
+Edit ~modules/home/admin/nixvim/plugins.nix~:
 
 #+begin_src nix
 plugins.your-plugin = {
@@ -530,7 +530,7 @@ plugins.your-plugin = {
 
 *** Add a Keybinding
 
-Edit ~modules/utils/nixvim/keymaps.nix~:
+Edit ~modules/home/admin/nixvim/keymaps.nix~:
 
 #+begin_src nix
 {
@@ -546,7 +546,7 @@ Edit ~modules/utils/nixvim/keymaps.nix~:
 
 *** Change Colorscheme
 
-Edit ~modules/utils/nixvim/core.nix~:
+Edit ~modules/home/admin/nixvim/core.nix~:
 
 #+begin_src nix
 colorschemes.your-theme = {
@@ -557,7 +557,7 @@ colorschemes.your-theme = {
 
 *** Add LSP Server
 
-Edit ~modules/utils/nixvim/lsp.nix~:
+Edit ~modules/home/admin/nixvim/lsp.nix~:
 
 #+begin_src nix
 servers = {
@@ -683,4 +683,4 @@ c   - Command mode
 ---
 
 *Last updated:* {{{time(%Y-%m-%d)}}}
-*Configuration:* ~/nixos/modules/utils/nixvim/
+*Configuration:* ~/nixos/modules/home/admin/nixvim/

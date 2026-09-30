@@ -16,6 +16,63 @@ Goal of this stage: describe what a host runs as groups chosen per user in
 account the same shell on every host. Unlike stage 0 the system derivations
 change; the check is that no program disappears (see "Verification").
 
+### Added
+
+- Program groups (`modules/groups/`): `gnome`, `emacs`, `office`, `latex`,
+  `notes`, `web`, `comms`, `media`, `gaming`, `nix-admin`, `cli`. Each group
+  has a system part (`nixos.nix`), a user part (`home.nix`) or both, and is
+  registered in `modules/groups/default.nix`.
+- `machines.<host>.users.<user>.groups` in `hosts/inventory.nix`. A host
+  gets the system part of every group of every user; each user gets the
+  user part of their own groups (`lib/users.nix`).
+- Account definitions in one place: `users/<user>/account.nix`. The
+  inventory decides on which hosts an account exists.
+- Admin base (`modules/home/admin/`) for marcin, nixadm and the future
+  keeper on every host: nixvim, bash, ble.sh, starship, zoxide, atuin, eza,
+  git.
+- Inventory validation: unknown group, account without
+  `users/<user>/account.nix`, machine without users, server or virtual
+  machine without nixadm.
+- Flatpak apps declared in groups (nix-flatpak, user installation):
+  Quick PDF Join (`office`), JDownloader (`web`), Fedora Media Writer
+  (`nix-admin`). Unmanaged apps are left alone.
+- `host` module argument (inventory entry plus name) for NixOS and Home
+  Manager modules, e.g. `host.class`.
+- Every workstation now gets audio, printing, Flatpak, certificates,
+  Plymouth, the sudo policy and Nerd Fonts from its class
+  (`lib/classes.nix`, `modules/system/fonts.nix`) instead of a per-host list.
+
+### Changed
+
+- `hosts/workstations/<host>/profile.nix` renamed to `custom.nix`; it holds
+  only hardware and host features. `users/marcin/profiles/` is gone.
+- marcin's configuration is split into groups and personal settings
+  (`users/marcin/home/`). Personal GNOME settings (extensions,
+  run-or-raise, `ctrl:nocaps`) apply only where marcin has `gnome`;
+  autostart entries only where the program is installed.
+- Shell start-up: ble.sh is sourced detached after the interactive-shell
+  guard and attached last; starship, atuin and zoxide are initialised once,
+  by their Home Manager modules. Before, starship ran in `bashrcExtra` (also
+  in non-interactive shells) and all three were initialised twice.
+- One Atuin module for all admin accounts (`modules/home/admin/atuin.nix`);
+  the daemon on workstations is Home Manager's socket-activated service.
+- nixadm has the same shell as marcin: `gst` instead of `gs` (Ghostscript's
+  name), zoxide replaces `cd`, starship shows the host name in red outside
+  workstations, plus nixvim and the `cli` group on servers.
+- `btrfs-writing-monitor` and the `bwm` alias come with
+  `modules/system/btrfs.nix` instead of marcin's packages.
+- nixvim's nixd completion for Home Manager options uses the current user
+  instead of a hard-coded marcin.
+
+### Fixed
+
+- Atuin credentials no longer appear on command lines (readable by every
+  user in `/proc/<pid>/cmdline`). The server login service
+  (`modules/servers/atuin-login.nix`) passed the password and key inside
+  `expect -c "..."`; the expect script now reads the credential files
+  itself. The Home Manager login service, which passed the key with
+  `atuin login -k`, is removed.
+
 ### Removed
 
 - Modules that no host imported, and their documentation: Doom Emacs
@@ -31,6 +88,53 @@ change; the check is that no program disappears (see "Verification").
   Removing them left the system derivation of every host unchanged.
 - Host `actual-budget` and its role module, and the unused LXC template
   `hosts/virtual/base-template/`.
+- Unused programs: silverbullet, nb, alacritty, the system-wide neovim
+  (admin accounts use nixvim), TeX Live medium on sukkub (marcin has the
+  full scheme through `latex`).
+- Duplicates: Brave, git, yazi, starship, zoxide, atuin, solaar and ptyxis
+  were installed both by a module and by a package list. blesh is no longer
+  in marcin's profile either: `.bashrc` sources ble.sh by its store path.
+- The `pnpm-10.29.2` insecure-package exception on azazel: signal-desktop
+  now builds with pnpm 11.27.0, which has no known vulnerabilities.
+- The `y` shell function in bash; yazi's Home Manager wrapper defines it.
+
+### Verification
+
+Before and after, for azazel, sukkub, altair and cloud-apps: the lists of
+system packages, Home Manager packages, Flatpak apps, system services,
+user services, managed home files and dconf settings (Nix 2.18, same
+`flake.lock`). All differences are listed here:
+
+- azazel, sukkub: removed only the programs listed above under "Removed";
+  Nerd Fonts moved from marcin's packages to `fonts.packages`; three Flatpak
+  apps are now declared; the Atuin daemon gained its socket unit;
+  `btrfs-writing-monitor` moved from marcin's packages to the system on
+  azazel, and sukkub loses it (it has no writing subvolumes to monitor).
+  System services and dconf settings unchanged.
+- altair, cloud-apps: nixadm gains nixvim, eza, git and the `cli` group
+  (yazi without preview helpers, tmux with marcin's configuration); the
+  broken Home Manager `atuin-login` user service is gone. System services
+  unchanged.
+- All four hosts evaluate both as `nixosConfigurations` and as Colmena
+  hive nodes. The inventory validation was checked with a deliberately
+  broken copy: an unknown group, an account without `account.nix` and a
+  server without nixadm were all reported.
+
+### Lessons learned
+
+- Comparing package, service and file lists per host catches what a
+  derivation hash cannot explain once a change is meant to alter systems:
+  every difference has to be either intended or explained.
+- A comment in `packages.nix` claimed that packages installed by Home
+  Manager program modules were not listed again; five of them were (git,
+  yazi, atuin, starship, zoxide). Program modules already put their
+  package in the profile.
+- Home Manager orders `.bashrc` with `lib.mkOrder` inside `initExtra`
+  (bash-completion 100, starship 1900, zoxide 2000). ble.sh has no Home
+  Manager module, so its source/attach lines need explicit orders around
+  those.
+- A secret passed to `expect -c "..."` is as visible as one passed to the
+  program itself: the whole script is an argument of expect.
 
 ## [2026-09-30] Refactor stage 0 - flake-parts skeleton and host inventory
 

@@ -6,9 +6,6 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 
 ## Refactor stages still ahead
 
-1. Host groups and a shared shell module for all accounts (includes moving
-   ble.sh, starship, atuin and zoxide in `modules/home/shell/bash.nix` behind
-   the interactive-shell guard).
 2. Per-host sops keys and a `new-host` script.
 3. Installation with nixos-anywhere (first target: Dell Wyse 5470).
 4. Remote access (Tailscale on every host, subnet router for the LAN).
@@ -36,6 +33,43 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   NixOS machines. Devices such as OPNsense (`192.168.50.149`) or the
   Windows 11 VM (`192.168.50.6`, used by `rdp-win11`) are not checked for
   conflicts. Consider a list of reserved addresses in the inventory.
+
+- **Automatic upgrades on more than one workstation.** `auto-upgrade.nix`
+  runs `nix flake update` and commits `flake.lock` on the host itself; on
+  several hosts this produces diverging lockfile commits. Options: one
+  updater host chosen in the inventory while the others only pull and
+  rebuild; hosts updating without writing the lockfile (not reproducible);
+  a central updater (e.g. altair) that the workstations pull from. Until
+  decided, auto-upgrade runs on azazel only.
+
+## Follow-ups from stage 1
+
+- **Declarative Syncthing.** Folders and devices are set in the web GUI and
+  are not in the repository. NixOS `services.syncthing.settings.devices` /
+  `.folders` with `overrideDevices` / `overrideFolders = false` should keep
+  GUI additions working next to the declared ones (verify in the NixOS
+  options before relying on it). Needs a one-off import of the current
+  `~/.config/syncthing/config.xml` into Nix.
+- **`rdp-win11` passes the password on the command line** (`xfreerdp /p:`),
+  readable by every local user in `/proc/<pid>/cmdline`. Check whether
+  FreeRDP can read the password from stdin or a file.
+- **Keyboard layout is system-wide.** `modules/system/locale.nix` sets the
+  Polish layout and `ctrl:nocaps` for every workstation user; marcin's
+  GNOME copy of it is personal (`users/marcin/home/gnome.nix`). Decide
+  per user before friends' laptops (stage 6).
+- **Atuin for `keeper`** (stage 6): a separate Atuin account whose
+  credentials only the device and the admin key can decrypt, and a tailnet
+  ACL entry that lets managed devices reach the Atuin server only.
+- **Server package lists overlap the `cli` group.** `base-lxc.nix` and
+  `base-baremetal.nix` still install btop, curl, eza, zoxide, starship,
+  atuin etc. system-wide. Trim them when the servers are reworked.
+- **Size of the admin base on small machines.** nixvim brings all
+  tree-sitter grammars, two language servers and formatters (prettier pulls
+  Node.js). Measure on the Wyse 5470 (128 GB disk) in stage 3.
+- **`btrfs-writing-monitor` on other laptops.** It comes with
+  `modules/system/btrfs.nix`, which needs the writing subvolumes of the
+  host's disk layout; add it to sukkub or the Wyse together with that
+  layout.
 
 ## Infrastructure (outside this repository or later stages)
 

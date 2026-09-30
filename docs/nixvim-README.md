@@ -15,7 +15,7 @@ This directory contains a complete NixVim configuration that replaces the previo
 ## Structure
 
 ```
-modules/utils/nixvim/
+modules/home/admin/nixvim/
 ├── default.nix      # Main entry point
 ├── core.nix         # Editor settings & colorscheme
 ├── plugins.nix      # All plugin configurations
@@ -35,7 +35,7 @@ In `users/marcin/home.nix`:
 ```nix
 imports = [
   # ../../modules/utils/neovim.nix  # OLD
-  ../../modules/utils/nixvim        # NEW
+  ../../modules/home/admin/nixvim        # NEW
   # ... other imports
 ];
 ```

@@ -10,10 +10,14 @@
 #   - "server" and "virtual" machines have a static LAN address (lan.ip)
 #   - every lan.ip lies in the home LAN and outside the router's DHCP pool
 #   - no two machines share a lan.ip
+#   - every user has an account in users/<name>/account.nix
+#   - every group of a user exists in modules/groups/default.nix
+#   - "server" and "virtual" machines have the nixadm account
 {
   lib,
   classes,
 }: let
+  knownGroups = builtins.attrNames (import ../modules/groups);
   raw = import ../hosts/inventory.nix;
   inherit (raw.network.lan) prefix dhcpPool;
 
@@ -51,7 +55,16 @@
     ++ lib.optional (octet != null && (octet < 1 || octet > 254))
     "${name}: lan.ip ${ip} is not a usable host address"
     ++ lib.optional (octet != null && octet >= dhcpPool.first && octet <= dhcpPool.last)
-    "${name}: lan.ip ${ip} is inside the router's DHCP pool (${prefix}.${toString dhcpPool.first}-${toString dhcpPool.last})";
+    "${name}: lan.ip ${ip} is inside the router's DHCP pool (${prefix}.${toString dhcpPool.first}-${toString dhcpPool.last})"
+    ++ lib.optional ((m.users or {}) == {}) "${name}: no `users`"
+    ++ lib.optional (m ? class && builtins.elem m.class classesRequiringIp && !((m.users or {}) ? nixadm))
+    "${name}: class `${m.class}` requires the nixadm account in `users`"
+    ++ lib.concatLists (lib.mapAttrsToList (user: u:
+      lib.optional (!builtins.pathExists ../users/${user}/account.nix)
+      "${name}: user `${user}` has no users/${user}/account.nix"
+      ++ map (g: "${name}: user `${user}` has unknown group `${g}` (known: ${lib.concatStringsSep ", " knownGroups})")
+      (builtins.filter (g: !(builtins.elem g knownGroups)) (u.groups or [])))
+    (m.users or {}));
 
   # Addresses used by more than one machine.
   ipOwners = lib.foldl' (acc: name: let

@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  customPkgs,
   ...
 }: let
   cfg = config.custom.btrfs;
@@ -89,6 +90,10 @@ in {
   };
 
   config = {
+    # Report on the writing snapshots (changelog, sizes); for every user.
+    environment.systemPackages = [customPkgs.btrfs-writing-monitor];
+    environment.shellAliases.bwm = "btrfs-writing-monitor";
+
     # Scrub applies to the whole physical volume, so this is always
     # correct regardless of how many subvolumes exist on top of it.
     services.btrfs.autoScrub = {
