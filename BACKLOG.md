@@ -28,24 +28,10 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   and MariaDB secrets.
 - **`new-host` script** (`nix run .#new-host`): part A (register host,
   keys, files, sops, evaluation) in stage 2, part B (nixos-anywhere install
-  with pre-generated SSH host key) in stage 3 on baal. Open: inventory as
-  one file per machine, storing host private keys encrypted in the repo,
-  plain bash vs gum prompts.
-- **Identical systems from Colmena and nixos-rebuild**: add the flake
-  metadata of lib.nixosSystem to Colmena nodes; verify equal drvPaths for
-  every host.
-- **Auto-upgrade stays on azazel only** for now.
-- **Incus instances are not declarative.** The Incus preseed is applied only
-  at the first `incus admin init` and never covers instances. Options:
-  microvm.nix for NixOS guests (Incus stays for non-NixOS and OCI), OpenTofu
-  with the Incus provider, or a custom reconcile service. Decide before
-  moving the LXC containers from Proxmox.
-- **Lint hooks.** Enable statix and deadnix in `parts/dev.nix` after a
-  one-time cleanup of the existing code.
-- **Non-NixOS devices in the address plan.** The inventory validates only
-  NixOS machines. Devices such as OPNsense (`192.168.50.149`) or the
-  Windows 11 VM (`192.168.50.6`, used by `rdp-win11`) are not checked for
-  conflicts. Consider a list of reserved addresses in the inventory.
+  with pre-generated SSH host key) in stage 3 on baal. Decided: inventory
+  as one file per machine (`hosts/machines/<name>.nix`, loaded
+  automatically), host SSH private keys stored in the repo encrypted for
+  the admin key only, interactive prompts with gum.
 
 ## Follow-ups from stage 1
 
