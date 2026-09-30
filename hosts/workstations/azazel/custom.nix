@@ -35,4 +35,8 @@
   # Enable SOPS secrets management (age key at /var/lib/sops-nix/key.txt).
   # Must be set per-host because the secrets module is opt-in.
   services.secrets.enable = true;
+
+  # Framebuffer resolution of azazel's 4K panel for the console and
+  # Plymouth (was in modules/system/boot.nix for every workstation).
+  boot.kernelParams = ["video=efifb:3840x2160"];
 }

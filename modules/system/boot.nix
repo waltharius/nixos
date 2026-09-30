@@ -15,8 +15,9 @@
   # Enable kernel modules for common hardware
   boot.initrd.availableKernelModules = ["xhci_pci" "ahci" "nvme" "usbhid" "sd_mod"];
 
-  # Silent boot
-  boot.kernelParams = ["quiet" "splash" "video=efifb:3840x2160"];
+  # Silent boot. A panel-specific framebuffer resolution (video=efifb:...)
+  # belongs to the host's custom.nix, not here.
+  boot.kernelParams = ["quiet" "splash"];
 
   # Latest stable kernel
   #  boot.kernelPackages = pkgs.linuxPackages_6_19;
