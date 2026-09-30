@@ -59,6 +59,7 @@
         ./parts/packages.nix
         ./parts/dev.nix
         ./parts/secrets.nix
+        ./parts/new-host.nix
       ];
     };
 }
