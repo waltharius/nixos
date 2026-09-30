@@ -9,6 +9,7 @@
 # starship, …) are NOT listed here to avoid double-installation.
 {
   pkgs,
+  inputs,
   pkgs-unstable,
   customPkgs,
   config,
@@ -121,7 +122,9 @@
     nixpkgs-fmt
     nvd
     nh
-    colmena
+    # Colmena comes from the flake input, not from nixpkgs: the CLI must
+    # match the hive format produced by colmena.lib.makeHive (parts/hosts.nix).
+    inputs.colmena.packages.${pkgs.stdenv.hostPlatform.system}.colmena
 
     # --- file manager ---
     yazi
