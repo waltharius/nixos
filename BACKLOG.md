@@ -36,8 +36,6 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   NixOS machines. Devices such as OPNsense (`192.168.50.149`) or the
   Windows 11 VM (`192.168.50.6`, used by `rdp-win11`) are not checked for
   conflicts. Consider a list of reserved addresses in the inventory.
-- **actual-budget** has host files in `hosts/virtual/actual-budget` but is not
-  in the inventory (it was commented out in `colmena.nix`). Keep or remove.
 
 ## Infrastructure (outside this repository or later stages)
 

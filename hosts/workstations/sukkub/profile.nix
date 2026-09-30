@@ -10,11 +10,6 @@
 # Modules that are common to every workstation (boot, networking, locale,
 # secrets, sops, home-manager) are loaded by mkHost in flake.nix and are
 # therefore NOT listed here to avoid duplication.
-#
-# NOTE: niri is available in modules/system/niri.nix but is not used by
-# any host. To activate it on this host: remove gnome.nix below and
-# import ../../../modules/system/niri.nix instead. Never import both at
-# once — each owns the display manager.
 {...}: {
   imports = [
     # --- desktop environment ---

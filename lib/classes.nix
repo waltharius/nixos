@@ -77,10 +77,6 @@ in {
       ../modules/system/wifi.nix
       ../modules/system/base.nix
 
-      # niri is NOT loaded here - it is imported only by the host profile
-      # that needs it (modules/system/niri.nix is self-contained and pulls
-      # in niri-flake.nixosModules.niri itself).
-
       sops-nix.nixosModules.sops
       home-manager.nixosModules.home-manager
       {
@@ -98,8 +94,6 @@ in {
             nixvim.homeModules.nixvim
             nix-flatpak.homeManagerModules.nix-flatpak
             sops-nix.homeManagerModules.sops
-            # niri-flake.homeModules.niri is NOT here - it is injected by
-            # modules/home/desktop/niri.nix when a host loads that module.
           ];
         };
       }

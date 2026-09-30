@@ -40,16 +40,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # niri scrollable-tiling Wayland compositor.
-    # nixosModules.niri and homeModules.niri are consumed directly by
-    # modules/system/niri.nix (NixOS) and modules/home/desktop/niri.nix (HM).
-    # Neither module is loaded globally - they are imported only by the
-    # host profile that wants niri (see modules/system/niri.nix for details).
-    # niri-flake = {
-    #   url = "github:sodiboo/niri-flake";
-    #   inputs.nixpkgs.follows = "nixpkgs";
-    # };
-
     # Declarative disk partitioning.
     disko = {
       url = "github:nix-community/disko";

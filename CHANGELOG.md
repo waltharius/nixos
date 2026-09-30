@@ -9,6 +9,29 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
+## [2026-09-30] Refactor stage 1 - groups, accounts and a shared shell
+
+Goal of this stage: describe what a host runs as groups chosen per user in
+`hosts/inventory.nix`, define accounts in one place, and give every admin
+account the same shell on every host. Unlike stage 0 the system derivations
+change; the check is that no program disappears (see "Verification").
+
+### Removed
+
+- Modules that no host imported, and their documentation: Doom Emacs
+  (`modules/home/utils/doom-emacs/`), niri (`modules/system/niri.nix`,
+  `modules/home/desktop/niri.nix`, `docs/niri.md`), the plain Neovim
+  configuration with its org-mode add-on (`modules/utils/neovim.nix`,
+  `neovim-org.nix`, `lua/org-mode-denote.lua`, `nixvim/org-mode.nix`,
+  `docs/README.md`, `docs/neovim-org.md`, `docs/SETUP-ORG-MODULE.md`),
+  `modules/system/grub.nix`, two unused Thunderbolt fixes
+  (`thunderbolt-coldboot-fix.nix`, `thunderbolt-hibernate-fix.nix`), the Home
+  Manager Syncthing module (`modules/services/syncthing.nix`), Bottles for
+  Scrivener (`modules/home/tools/writing.nix`) and `modules/home/tools/hugo.nix`.
+  Removing them left the system derivation of every host unchanged.
+- Host `actual-budget` and its role module, and the unused LXC template
+  `hosts/virtual/base-template/`.
+
 ## [2026-09-30] Refactor stage 0 - flake-parts skeleton and host inventory
 
 Goal of this stage: restructure the flake without changing any deployed
