@@ -24,14 +24,18 @@
 # without triggering a "conflicting definition values" evaluation error.
 # Using plain "=" assignment in two modules causes that error even when the
 # values are identical, because Nix treats them as independent definitions.
-{ lib, pkgs, ... }: {
+{
+  lib,
+  pkgs,
+  ...
+}: {
   services.flatpak.enable = true;
 
   xdg.portal = {
     enable = true;
     # GTK portal acts as a universal fallback for all desktop environments.
     # DE-specific portals are appended by their respective desktop modules.
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+    extraPortals = [pkgs.xdg-desktop-portal-gtk];
     # lib.mkDefault allows DE-specific modules to override this value.
     # Never use a plain assignment here — any other module setting the same
     # option without a priority annotation will cause an evaluation error.

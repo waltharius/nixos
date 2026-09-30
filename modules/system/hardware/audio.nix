@@ -19,7 +19,7 @@
 # alsa.support32Bit is required for 32-bit applications (Steam, Wine) that
 # use ALSA directly rather than going through the PulseAudio compatibility
 # layer.
-{ ... }: {
+{...}: {
   services.pulseaudio.enable = false;
 
   security.rtkit.enable = true;
