@@ -7,6 +7,8 @@
   lan.ip = "192.168.50.8";
   users.nixadm.groups = ["cli"];
 
+  ssh.hostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAOtkM74WDKsbfk/rezFnEPUHGUnHLueu+adykUDmMLU";
+
   sops = {
     # Called `servers-shared` in the hand-written .sops.yaml. It stays
     # cloud-apps' own key; no other host may use it.

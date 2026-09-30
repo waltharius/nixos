@@ -18,6 +18,8 @@
     "cli"
   ];
 
+  ssh.hostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFttowJEDMimtkelgVqqJkmzMRP72PPImaXLF8EKAPIY";
+
   sops = {
     # Same key as the admin key (hosts/fleet.nix): the admin key lives on
     # azazel anyway, so a separate host key would not protect anything.

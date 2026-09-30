@@ -14,7 +14,7 @@
   ssh = {
     # Public SSH host key (`cat /etc/ssh/ssh_host_ed25519_key.pub`); pins
     # altair in /etc/ssh/ssh_known_hosts of every host once filled in.
-    # hostKey = "ssh-ed25519 AAAA...";
+    hostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA+RMIzozB5siebLy4n4INuJgBWqaIPXyVCzhxc1Qu5d";
 
     # SSH in the initrd, to enter the LUKS passphrase after a reboot
     # (modules/servers/encryption/initrd-ssh.nix). The initrd has its own
