@@ -70,14 +70,14 @@ before (see "Verification" below).
 System derivations evaluated before and after the change (Nix 2.18,
 same `flake.lock` for all pre-existing inputs):
 
-| Host        | Output                | Before = after |
-|-------------|-----------------------|----------------|
-| azazel      | `nixosConfigurations` | yes            |
-| sukkub      | `nixosConfigurations` | yes            |
-| altair      | `nixosConfigurations` | yes            |
-| altair      | Colmena hive          | yes (0.4.0 evaluator vs 0.5.0 `makeHive`) |
-| cloud-apps  | Colmena hive          | yes (0.4.0 evaluator vs 0.5.0 `makeHive`) |
-| cloud-apps  | `nixosConfigurations` | new output, no baseline |
+| Host       | Output                | Before = after                            |
+| ---------- | --------------------- | ----------------------------------------- |
+| azazel     | `nixosConfigurations` | yes                                       |
+| sukkub     | `nixosConfigurations` | yes                                       |
+| altair     | `nixosConfigurations` | yes                                       |
+| altair     | Colmena hive          | yes (0.4.0 evaluator vs 0.5.0 `makeHive`) |
+| cloud-apps | Colmena hive          | yes (0.4.0 evaluator vs 0.5.0 `makeHive`) |
+| cloud-apps | `nixosConfigurations` | new output, no baseline                   |
 
 The only intended system change is Colmena 0.5.0 in marcin's packages on
 the workstations (separate commit).
@@ -99,3 +99,9 @@ the workstations (separate commit).
 - Colmena 0.4's flake support uses a legacy evaluator that is deprecated and
   does not work in pure mode on Nix 2.21+. 0.5 reads `colmenaHive` instead,
   which also makes the CLI and hive versions a single pinned input.
+- `nix develop --option extra-substituters ...` has no effect for marcin:
+  marcin is not a trusted Nix user, so client-side substituters and keys are
+  ignored. Colmena 0.5.0 was compiled from source on the first run.
+- Colmena from its own flake input brings its own nixpkgs (unstable): a second
+  copy of glibc, openssl, nix libraries etc. in the workstation closure
+  (+154 MiB on azazel).
