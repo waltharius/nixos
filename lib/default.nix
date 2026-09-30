@@ -20,6 +20,20 @@
   hostModules = name: machine: (classOf machine).modules name machine;
   hostSpecialArgs = name: machine: (classOf machine).specialArgs name machine;
 
+  # `lib.nixosSystem` (used for nixosConfigurations) evaluates with the
+  # nixpkgs flake's `lib`, which carries version information, and injects
+  # `nixpkgs.flake.source`. Colmena calls nixos/lib/eval-config.nix with the
+  # plain `lib` instead, so without this module the same host got a
+  # different system derivation (label `26.05pre-git` instead of
+  # `26.05.<date>.<rev>`) and no nixpkgs flake registry entry. Colmena nodes
+  # import it so that both tools build identical systems; the check
+  # `colmena-hive` in parts/hosts.nix enforces the equality.
+  flakeMetadata = {
+    system.nixos.versionSuffix = inputs.nixpkgs.lib.trivial.versionSuffix;
+    system.nixos.revision = inputs.nixpkgs.lib.trivial.revisionWithDefault null;
+    nixpkgs.flake.source = inputs.nixpkgs.outPath;
+  };
+
   # Class defaults, then per-machine overrides from the inventory.
   hostDeployment = name: machine:
     (classOf machine).deploy name machine
@@ -55,7 +69,7 @@ in {
     }
     // lib.mapAttrs (name: machine: {
       deployment = hostDeployment name machine;
-      imports = hostModules name machine;
+      imports = hostModules name machine ++ [flakeMetadata];
     })
     inventory.machines;
 }
