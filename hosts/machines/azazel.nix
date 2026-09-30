@@ -17,4 +17,11 @@
     "nix-admin"
     "cli"
   ];
+
+  sops = {
+    # Same key as the admin key (hosts/fleet.nix): the admin key lives on
+    # azazel anyway, so a separate host key would not protect anything.
+    ageKey = "age1t73dnh9pj2qsz3rfqgq54t2pyxh8ew6w8xsta7pfwmmxmsjswgrshue8gx";
+    keySource = "key-file";
+  };
 }

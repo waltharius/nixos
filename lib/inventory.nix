@@ -23,6 +23,9 @@
 #   - every user has an account in users/<n>/account.nix
 #   - every group of a user exists in modules/groups/default.nix
 #   - "server" and "virtual" machines have the nixadm account
+#   - every machine has an age public key (sops.ageKey) and a known
+#     sops.keySource; files in sops.extraSecrets exist
+#   - every admin key in hosts/fleet.nix is an age public key
 {
   lib,
   classes,
@@ -56,6 +59,16 @@
     then null
     else lib.toInt (builtins.head m);
 
+  # age X25519 public key: "age1" + 58 bech32 characters.
+  isAgeKey = key: builtins.isString key && builtins.match "age1[02-9ac-hj-np-z]{58}" key != null;
+  keySources = ["key-file" "ssh-host-key"];
+
+  adminErrors =
+    lib.optional ((raw.sops.admins or {}) == {}) "hosts/fleet.nix: no admin key in `sops.admins`"
+    ++ lib.concatLists (lib.mapAttrsToList (n: key:
+      lib.optional (!isAgeKey key) "hosts/fleet.nix: sops.admins.${n} is not an age public key")
+    (raw.sops.admins or {}));
+
   errorsFor = name: let
     m = machines.${name};
     ip = ipOf m;
@@ -81,6 +94,12 @@
     ++ lib.optional ((m.users or {}) == {}) "${name}: no `users`"
     ++ lib.optional (m ? class && builtins.elem m.class classesRequiringIp && !((m.users or {}) ? nixadm))
     "${name}: class `${m.class}` requires the nixadm account in `users`"
+    ++ lib.optional (!isAgeKey (m.sops.ageKey or null))
+    "${name}: `sops.ageKey` is missing or not an age public key (age1...)"
+    ++ lib.optional (!(builtins.elem (m.sops.keySource or null) keySources))
+    "${name}: `sops.keySource` must be one of ${lib.concatStringsSep ", " keySources}"
+    ++ map (f: "${name}: sops.extraSecrets: ${f} does not exist")
+    (builtins.filter (f: !builtins.pathExists (../. + "/${f}")) (m.sops.extraSecrets or []))
     ++ lib.concatLists (lib.mapAttrsToList (user: u:
       lib.optional (!builtins.pathExists ../users/${user}/account.nix)
       "${name}: user `${user}` has no users/${user}/account.nix"
@@ -100,7 +119,7 @@
     lib.mapAttrsToList (ip: owners: "lan.ip ${ip} is used by several machines: ${lib.concatStringsSep ", " owners}")
     (lib.filterAttrs (_: owners: builtins.length owners > 1) ipOwners);
 
-  errors = lib.concatMap errorsFor names ++ duplicateErrors;
+  errors = adminErrors ++ lib.concatMap errorsFor names ++ duplicateErrors;
 in
   if errors == []
   then raw

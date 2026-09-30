@@ -6,4 +6,9 @@
   tags = ["server" "baremetal" "gpu" "llm"];
   lan.ip = "192.168.50.150";
   users.nixadm.groups = ["cli"];
+
+  sops = {
+    ageKey = "age1j73et2st2j8njdn06fsx38e5cgf3z0x00decgjuz3ldhklyk9azsqs9ggj";
+    keySource = "key-file";
+  };
 }

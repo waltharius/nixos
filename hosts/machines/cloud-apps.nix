@@ -6,4 +6,11 @@
   tags = ["prod" "lxc" "cloud"];
   lan.ip = "192.168.50.8";
   users.nixadm.groups = ["cli"];
+
+  sops = {
+    # Called `servers-shared` in the hand-written .sops.yaml. It stays
+    # cloud-apps' own key; no other host may use it.
+    ageKey = "age1qu4pnzn2teff7m78nrhzq4vct4qczp2ajhfda559xgpk2n08qswqzyh2aw";
+    keySource = "key-file";
+  };
 }

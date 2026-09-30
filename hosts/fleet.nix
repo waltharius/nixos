@@ -13,4 +13,11 @@
       last = 199;
     };
   };
+
+  # Age keys that can decrypt every secret: the sops CLI of the
+  # administrator (~/.config/sops/age/keys.txt on azazel). Host keys are in
+  # the machine files. See secrets/README.md.
+  sops.admins = {
+    admin = "age1t73dnh9pj2qsz3rfqgq54t2pyxh8ew6w8xsta7pfwmmxmsjswgrshue8gx";
+  };
 }

@@ -58,6 +58,7 @@
         ./parts/hosts.nix
         ./parts/packages.nix
         ./parts/dev.nix
+        ./parts/secrets.nix
       ];
     };
 }

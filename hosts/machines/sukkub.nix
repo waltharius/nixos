@@ -17,4 +17,9 @@
     "nix-admin"
     "cli"
   ];
+
+  sops = {
+    ageKey = "age1lrla3ltkfljhshrlp2cqr3mzm3hvyxmka6fjs68ck2ykwgnjygwql9twy2";
+    keySource = "key-file";
+  };
 }
