@@ -37,6 +37,7 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   moving the LXC containers from Proxmox.
 - **Lint hooks.** Enable statix and deadnix in `parts/dev.nix` after a
   one-time cleanup of the existing code.
+
 ## Follow-ups from stage 2
 
 - **SSH host keys of existing hosts.** `ssh.hostKey` is empty for azazel,
@@ -56,6 +57,13 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   manual process from before stage 2. Rewrite or remove in stage 7.
 - **`new-host` for aarch64.** The script writes `x86_64-linux` only; the
   Raspberry Pis need `meta.nodeNixpkgs` in the hive first.
+- **NVIDIA on sukkub** (removed 2026-09-30). With the legacy_470 driver
+  GNOME could not render (GBM errors on the NVIDIA card) and
+  suspend-then-hibernate failed ('without driver procfs suspend
+  interface': nvidia-suspend did not run for that sleep mode). To bring it
+  back: keep the Intel GPU as Mutter's only display device (check which
+  udev tag Mutter honours), hook nvidia-suspend/resume into
+  systemd-suspend-then-hibernate, test nvidia-offload.
 
 ## Follow-ups from stage 1
 
