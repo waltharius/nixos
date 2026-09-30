@@ -31,16 +31,13 @@
   # Runtime dependencies of the Emacs configuration (kept in its own repo).
   emacs.home = ./emacs/home.nix;
 
-  # Office suites, bibliography, e-books and PDF tools.
+  # Office suites, bibliography, e-books, PDF tools, Obsidian.
   office.home = ./office/home.nix;
 
   # Full TeX Live. Large, so it is a group of its own.
   latex.home = ./latex/home.nix;
 
-  # Note-taking and publishing.
-  notes.home = ./notes/home.nix;
-
-  # Browsers (Brave with system-wide policies), bookmarks, downloads.
+  # Browsers (Brave with system-wide policies), bookmarks, downloads, Hugo.
   web = {
     nixos = ./web/nixos.nix;
     home = ./web/home.nix;

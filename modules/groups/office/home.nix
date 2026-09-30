@@ -1,7 +1,8 @@
 # modules/groups/office/home.nix
 #
 # Group `office`, user part: office suites, bibliography, e-books,
-# screenshots, a focus timer and PDF tools.
+# screenshots, a focus timer, PDF tools and Obsidian (older notes; the
+# note-taking tool is Emacs).
 {
   pkgs,
   pkgs-unstable,
@@ -11,6 +12,7 @@
     libreoffice-fresh
     onlyoffice-desktopeditors
     pkgs-unstable.zotero
+    pkgs-unstable.obsidian
     foliate
     flameshot
     gnome-solanum

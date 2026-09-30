@@ -9,7 +9,6 @@
     "emacs"
     "office"
     "latex"
-    "notes"
     "web"
     "comms"
     "media"
