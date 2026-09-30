@@ -45,7 +45,12 @@ creation_rules:
       - age:
           - *admin
           - *cloud-apps
-  - path_regex: '(^|/)secrets/ssh\.yaml$'
+  - path_regex: '(^|/)secrets/users/marcin/admin\.yaml$'
+    key_groups:
+      - age:
+          - *admin
+          - *sukkub
+  - path_regex: '(^|/)secrets/users/marcin/git\.yaml$'
     key_groups:
       - age:
           - *admin

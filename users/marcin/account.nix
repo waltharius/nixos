@@ -5,6 +5,9 @@
 # Unix groups required by marcin's program groups (e.g. `gamemode` for
 # `gaming`) are added by lib/users.nix.
 {...}: {
+  # SSH keys (system sops-nix), chosen by marcin's groups on the host.
+  imports = [./secrets.nix];
+
   users.users.marcin = {
     isNormalUser = true;
     description = "Marcin";

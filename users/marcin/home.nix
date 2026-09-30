@@ -13,17 +13,12 @@
 #
 # Settings that only make sense with a given group check
 # config.fleet.groups (see ./home/gnome.nix).
-{config, ...}: {
+{...}: {
   home.username = "marcin";
   home.homeDirectory = "/home/marcin";
   home.stateVersion = "25.11";
 
   programs.home-manager.enable = true;
-
-  sops = {
-    age.keyFile = "${config.home.homeDirectory}/.config/sops/age/keys.txt";
-    defaultSopsFile = ../../secrets/ssh.yaml;
-  };
 
   imports = [
     ./home/git.nix
