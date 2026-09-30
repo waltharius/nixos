@@ -18,10 +18,23 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 
 ## Decisions to make before a stage
 
-- **Colmena vs `nixos-rebuild` builds differ** (flake metadata, see
-  CHANGELOG stage 0). Decide whether to add the nixpkgs flake metadata to
-  Colmena nodes as well, so both tools build the identical system. Changes
-  every server's system label once.
+- **Stage 2 scope** (decided 2026-09-30): existing hosts keep their age key
+  files; new hosts derive their age key from the SSH host key. Exceptions
+  to decide: azazel (its host key equals the admin key) and cloud-apps
+  (servers-shared key, Nextcloud is internet-facing).
+- **`.sops.yaml` generated from the inventory**: age public key per host,
+  secret audiences by host/class/tag, `nix flake check` fails on drift,
+  `sops updatekeys` after audience changes. Remove sukkub from the Nextcloud
+  and MariaDB secrets.
+- **`new-host` script** (`nix run .#new-host`): part A (register host,
+  keys, files, sops, evaluation) in stage 2, part B (nixos-anywhere install
+  with pre-generated SSH host key) in stage 3 on baal. Open: inventory as
+  one file per machine, storing host private keys encrypted in the repo,
+  plain bash vs gum prompts.
+- **Identical systems from Colmena and nixos-rebuild**: add the flake
+  metadata of lib.nixosSystem to Colmena nodes; verify equal drvPaths for
+  every host.
+- **Auto-upgrade stays on azazel only** for now.
 - **Incus instances are not declarative.** The Incus preseed is applied only
   at the first `incus admin init` and never covers instances. Options:
   microvm.nix for NixOS guests (Incus stays for non-NixOS and OCI), OpenTofu
@@ -33,14 +46,6 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   NixOS machines. Devices such as OPNsense (`192.168.50.149`) or the
   Windows 11 VM (`192.168.50.6`, used by `rdp-win11`) are not checked for
   conflicts. Consider a list of reserved addresses in the inventory.
-
-- **Automatic upgrades on more than one workstation.** `auto-upgrade.nix`
-  runs `nix flake update` and commits `flake.lock` on the host itself; on
-  several hosts this produces diverging lockfile commits. Options: one
-  updater host chosen in the inventory while the others only pull and
-  rebuild; hosts updating without writing the lockfile (not reproducible);
-  a central updater (e.g. altair) that the workstations pull from. Until
-  decided, auto-upgrade runs on azazel only.
 
 ## Follow-ups from stage 1
 
