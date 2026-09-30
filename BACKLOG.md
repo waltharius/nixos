@@ -19,9 +19,11 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 ## Decisions to make before a stage
 
 - **Stage 2 scope** (decided 2026-09-30): existing hosts keep their age key
-  files; new hosts derive their age key from the SSH host key. Exceptions
-  to decide: azazel (its host key equals the admin key) and cloud-apps
-  (servers-shared key, Nextcloud is internet-facing).
+  files; new hosts derive their age key from the SSH host key. No
+  exceptions: azazel's host key equals the admin key, but the admin key is
+  on azazel anyway, so a separate key would not protect anything (the
+  generated `.sops.yaml` must accept one key under two names).
+  `servers-shared` stays as cloud-apps' own key; no new host may use it.
 - **`.sops.yaml` generated from the inventory**: age public key per host,
   secret audiences by host/class/tag, `nix flake check` fails on drift,
   `sops updatekeys` after audience changes. Remove sukkub from the Nextcloud
@@ -32,6 +34,28 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   as one file per machine (`hosts/machines/<name>.nix`, loaded
   automatically), host SSH private keys stored in the repo encrypted for
   the admin key only, interactive prompts with gum.
+- **Identical systems from Colmena and nixos-rebuild** (decided, stage 2):
+  add the flake metadata of `lib.nixosSystem` to Colmena nodes (see
+  CHANGELOG stage 0); verify equal drvPaths for every host. Changes every
+  server's system label once.
+- **Automatic upgrades stay on azazel only** (decided 2026-09-30).
+  `auto-upgrade.nix` runs `nix flake update` and commits `flake.lock` on the
+  host itself; on several hosts this produces diverging lockfile commits.
+  Options for later: one updater host chosen in the inventory while the
+  others only pull and rebuild; hosts updating without writing the lockfile
+  (not reproducible); a central updater (e.g. altair) that the workstations
+  pull from.
+- **Incus instances are not declarative.** The Incus preseed is applied only
+  at the first `incus admin init` and never covers instances. Options:
+  microvm.nix for NixOS guests (Incus stays for non-NixOS and OCI), OpenTofu
+  with the Incus provider, or a custom reconcile service. Decide before
+  moving the LXC containers from Proxmox.
+- **Lint hooks.** Enable statix and deadnix in `parts/dev.nix` after a
+  one-time cleanup of the existing code.
+- **Non-NixOS devices in the address plan.** The inventory validates only
+  NixOS machines. Devices such as OPNsense (`192.168.50.149`) or the
+  Windows 11 VM (`192.168.50.6`, used by `rdp-win11`) are not checked for
+  conflicts. Consider a list of reserved addresses in the inventory.
 
 ## Follow-ups from stage 1
 
@@ -71,6 +95,12 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   Generate a new key, re-encrypt the store on one host, push it with
   `atuin store push --force`, update the sops secret, and log every host in
   again. Check first which rekey command Atuin 18.15 offers.
+- **One Atuin account for all hosts.** Every host, including the
+  internet-facing cloud-apps, holds the credentials of the `admin` Atuin
+  account, which contains the shell history of all hosts. Root on any host
+  can read everyone's history, including secrets ever typed on a command
+  line. Options: a separate Atuin account for servers, a review of
+  `history_filter`.
 
 ## Infrastructure (outside this repository or later stages)
 
