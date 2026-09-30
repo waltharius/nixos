@@ -11,7 +11,11 @@
 #
 # Import this in every bare-metal server configuration.nix
 # alongside hardware-configuration.nix and disko.nix.
-{pkgs, ...}: {
+{
+  host,
+  pkgs,
+  ...
+}: {
   imports = [
     ../system/secrets.nix
     ../system/certificates.nix
@@ -98,9 +102,10 @@
     enable = true;
     networks = {
       "10-lan" = {
-        matchConfig.Name = "enp10s0";
+        # Interface and address come from hosts/machines/<host>.nix.
+        matchConfig.Name = host.lan.interface;
         networkConfig = {
-          Address = "192.168.50.150/24";
+          Address = "${host.lan.ip}/24";
           Gateway = "192.168.50.1"; # pfSense
           DNS = ["192.168.50.1"]; # pfSense DNS
           DHCP = "no";

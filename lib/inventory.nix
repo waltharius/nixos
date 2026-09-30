@@ -18,7 +18,8 @@
 # Rules:
 #   - machine file names are valid host names ([a-z][a-z0-9-]*)
 #   - every machine has a known class and a system
-#   - "server" and "virtual" machines have a static LAN address (lan.ip)
+#   - "server" and "virtual" machines have a static LAN address (lan.ip);
+#     "server" machines also name the interface it is set on (lan.interface)
 #   - every lan.ip lies in the home LAN and outside the router's DHCP pool
 #   - no two machines share a lan.ip
 #   - every user has an account in users/<n>/account.nix
@@ -100,6 +101,8 @@
     ++ lib.optional (!(m ? system)) "${name}: missing `system`"
     ++ lib.optional (m ? class && builtins.elem m.class classesRequiringIp && ip == null)
     "${name}: class `${m.class}` requires a static `lan.ip`"
+    ++ lib.optional ((m.class or null) == "server" && !(m.lan ? interface))
+    "${name}: class `server` requires `lan.interface` (the NIC the static address is set on)"
     ++ lib.optionals (ip != null) (addressErrors name ip)
     ++ lib.optional ((m.users or {}) == {}) "${name}: no `users`"
     ++ lib.optional (m ? class && builtins.elem m.class classesRequiringIp && !((m.users or {}) ? nixadm))

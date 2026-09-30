@@ -4,7 +4,11 @@
   system = "x86_64-linux";
   description = "ASUS ProArt X870E, Ryzen 9 7900, 64 GB DDR5, 2x RTX 3090";
   tags = ["server" "baremetal" "gpu" "llm"];
-  lan.ip = "192.168.50.150";
+  lan = {
+    ip = "192.168.50.150";
+    # Static address is set on this interface (modules/servers/base-baremetal.nix).
+    interface = "enp10s0";
+  };
   users.nixadm.groups = ["cli"];
 
   ssh = {
