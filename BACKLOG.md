@@ -70,6 +70,11 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   `modules/system/btrfs.nix`, which needs the writing subvolumes of the
   host's disk layout; add it to sukkub or the Wyse together with that
   layout.
+  - **Atuin key on workstations from sops.** Servers log in with the key from
+    `secrets/atuin-key.txt`; workstations log in by hand, which let an old
+    host sync records under a different key ('attempting to decrypt with
+    incorrect key', repaired on 2026-09-30 with store purge / push --force /
+    pull --force). Log workstations in from sops as well.
 
 ## Infrastructure (outside this repository or later stages)
 
