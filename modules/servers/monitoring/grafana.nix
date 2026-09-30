@@ -47,6 +47,12 @@
         check_for_plugin_updates = false;
         feedback_links_enabled = false;
       };
+      # Grafana 12+ downloads and auto-updates a set of "preinstalled" plugins
+      # (drilldown apps, decoupled core datasources) from grafana.com at every
+      # start. That is non-declarative, needs internet at boot, and would try to
+      # replace bundled plugins that live read-only in the Nix store.
+      # Bundled plugin versions now move with the Grafana package instead.
+      plugins.preinstall_disabled = true;
       users.allow_sign_up = false;
       "auth.anonymous".enabled = false;
     };
