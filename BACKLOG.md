@@ -7,12 +7,10 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 ## Refactor stages still ahead
 
 3. Installation with nixos-anywhere (first target: Dell Wyse 5470, baal):
-   `new-host` part B. Put the stored SSH host key
-   (`secrets/hosts/<host>/ssh_host_ed25519_key`) on the target
-   (nixos-anywhere `--extra-files`), replace the placeholder
-   `hardware-configuration.nix` with a hardware scan (check nixos-facter
-   support in nixos-anywhere first), decide baal's disk layout (LUKS or
-   not, swap size, writing subvolumes for `btrfs-writing-monitor`).
+   `nix run .#install-host` is written (LUKS, writing subvolumes, 8 GiB
+   swap file). Remaining: install baal, then hibernation on baal (resume
+   device and `resume_offset` of the swap file are known only after the
+   install), measure the size of the admin base on the 128 GB disk.
 4. Remote access (Tailscale on every host, subnet router for the LAN).
 5. Monitoring: generated scrape targets for servers, push for laptops,
    Alertmanager.

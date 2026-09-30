@@ -31,15 +31,46 @@ the private SSH key is stored (encrypted) in the repository, a reinstall
 keeps the host's identity: no new `known_hosts` entry, no `.sops.yaml`
 change.
 
+Disk layouts (`hosts/templates/disko/`): `btrfs`, `btrfs-luks` (LUKS2,
+passphrase at every boot) and `btrfs-luks-writing` (as `btrfs-luks`, plus
+marcin's writing subvolumes Documents, notes and syncthing with snapshots,
+as on azazel; the host also gets `writing.nix`).
+
 ## After the script
 
 1. Review with `git diff --cached`, run `nix flake check`, commit.
 2. Adjust `hosts/<class dir>/<host>/disko.nix` (disk by id, swap size) and
    `custom.nix` (hardware modules) as needed.
-3. Install (refactor stage 3, nixos-anywhere): the installer puts the
-   stored SSH host key on the machine and replaces the placeholder
-   `hardware-configuration.nix` with the hardware scan. Never deploy a host
-   while the placeholder is still there.
+3. Install the machine (next section). Never deploy a host while its
+   `hardware-configuration.nix` is still the placeholder.
+
+## Installing (`nix run .#install-host`)
+
+Script: `scripts/install-host.sh`, using
+[nixos-anywhere](https://github.com/nix-community/nixos-anywhere).
+
+1. Write the NixOS minimal installer ISO to a USB stick and boot the
+   machine from it (UEFI).
+2. On the installer console: connect to the network (`nmtui` for Wi-Fi),
+   set a temporary root password (`sudo passwd root`), note the address
+   (`ip -br a`) and the disk (`ls -l /dev/disk/by-id/`).
+3. On azazel: put the disk id into `disko.nix` (`device =
+   "/dev/disk/by-id/..."`) if `new-host` got a different one, commit, and
+   copy your key to the installer: `ssh-copy-id root@<address>`.
+4. `nix run .#install-host -- <host> root@<address>`. It asks for the LUKS
+   passphrase (if the layout encrypts), shows the disk that will be erased
+   and asks for confirmation. nixos-anywhere then partitions the disk,
+   generates `hardware-configuration.nix` on the target
+   (`nixos-generate-config --no-filesystems`; disko describes the file
+   systems), installs the system with the stored SSH host key and reboots.
+5. Unlock the disk at the console, log in, review and commit
+   `hardware-configuration.nix`.
+
+The installer runs from the USB stick, so nixos-anywhere does not need
+kexec (kexec is only used when the target runs some other Linux).
+Afterwards the host has its final SSH host key, which is pinned in every
+host's `/etc/ssh/ssh_known_hosts`; SSH to the installer itself asks to
+trust its temporary key.
 
 ## Undo before committing
 

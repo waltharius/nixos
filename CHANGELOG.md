@@ -9,6 +9,34 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
+## [Unreleased] Refactor stage 3 - installing hosts (baal)
+
+### Added
+
+- `nix run .#install-host -- <host> root@<address>`
+  (`scripts/install-host.sh`): installs a host registered with `new-host`
+  using nixos-anywhere, with the stored SSH host key, the LUKS passphrase
+  handed to the installer and `hardware-configuration.nix` generated on
+  the target.
+- Disk layout `btrfs-luks-writing` and host template `writing.nix`:
+  marcin's writing subvolumes with snapshots, as on azazel.
+
+### Changed
+
+- The `btrfs-luks` layouts read the passphrase from `/tmp/secret.key`
+  while formatting (nixos-anywhere `--disk-encryption-keys`).
+- `new-host` offers every layout in `hosts/templates/disko/` and formats
+  the files it writes.
+- Group `notes` removed: Obsidian moved to `office`, Hugo to `web` (the
+  note-taking tool is Emacs).
+- `video=efifb:3840x2160` moved from `modules/system/boot.nix` (every
+  workstation) to azazel, whose panel it describes.
+
+### Fixed
+
+- `buku-auto-export` ran `~/.nix-profile/bin/buku-export`, which does not
+  exist when Home Manager installs into `/etc/profiles/per-user/<user>`.
+
 ## [2026-09-30] Refactor stage 2 - generated sops audiences, new-host, fleet SSH
 
 Goal of this stage: add a machine in one step (`nix run .#new-host`), let
