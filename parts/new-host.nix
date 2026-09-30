@@ -7,6 +7,7 @@
   perSystem = {pkgs, ...}: {
     apps.new-host = {
       type = "app";
+      meta.description = "Register a new machine: inventory entry, host files, SSH host key, sops audience";
       program = lib.getExe (pkgs.writeShellApplication {
         name = "new-host";
         # nix itself comes from the caller's PATH, so the script uses the

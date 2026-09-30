@@ -35,6 +35,7 @@ in {
 
     apps.sops-config = {
       type = "app";
+      meta.description = "Regenerate .sops.yaml and re-encrypt every secret for its audience";
       program = lib.getExe (pkgs.writeShellApplication {
         name = "sops-config";
         runtimeInputs = [pkgs.sops pkgs.git pkgs.coreutils pkgs.diffutils];

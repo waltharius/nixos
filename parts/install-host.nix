@@ -7,6 +7,7 @@
   perSystem = {pkgs, ...}: {
     apps.install-host = {
       type = "app";
+      meta.description = "Install a host registered with new-host using nixos-anywhere";
       program = lib.getExe (pkgs.writeShellApplication {
         name = "install-host";
         # nix comes from the caller's PATH.
