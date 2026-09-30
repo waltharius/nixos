@@ -16,6 +16,7 @@
           findutils
           git
           gnugrep
+          gnused
           gum
           jq
           openssh

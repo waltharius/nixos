@@ -7,6 +7,7 @@
 {...}: {
   imports = [
     # e.g. ../../../modules/laptop/thunderbolt.nix
+    @EXTRA_IMPORTS@
   ];
 
   # sops-nix with the host key derived from the SSH host key

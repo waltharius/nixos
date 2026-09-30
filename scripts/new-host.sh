@@ -51,6 +51,7 @@ render() {
   content=${content//@SYSTEM@/$system}
   content=${content//@STATE_VERSION@/$state_version}
   content=${content//@DISK@/$disk}
+  content=${content//@EXTRA_IMPORTS@/$extra_imports}
   printf '%s\n' "$content" >"$dst"
 }
 
@@ -137,8 +138,15 @@ done
 
 layout=""
 disk=""
+extra_imports=""
 if [[ $class != virtual ]]; then
-  layout=$(gum choose --header "Disk layout (hosts/templates/disko/)" btrfs-luks btrfs)
+  mapfile -t layouts < <(find hosts/templates/disko -name '*.nix' -printf '%f\n' | sed 's/\.nix$//' | sort)
+  layout=$(gum choose --header "Disk layout (hosts/templates/disko/)" "${layouts[@]}")
+  if [[ $layout == *-writing ]]; then
+    [[ $class == workstation ]] || die "the $layout layout is for workstations"
+    printf '%s\n' "${users[@]}" | grep -qxF marcin || die "the $layout layout holds marcin's writing subvolumes; marcin is not on $name"
+    extra_imports="./writing.nix"
+  fi
   disk=$(gum input --header "Install disk (prefer /dev/disk/by-id/...; can be changed before installing)" --value "/dev/sda")
 fi
 
@@ -228,6 +236,11 @@ done
 if [[ -n $layout ]]; then
   render "hosts/templates/disko/$layout.nix" "$host_dir/disko.nix"
 fi
+if [[ -n $extra_imports ]]; then
+  render hosts/templates/writing.nix "$host_dir/writing.nix"
+fi
+# Templates leave an empty line where @EXTRA_IMPORTS@ was unused.
+nix fmt -- "$machine_file" "$host_dir" >/dev/null
 
 # The flake only sees files known to git.
 git add -- "${created[@]}"
@@ -247,6 +260,7 @@ Next:
   1. Review:  git diff --cached
   2. Check:   nix flake check
   3. Commit:  git commit -m 'feat(hosts): add $name ($class)'
-  4. Install: refactor stage 3 (nixos-anywhere) replaces the placeholder
-     $host_dir/hardware-configuration.nix. Do not install or deploy before.
+  4. Install: nix run .#install-host -- $name root@<installer address>
+     (docs/NEW-HOST.md). It replaces the placeholder
+     $host_dir/hardware-configuration.nix. Do not deploy before.
 EOF
