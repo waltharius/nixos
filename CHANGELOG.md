@@ -9,6 +9,107 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
+## [2026-09-30] Refactor stage 2 - generated sops audiences, new-host, fleet SSH
+
+Goal of this stage: add a machine in one step (`nix run .#new-host`), let
+the configuration decide who can decrypt which secret, and describe SSH
+access to the whole network in the repository. Existing hosts keep their
+age keys; only new hosts derive theirs from the SSH host key.
+
+### Added
+
+- `hosts/machines/<host>.nix`: one inventory file per machine, loaded
+  automatically; fleet-wide settings in `hosts/fleet.nix`.
+- Generated `.sops.yaml` (`lib/secrets.nix`, `parts/secrets.nix`). The
+  audience of a secret file is: the admin keys, every host whose
+  configuration uses the file as `sopsFile`, and hosts listing it in
+  `sops.extraSecrets`. Anything else below `secrets/` is admin-only.
+  `nix run .#sops-config` writes the file and runs `sops updatekeys`.
+- Checks: `sops-config` (committed `.sops.yaml` is up to date) and
+  `sops-recipients` (every encrypted file has exactly the recipients its
+  rule names, read from the sops metadata).
+- `sops.ageKey` / `sops.keySource` per machine, `sops.admins` in
+  `hosts/fleet.nix`; inventory validation of both.
+- `nix run .#new-host` (`scripts/new-host.sh`, `docs/NEW-HOST.md`):
+  inventory entry, host files from `hosts/templates/`, disko layout
+  (`btrfs`, `btrfs-luks`), placeholder hardware configuration, new SSH host
+  key stored encrypted for the admin keys in `secrets/hosts/<host>/`, age
+  key derived from it, `.sops.yaml` regenerated, host evaluated.
+- `hosts/devices.nix`: non-NixOS devices (routers, Proxmox and its guests,
+  Raspberry Pis, other computers). Their addresses are validated together
+  with the machines'; their SSH aliases are generated.
+- Layered SSH host lists in `~/.ssh/config.d/` for marcin: `local` (never
+  managed), `hosts` (encrypted), `fleet` (from `hosts/machines/`),
+  `devices` (from `hosts/devices.nix`), with a README in the directory and
+  `docs/SSH.md`.
+- `/etc/ssh/ssh_known_hosts` on every host from the inventory
+  (`ssh.hostKey`, device `hostKey`) plus the published ed25519 keys of
+  github.com and gitlab.com (`lib/ssh.nix`).
+- Check `colmena-hive` now fails when a Colmena node and its
+  `nixosConfigurations` entry have different system derivations.
+
+### Changed
+
+- Colmena nodes get the flake metadata `lib.nixosSystem` adds
+  (`system.nixos.versionSuffix`, `system.nixos.revision`,
+  `nixpkgs.flake.source`). Servers deployed with Colmena now carry the same
+  system label as with `nixos-rebuild` (`26.05.<date>.<rev>` instead of
+  `26.05pre-git`) and a nixpkgs flake registry entry.
+- marcin's SSH keys are decrypted by the system sops-nix with the host key
+  (`users/marcin/secrets.nix`) instead of Home Manager with a user key.
+  `secrets/ssh.yaml` is split into `secrets/users/marcin/git.yaml`
+  (GitHub/GitLab keys; hosts where marcin has `emacs` or `nix-admin`) and
+  `secrets/users/marcin/admin.yaml` (LAN admin key and private host list;
+  `nix-admin` only).
+- `modules/system/secrets.nix` uses `/var/lib/sops-nix/key.txt` only on
+  `key-file` hosts; `ssh-host-key` hosts use the SSH host key alone.
+- `modules/servers/base-baremetal.nix` takes the static address and the
+  interface from the inventory (`lan.ip`, new field `lan.interface`)
+  instead of altair's hard-coded values.
+- Secret audiences: sukkub no longer decrypts the Atuin, Nextcloud and
+  MariaDB secrets (nothing on sukkub uses them).
+
+### Removed
+
+- The hand-written `.sops.yaml` with rules for files that did not exist
+  (`common.yaml`, `sukkub.yaml`, `azazel.yaml`).
+- `hosts/inventory.nix`, `secrets/ssh.yaml`, the Home Manager sops setup of
+  marcin.
+
+### Verification
+
+To be run on azazel after applying the series; record the results
+here (and remove this note):
+
+- `nix flake check` passes (inventory, colmena-hive parity, sops-config,
+  sops-recipients).
+- Commit 1 (inventory split): system derivations of all four hosts equal
+  to the previous commit.
+- Afterwards, expected differences only: known_hosts on every host;
+  system label and flake registry on altair and cloud-apps (Colmena);
+  marcin's key delivery and `~/.ssh/config.d/` on azazel and sukkub.
+
+### Lessons learned
+
+- sops encrypts a whole file for all its recipients. A host that needs one
+  value of a file can read all of them; secrets with different audiences
+  need different files (`ssh.yaml` held both git keys and the LAN admin
+  key).
+- sops-nix creates missing parent directories of a secret's `path` as
+  root. A secret placed in `~/.ssh` on a fresh host would leave `~/.ssh`
+  owned by root; the directory has to exist before `setupSecrets` runs.
+- The hand-written `.sops.yaml` had already drifted: its rule for
+  `ssh.yaml` named altair, the file was not encrypted for altair. Comparing
+  the rule with the recipients actually stored in the file catches this;
+  comparing the rules alone does not.
+- Home Manager renders the `Host *` block last in `~/.ssh/config`, so
+  host-specific blocks written there take precedence over anything
+  included from `Host *`.
+- `base-baremetal.nix` looked generic but contained altair's address and
+  interface; a second server would have taken altair's IP.
+- Evaluation of the whole fleet does not fit into a small sandbox; the
+  equality and drift checks are meant to run on the admin workstation.
+
 ## [2026-09-30] Refactor stage 1 - groups, accounts and a shared shell
 
 Goal of this stage: describe what a host runs as groups chosen per user in

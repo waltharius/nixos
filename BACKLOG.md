@@ -6,8 +6,13 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 
 ## Refactor stages still ahead
 
-2. Per-host sops keys and a `new-host` script.
-3. Installation with nixos-anywhere (first target: Dell Wyse 5470).
+3. Installation with nixos-anywhere (first target: Dell Wyse 5470, baal):
+   `new-host` part B. Put the stored SSH host key
+   (`secrets/hosts/<host>/ssh_host_ed25519_key`) on the target
+   (nixos-anywhere `--extra-files`), replace the placeholder
+   `hardware-configuration.nix` with a hardware scan (check nixos-facter
+   support in nixos-anywhere first), decide baal's disk layout (LUKS or
+   not, swap size, writing subvolumes for `btrfs-writing-monitor`).
 4. Remote access (Tailscale on every host, subnet router for the LAN).
 5. Monitoring: generated scrape targets for servers, push for laptops,
    Alertmanager.
@@ -18,26 +23,6 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 
 ## Decisions to make before a stage
 
-- **Stage 2 scope** (decided 2026-09-30): existing hosts keep their age key
-  files; new hosts derive their age key from the SSH host key. No
-  exceptions: azazel's host key equals the admin key, but the admin key is
-  on azazel anyway, so a separate key would not protect anything (the
-  generated `.sops.yaml` must accept one key under two names).
-  `servers-shared` stays as cloud-apps' own key; no new host may use it.
-- **`.sops.yaml` generated from the inventory**: age public key per host,
-  secret audiences by host/class/tag, `nix flake check` fails on drift,
-  `sops updatekeys` after audience changes. Remove sukkub from the Nextcloud
-  and MariaDB secrets.
-- **`new-host` script** (`nix run .#new-host`): part A (register host,
-  keys, files, sops, evaluation) in stage 2, part B (nixos-anywhere install
-  with pre-generated SSH host key) in stage 3 on baal. Decided: inventory
-  as one file per machine (`hosts/machines/<name>.nix`, loaded
-  automatically), host SSH private keys stored in the repo encrypted for
-  the admin key only, interactive prompts with gum.
-- **Identical systems from Colmena and nixos-rebuild** (decided, stage 2):
-  add the flake metadata of `lib.nixosSystem` to Colmena nodes (see
-  CHANGELOG stage 0); verify equal drvPaths for every host. Changes every
-  server's system label once.
 - **Automatic upgrades stay on azazel only** (decided 2026-09-30).
   `auto-upgrade.nix` runs `nix flake update` and commits `flake.lock` on the
   host itself; on several hosts this produces diverging lockfile commits.
@@ -52,10 +37,25 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   moving the LXC containers from Proxmox.
 - **Lint hooks.** Enable statix and deadnix in `parts/dev.nix` after a
   one-time cleanup of the existing code.
-- **Non-NixOS devices in the address plan.** The inventory validates only
-  NixOS machines. Devices such as OPNsense (`192.168.50.149`) or the
-  Windows 11 VM (`192.168.50.6`, used by `rdp-win11`) are not checked for
-  conflicts. Consider a list of reserved addresses in the inventory.
+## Follow-ups from stage 2
+
+- **SSH host keys of existing hosts.** `ssh.hostKey` is empty for azazel,
+  sukkub, altair and cloud-apps, so they are not pinned in
+  `/etc/ssh/ssh_known_hosts` yet (see `docs/SSH.md`). Same for the devices
+  in `hosts/devices.nix` and the initrd key of altair.
+- **Encrypted host list.** After the move to `hosts/devices.nix`, the
+  `ssh_config` value in `secrets/users/marcin/admin.yaml` should hold only
+  hosts that must not be in the repository (e.g. mydevil.net). Revisit once
+  the repository is private.
+- **`base-baremetal.nix` is still shaped by altair.** The address and the
+  interface now come from the inventory, but gateway/DNS (`.1`), the CUDA
+  cache and initrd SSH (needs its own host key on the machine) apply to
+  every bare-metal server. Split before the next server.
+- **Old SSH and sops documents** (`docs/SSH_KEYS_SETUP.md`,
+  `docs/SSH_MIGRATION.md`, `docs/POST-INSTALL-SOPS-SETUP.md`) describe the
+  manual process from before stage 2. Rewrite or remove in stage 7.
+- **`new-host` for aarch64.** The script writes `x86_64-linux` only; the
+  Raspberry Pis need `meta.nodeNixpkgs` in the hive first.
 
 ## Follow-ups from stage 1
 
@@ -89,7 +89,9 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   `secrets/atuin-key.txt`; workstations log in by hand, which let an old
   host sync records under a different key ('attempting to decrypt with
   incorrect key', repaired on 2026-09-30 with store purge / push --force /
-  pull --force). Log workstations in from sops as well.
+  pull --force). Log workstations in from sops as well; the generated
+  `.sops.yaml` then adds them to the Atuin files automatically (stage 2
+  removed sukkub from them because nothing on sukkub used them).
 - **Rotate the Atuin encryption key.** The current key (in
   `secrets/atuin-key.txt`) was exposed in a chat transcript on 2026-09-30.
   Generate a new key, re-encrypt the store on one host, push it with
