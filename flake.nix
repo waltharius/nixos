@@ -5,6 +5,24 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
 
+    # Flake structure: every output is defined by a module in ./parts.
+    flake-parts = {
+      url = "github:hercules-ci/flake-parts";
+      inputs.nixpkgs-lib.follows = "nixpkgs";
+    };
+
+    # Deployment tool. Pinned to a release tag so that the CLI (from this
+    # input) and the hive format produced by colmena.lib.makeHive always
+    # match. Colmena keeps its own nixpkgs: that is the combination its
+    # maintainers test and cache (colmena.cachix.org).
+    colmena.url = "github:nix-community/colmena/v0.5.0";
+
+    # Git pre-commit hooks, installed by `nix develop` (see parts/dev.nix).
+    git-hooks = {
+      url = "github:cachix/git-hooks.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     home-manager = {
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -25,7 +43,7 @@
     # niri scrollable-tiling Wayland compositor.
     # nixosModules.niri and homeModules.niri are consumed directly by
     # modules/system/niri.nix (NixOS) and modules/home/desktop/niri.nix (HM).
-    # Neither module is loaded globally — they are imported only by the
+    # Neither module is loaded globally - they are imported only by the
     # host profile that wants niri (see modules/system/niri.nix for details).
     # niri-flake = {
     #   url = "github:sodiboo/niri-flake";
@@ -39,150 +57,17 @@
     };
   };
 
-  outputs = {
-    nixpkgs,
-    home-manager,
-    nix-flatpak,
-    sops-nix,
-    nixvim,
-    #niri-flake,
-    disko,
-    ...
-  } @ inputs: let
-    system = "x86_64-linux";
+  # All outputs are assembled by flake-parts from the modules below.
+  # Machines are declared in hosts/inventory.nix; see lib/ for how the
+  # inventory becomes nixosConfigurations and the Colmena hive.
+  outputs = inputs @ {flake-parts, ...}:
+    flake-parts.lib.mkFlake {inherit inputs;} {
+      systems = ["x86_64-linux"];
 
-    pkgs = import nixpkgs {
-      inherit system;
-      config.allowUnfree = true;
+      imports = [
+        ./parts/hosts.nix
+        ./parts/packages.nix
+        ./parts/dev.nix
+      ];
     };
-
-    customPackages = import ./packages {inherit pkgs;};
-
-    mkHost = hostname: system:
-      nixpkgs.lib.nixosSystem {
-        inherit system;
-        specialArgs = {
-          inherit inputs hostname;
-          inherit (inputs) self;
-          pkgs-unstable = import inputs.nixpkgs-unstable {
-            inherit system;
-            config.allowUnfree = true;
-          };
-          customPkgs = customPackages;
-        };
-        modules = [
-          {nixpkgs.config.allowUnfree = true;}
-
-          ./hosts/workstations/${hostname}/configuration.nix
-          ./hosts/workstations/${hostname}/hardware-configuration.nix
-          ./hosts/workstations/${hostname}/profile.nix
-
-          ./modules/system/boot.nix
-          ./modules/system/networking.nix
-          ./modules/system/locale.nix
-          ./modules/system/secrets.nix
-          ./modules/system/sshd.nix
-          ./modules/system/wifi.nix
-          ./modules/system/base.nix
-
-          # niri is NOT loaded here — it is imported only by the host profile
-          # that needs it (modules/system/niri.nix is self-contained and pulls
-          # in niri-flake.nixosModules.niri itself).
-
-          sops-nix.nixosModules.sops
-          home-manager.nixosModules.home-manager
-          {
-            home-manager = {
-              useGlobalPkgs = true;
-              useUserPackages = true;
-              extraSpecialArgs = {
-                inherit inputs hostname;
-                customPkgs = customPackages;
-                pkgs-unstable = import inputs.nixpkgs-unstable {
-                  inherit system;
-                  config.allowUnfree = true;
-                };
-              };
-              users.marcin = import ./users/marcin/home.nix;
-              backupFileExtension = "backup";
-              sharedModules = [
-                nixvim.homeModules.nixvim
-                nix-flatpak.homeManagerModules.nix-flatpak
-                sops-nix.homeManagerModules.sops
-                # niri-flake.homeModules.niri is NOT here — it is injected by
-                # modules/home/desktop/niri.nix when a host loads that module.
-              ];
-            };
-          }
-        ];
-      };
-
-    mkVirtual = hostname:
-      nixpkgs.lib.nixosSystem {
-        inherit system;
-        modules = [
-          ./hosts/virtual/${hostname}/configuration.nix
-          sops-nix.nixosModules.sops
-          home-manager.nixosModules.home-manager
-          {
-            home-manager = {
-              useGlobalPkgs = true;
-              useUserPackages = true;
-              extraSpecialArgs = {
-                inherit inputs;
-                hostname = hostname;
-              };
-              users.nixadm = import ./users/nixadm/home.nix;
-              backupFileExtension = "backup";
-              sharedModules = [
-                sops-nix.homeManagerModules.sops
-              ];
-            };
-          }
-        ];
-      };
-
-    mkPhysicalServer = hostname:
-      nixpkgs.lib.nixosSystem {
-        inherit system;
-        specialArgs = {
-          inherit inputs hostname;
-          pkgs-unstable = import inputs.nixpkgs-unstable {
-            inherit system;
-            config.allowUnfree = true;
-          };
-        };
-        modules = [
-          ./hosts/physical/${hostname}/configuration.nix
-          disko.nixosModules.disko
-          sops-nix.nixosModules.sops
-          home-manager.nixosModules.home-manager
-          {
-            home-manager = {
-              useGlobalPkgs = true;
-              useUserPackages = true;
-              extraSpecialArgs = {
-                inherit inputs;
-                hostname = hostname;
-              };
-              users.nixadm = import ./users/nixadm/home.nix;
-              backupFileExtension = "backup";
-              sharedModules = [
-                sops-nix.homeManagerModules.sops
-              ];
-            };
-          }
-        ];
-      };
-  in {
-    nixosConfigurations = {
-      sukkub = mkHost "sukkub" "x86_64-linux";
-      azazel = mkHost "azazel" "x86_64-linux";
-      altair = mkPhysicalServer "altair";
-    };
-
-    colmena = import ./colmena.nix {inherit inputs system;};
-
-    packages.${system} = customPackages;
-  };
 }
