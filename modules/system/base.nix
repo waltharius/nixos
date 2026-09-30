@@ -42,4 +42,11 @@
     if self ? rev
     then self.rev
     else "uncommitted-changes";
+
+  # Colmena 0.5 comes from its flake input, built against its own nixpkgs;
+  # its maintainers publish those builds in this cache.
+  nix.settings.substituters = ["https://colmena.cachix.org"];
+  nix.settings.trusted-public-keys = [
+    "colmena.cachix.org-1:7BzpDnjjH8ki2CT3f6GdOk7QAzPOl+1t3LvTLXqYcSg="
+  ];
 }
