@@ -102,6 +102,3 @@ the workstations (separate commit).
 - `nix develop --option extra-substituters ...` has no effect for marcin:
   marcin is not a trusted Nix user, so client-side substituters and keys are
   ignored. Colmena 0.5.0 was compiled from source on the first run.
-- Colmena from its own flake input brings its own nixpkgs (unstable): a second
-  copy of glibc, openssl, nix libraries etc. in the workstation closure
-  (+154 MiB on azazel).
