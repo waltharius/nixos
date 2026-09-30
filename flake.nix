@@ -48,7 +48,7 @@
   };
 
   # All outputs are assembled by flake-parts from the modules below.
-  # Machines are declared in hosts/inventory.nix; see lib/ for how the
+  # Machines are declared in hosts/machines/<host>.nix; see lib/ for how the
   # inventory becomes nixosConfigurations and the Colmena hive.
   outputs = inputs @ {flake-parts, ...}:
     flake-parts.lib.mkFlake {inherit inputs;} {

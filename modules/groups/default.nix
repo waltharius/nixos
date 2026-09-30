@@ -1,7 +1,7 @@
 # modules/groups/default.nix
 #
 # Registry of program groups. A group is a set of programs a user chooses
-# in hosts/inventory.nix:
+# in hosts/machines/<host>.nix:
 #
 #   machines.<host>.users.<user>.groups = ["gnome" "office" ...];
 #

@@ -6,7 +6,7 @@
 # This file contains ONLY what is unique to this physical machine:
 # hostname, state version and hardware-specific boot settings. Hardware
 # modules and host features are imported in custom.nix; accounts and
-# programs come from hosts/inventory.nix.
+# programs come from hosts/machines/<host>.nix.
 {hostname, ...}: {
   networking.hostName = hostname;
 

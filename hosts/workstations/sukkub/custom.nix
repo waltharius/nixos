@@ -5,7 +5,7 @@
 #
 # Everything every workstation gets (boot, networking, audio, printing,
 # Flatpak, fonts, ...) comes from the class in lib/classes.nix; programs
-# come from the groups of the host's users in hosts/inventory.nix.
+# come from the groups of the host's users in hosts/machines/<host>.nix.
 {...}: {
   imports = [
     # --- peripherals ---

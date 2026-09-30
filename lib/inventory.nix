@@ -1,16 +1,26 @@
 # lib/inventory.nix
 #
-# Loads hosts/inventory.nix, validates it and returns it unchanged.
+# Loads the inventory, validates it and returns it:
+#
+#   hosts/fleet.nix            - fleet-wide settings (network, ...)
+#   hosts/machines/<host>.nix  - one file per machine; the file name is the
+#                                host name. Every *.nix file in the
+#                                directory is loaded automatically.
+#
+# The result has the same shape as before the split:
+#   { network = ...; machines.<host> = { ... }; }
+#
 # Any violation aborts evaluation with a list of all problems found, so
 # mistakes surface at `nix flake check` / `nixos-rebuild` / `colmena eval`
 # time instead of after a deployment.
 #
 # Rules:
+#   - machine file names are valid host names ([a-z][a-z0-9-]*)
 #   - every machine has a known class and a system
 #   - "server" and "virtual" machines have a static LAN address (lan.ip)
 #   - every lan.ip lies in the home LAN and outside the router's DHCP pool
 #   - no two machines share a lan.ip
-#   - every user has an account in users/<name>/account.nix
+#   - every user has an account in users/<n>/account.nix
 #   - every group of a user exists in modules/groups/default.nix
 #   - "server" and "virtual" machines have the nixadm account
 {
@@ -18,10 +28,20 @@
   classes,
 }: let
   knownGroups = builtins.attrNames (import ../modules/groups);
-  raw = import ../hosts/inventory.nix;
+  fleet = import ../hosts/fleet.nix;
+
+  # hosts/machines/<host>.nix -> machines.<host>
+  machineFiles =
+    lib.filterAttrs (file: type: type == "regular" && lib.hasSuffix ".nix" file)
+    (builtins.readDir ../hosts/machines);
+  machines =
+    lib.mapAttrs' (file: _:
+      lib.nameValuePair (lib.removeSuffix ".nix" file) (import ../hosts/machines/${file}))
+    machineFiles;
+
+  raw = fleet // {inherit machines;};
   inherit (raw.network.lan) prefix dhcpPool;
 
-  machines = raw.machines;
   names = builtins.attrNames machines;
 
   classesRequiringIp = ["server" "virtual"];
@@ -44,7 +64,9 @@
       then null
       else lastOctet ip;
   in
-    lib.optional (!(m ? class)) "${name}: missing `class`"
+    lib.optional (builtins.match "[a-z][a-z0-9-]*" name == null)
+    "${name}: hosts/machines/${name}.nix is not a valid host name ([a-z][a-z0-9-]*)"
+    ++ lib.optional (!(m ? class)) "${name}: missing `class`"
     ++ lib.optional (m ? class && !(classes ? ${m.class}))
     "${name}: unknown class `${m.class}` (known: ${lib.concatStringsSep ", " (builtins.attrNames classes)})"
     ++ lib.optional (!(m ? system)) "${name}: missing `system`"
@@ -82,4 +104,4 @@
 in
   if errors == []
   then raw
-  else throw "hosts/inventory.nix is invalid:\n  - ${lib.concatStringsSep "\n  - " errors}"
+  else throw "the inventory (hosts/fleet.nix, hosts/machines/) is invalid:\n  - ${lib.concatStringsSep "\n  - " errors}"

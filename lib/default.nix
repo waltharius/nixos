@@ -2,7 +2,7 @@
 #
 # Turns the validated inventory into flake outputs.
 #
-#   inventory           - validated contents of hosts/inventory.nix
+#   inventory           - validated inventory (hosts/fleet.nix + hosts/machines/)
 #   nixosConfigurations - one NixOS system per machine
 #   colmena             - raw Colmena hive; pass it to colmena.lib.makeHive
 #

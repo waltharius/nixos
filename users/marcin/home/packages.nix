@@ -2,7 +2,7 @@
 #
 # marcin's personal applications: programs no group covers because only
 # marcin uses them. Everything else comes from the groups in
-# hosts/inventory.nix.
+# hosts/machines/<host>.nix.
 {
   pkgs,
   customPkgs,

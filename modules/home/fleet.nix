@@ -7,6 +7,6 @@
   options.fleet.groups = lib.mkOption {
     type = lib.types.listOf lib.types.str;
     default = [];
-    description = "Program groups of this user on this host (hosts/inventory.nix).";
+    description = "Program groups of this user on this host (hosts/machines/<host>.nix).";
   };
 }

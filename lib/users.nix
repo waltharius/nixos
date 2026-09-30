@@ -1,6 +1,6 @@
 # lib/users.nix
 #
-# Turns `machines.<host>.users` from hosts/inventory.nix into NixOS modules:
+# Turns the `users` of a machine (hosts/machines/<host>.nix) into NixOS modules:
 #
 #   machines.<host>.users.<user>.groups = ["gnome" "office"];
 #

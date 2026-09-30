@@ -8,7 +8,7 @@
 #   modules/home/admin/     - admin base (nixvim, bash, ble.sh, starship,
 #                             zoxide, atuin), same on every host
 #   modules/groups/*/       - the groups listed for marcin in
-#                             hosts/inventory.nix
+#                             hosts/machines/<host>.nix
 #   this file               - personal settings
 #
 # Settings that only make sense with a given group check

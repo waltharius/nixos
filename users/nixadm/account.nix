@@ -1,7 +1,7 @@
 # users/nixadm/account.nix
 #
 # System account of nixadm: administration and deployment of servers and
-# virtual machines. Imported on every host where hosts/inventory.nix lists
+# virtual machines. Imported on every host where hosts/machines/<host>.nix lists
 # nixadm. SSH and sudo policy for servers stays in modules/servers/users.nix.
 {...}: {
   users.users.nixadm = {

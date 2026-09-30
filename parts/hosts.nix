@@ -1,6 +1,6 @@
 # parts/hosts.nix
 #
-# Fleet outputs generated from hosts/inventory.nix:
+# Fleet outputs generated from the inventory (hosts/fleet.nix, hosts/machines/):
 #   nixosConfigurations.<host> - `nixos-rebuild switch --flake .#<host>`
 #   colmenaHive                - `colmena apply --on <host>` (Colmena >= 0.5)
 #   inventory                  - `nix eval --json .#inventory` (docs, tooling)

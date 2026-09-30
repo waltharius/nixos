@@ -3,7 +3,7 @@
 # Host classes: everything a machine gets just by being of a given class.
 #
 # Each class provides three functions of (name, machine), where `machine` is
-# the machine's entry from hosts/inventory.nix:
+# the machine's entry from hosts/machines/<host>.nix:
 #   specialArgs - extra arguments passed to every NixOS module of the host
 #   modules     - the NixOS module list of the host
 #   deploy      - default Colmena `deployment` settings (inventory overrides)
@@ -13,7 +13,7 @@
 # always evaluate the same configuration.
 #
 # Accounts, program groups and Home Manager users come from the host's
-# `users` in hosts/inventory.nix (see lib/users.nix).
+# `users` in hosts/machines/<host>.nix (see lib/users.nix).
 #
 # NOTE: list-typed options (e.g. environment.systemPackages) merge in
 # module order, so reordering modules changes the system derivation (not
