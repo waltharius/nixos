@@ -39,24 +39,12 @@
       nrt = "sudo nixos-rebuild test";
     };
 
-    bashrcExtra = ''
-      # Starship prompt
-      if command -v starship &> /dev/null; then
-        eval "$(starship init bash)"
-      fi
-
-      # Zoxide (smart cd)
-      if command -v zoxide &> /dev/null; then
-        eval "$(zoxide init bash)"
-      fi
-    '';
-
-    initExtra = ''
-      # Only load starship in interactive shells
-      if [[ $- == *i* ]] && [[ "$TERM" != "dumb" ]]; then
-        eval "$(${pkgs.starship}/bin/starship init bash)"
-      fi
-    '';
+    # Starship and zoxide are initialised by their Home Manager modules
+    # (programs.starship / programs.zoxide, enableBashIntegration = true),
+    # which place the init after the interactive-shell guard in ~/.bashrc.
+    # Do NOT add them to bashrcExtra: that section runs before the guard,
+    # i.e. also for non-interactive `ssh host 'cmd'` sessions, where
+    # TERM=dumb makes starship print "[ERROR] - (starship::print)".
   };
 
   # Starship prompt - server configuration
