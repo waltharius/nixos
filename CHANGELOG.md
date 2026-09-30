@@ -72,6 +72,10 @@ change; the check is that no program disappears (see "Verification").
   `expect -c "..."`; the expect script now reads the credential files
   itself. The Home Manager login service, which passed the key with
   `atuin login -k`, is removed.
+- yazi on servers no longer pulls ffmpeg, ImageMagick, poppler, resvg and
+  chafa. The first stage 1 deploy to cloud-apps still copied them: nixpkgs'
+  `yazi` wrapper adds these preview helpers itself (`optionalDeps`), so
+  leaving them out of `home.packages` was not enough.
 
 ### Removed
 
@@ -135,6 +139,9 @@ user services, managed home files and dconf settings (Nix 2.18, same
   those.
 - A secret passed to `expect -c "..."` is as visible as one passed to the
   program itself: the whole script is an argument of expect.
+- Comparing package lists misses dependencies hidden inside a wrapper
+  (yazi's preview helpers). `nvd diff` or the list of paths copied by
+  `colmena apply` shows them; read it before calling a change verified.
 
 ## [2026-09-30] Refactor stage 0 - flake-parts skeleton and host inventory
 

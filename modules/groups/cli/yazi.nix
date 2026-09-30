@@ -2,7 +2,8 @@
 #
 # Yazi terminal file manager. The preview helpers (ffmpeg, imagemagick,
 # poppler, ...) are installed only on workstations; on servers yazi works
-# as a plain file manager.
+# as a plain file manager: neither the extra packages below nor the
+# helpers nixpkgs puts into the yazi wrapper itself.
 #
 # programs.yazi.shellWrapperName: in NixOS 26.05 the default shell wrapper
 # was renamed from "yy" to "y" (a shorter, less conflicting name). The
@@ -17,7 +18,13 @@
   programs.yazi = {
     enable = true;
     enableBashIntegration = true;
-    package = pkgs.yazi;
+    # nixpkgs wraps yazi with its optional preview helpers (ffmpeg,
+    # imagemagick, poppler, resvg, chafa, ...). Outside workstations only
+    # the lightweight ones are kept.
+    package =
+      if host.class == "workstation"
+      then pkgs.yazi
+      else pkgs.yazi.override {optionalDeps = with pkgs; [jq fd ripgrep];};
     shellWrapperName = "y";
 
     settings = {
