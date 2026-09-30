@@ -18,6 +18,8 @@
     "cli"
   ];
 
+  ssh.hostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG7lgvMgxcyiT9UNSjj3arWi5AXINsekHoTQnscTrmDa";
+
   sops = {
     ageKey = "age1lrla3ltkfljhshrlp2cqr3mzm3hvyxmka6fjs68ck2ykwgnjygwql9twy2";
     keySource = "key-file";
