@@ -3,12 +3,10 @@
 # SSH client configuration with encrypted hosts file.
 # SSH keys are managed separately through sops-nix secrets.
 #
-# NOTE: programs.ssh.matchBlocks.*.extraOptions is flagged as deprecated
-# in Home Manager 26.05, but the suggested replacement (a first-class
-# "includes" attribute) does not exist in this release. The extraOptions
-# form is kept here until Home Manager adds native Include support.
-# Tracked upstream: https://github.com/nix-community/home-manager/issues
-{ config, ... }: {
+# Uses the `programs.ssh.settings` API of Home Manager 26.05 (the older
+# `matchBlocks` interface is deprecated). Keys are upstream ssh_config
+# directive names; booleans are rendered as yes/no.
+{config, ...}: {
   sops.secrets = {
     ssh_config = {
       sopsFile = ../../secrets/ssh.yaml;
@@ -50,40 +48,38 @@
     enable = true;
     enableDefaultConfig = false;
 
-    matchBlocks = {
+    settings = {
       "*" = {
-        # extraOptions is the only way to set Include in HM 26.05.
-        # The deprecation warning is a false positive: the replacement
-        # API does not exist yet in this HM release.
-        extraOptions = {
-          Include = "~/.ssh/config.d/hosts";
-        };
-        addKeysToAgent = "yes";
-        controlMaster = "auto";
-        controlPath = "~/.ssh/sockets/%r@%h-%p";
-        controlPersist = "9m";
-        serverAliveInterval = 59;
-        forwardAgent = false;
-        compression = false;
+        # Kept inside the "Host *" block (not programs.ssh.includes, which
+        # would put Include at the top of the file) so that the precedence
+        # of the encrypted hosts file stays exactly as before.
+        Include = "~/.ssh/config.d/hosts";
+        AddKeysToAgent = "yes";
+        ControlMaster = "auto";
+        ControlPath = "~/.ssh/sockets/%r@%h-%p";
+        ControlPersist = "9m";
+        ServerAliveInterval = 59;
+        ForwardAgent = false;
+        Compression = false;
       };
 
       "github.com" = {
-        user = "git";
-        identityFile = "~/.ssh/id_ed25519_github";
+        User = "git";
+        IdentityFile = "~/.ssh/id_ed25519_github";
       };
 
       "gitlab.com" = {
-        user = "git";
-        identityFile = "~/.ssh/id_ed25519_gitlab";
+        User = "git";
+        IdentityFile = "~/.ssh/id_ed25519_gitlab";
       };
 
       "gitlab.home.lan" = {
-        user = "git";
-        identityFile = "~/.ssh/id_ed25519_gitlab";
+        User = "git";
+        IdentityFile = "~/.ssh/id_ed25519_gitlab";
       };
 
       "192.168.50.*" = {
-        identityFile = "~/.ssh/id_ed25519_tabby";
+        IdentityFile = "~/.ssh/id_ed25519_tabby";
       };
     };
   };
