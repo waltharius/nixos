@@ -19,7 +19,7 @@
     # --- laptop hardware ---
     ../../../modules/laptop/thunderbolt.nix
     ../../../modules/laptop/acpi-suspend.nix
-    ../../../modules/laptop/nvidia.nix
+    # ../../../modules/laptop/nvidia.nix
   ];
 
   services.secrets.enable = true;
