@@ -1,8 +1,13 @@
 # NixVim Configuration Module
 # Drop-in replacement for modules/utils/neovim.nix
-{...}: {
+{inputs, ...}: {
   programs.nixvim = {
     enable = true;
+
+    # Build nixvim against the system nixpkgs (flake.nix makes nixvim follow
+    # it). Setting this explicitly states that choice and silences nixvim's
+    # warning about the follows overriding its own pinned nixpkgs.
+    nixpkgs.source = inputs.nixpkgs;
     defaultEditor = true;
     viAlias = true;
     vimAlias = true;
