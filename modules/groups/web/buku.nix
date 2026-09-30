@@ -158,7 +158,12 @@ in {
     };
     Service = {
       Type = "oneshot";
-      ExecStart = "${config.home.homeDirectory}/.nix-profile/bin/buku-export";
+      # home.profileDirectory is where Home Manager installs home.packages:
+      # /etc/profiles/per-user/<user> with useUserPackages (this fleet),
+      # ~/.nix-profile otherwise. The script calls buku and coreutils by
+      # name, so the same profile goes into PATH.
+      ExecStart = "${config.home.profileDirectory}/bin/buku-export";
+      Environment = ["PATH=${config.home.profileDirectory}/bin:/run/current-system/sw/bin"];
     };
   };
 
