@@ -258,10 +258,13 @@ in {
 
     PYTHON_EOF
 
-          # Reload NetworkManager to apply changes
+          # Make NetworkManager re-read the profiles from disk. `systemctl
+          # reload NetworkManager` reloads its configuration but not the
+          # connection files, so a corrected profile was only used after
+          # `nmcli connection reload` or a reboot.
           if systemctl is-active NetworkManager.service >/dev/null 2>&1; then
-            echo "WiFi: Reloading NetworkManager"
-            ${pkgs.systemd}/bin/systemctl reload NetworkManager.service 2>/dev/null || true
+            echo "WiFi: Reloading NetworkManager connection profiles"
+            ${pkgs.networkmanager}/bin/nmcli connection reload 2>/dev/null || true
           fi
         else
           echo "WiFi: WARNING - secrets file not found at $WIFI_ENV" >&2
