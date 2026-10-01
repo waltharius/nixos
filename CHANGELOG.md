@@ -9,7 +9,7 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
-## [Unreleased] Refactor stage 3 - installing hosts (baal)
+## [2026-10-01] Refactor stage 3 - installing hosts (baal)
 
 ### Added
 
@@ -41,10 +41,29 @@ reason for reverting them.
   azazel's and sukkub's configuration.nix; Syncthing runs as the account
   that has the group (baal gets it by adding the group).
 
+- baal hibernates into its swap file after 4 hours of suspend
+  (`hosts/workstations/baal/hibernate.nix`).
+- The GitLab host key on walthpi16 is pinned under
+  `[gitlab.home.lan]:2424`, the name the repositories use.
+
 ### Fixed
 
 - `buku-auto-export` ran `~/.nix-profile/bin/buku-export`, which does not
   exist when Home Manager installs into `/etc/profiles/per-user/<user>`.
+
+### Verification
+
+- baal (Dell Wyse 5470) installed with `install-host`: LUKS, btrfs
+  subvolumes incl. the writing subvolumes with snapper configs and ACLs,
+  8 GiB swap file, SSH host key from the repository (sops decrypted
+  during the install), static .82 on the home Wi-Fi, GitHub with the
+  pinned host key, SSH from azazel, Atuin, suspend and resume.
+- `nixos-rebuild --target-host marcin@baal` from azazel after the
+  trusted-users change.
+- Hibernation (`resume_offset` 533760): to be tested with
+  `systemctl hibernate`.
+- gitlab.com rejects the gitlab key: the key is not registered on the
+  account (not a configuration problem).
 
 ## [2026-09-30] Refactor stage 2 - generated sops audiences, new-host, fleet SSH
 

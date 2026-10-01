@@ -6,11 +6,6 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 
 ## Refactor stages still ahead
 
-3. Installation with nixos-anywhere (first target: Dell Wyse 5470, baal):
-   `nix run .#install-host` is written (LUKS, writing subvolumes, 8 GiB
-   swap file). Remaining: install baal, then hibernation on baal (resume
-   device and `resume_offset` of the swap file are known only after the
-   install), measure the size of the admin base on the 128 GB disk.
 4. Remote access (Tailscale on every host, subnet router for the LAN).
 5. Monitoring: generated scrape targets for servers, push for laptops,
    Alertmanager.
@@ -70,8 +65,29 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   works). Replace with a signing key on azazel (private key in sops,
   `nix.settings.secret-key-files`) and its public key in
   `trusted-public-keys` on every host, together with the `deploy` account.
-- **Hibernation on baal.** Swap file exists (8 GiB); resume device and
-  `resume_offset` still to be configured.
+- **`remove-host`: retire a machine cleanly.** Counterpart of `new-host`
+  for a machine that is gone: removing it from the repository shows at
+  once (evaluation, `nix flake check`) whether anything else still
+  depends on it, which should not happen, and keeps the configuration
+  tidy. Wanted: the removed configuration stays available to read or to
+  restore. Proposed design (decide when implementing):
+  - delete `hosts/machines/<host>.nix`, the host directory and
+    `secrets/hosts/<host>/`, run `nix run .#sops-config` (the host's key
+    leaves every secret file; known_hosts and ssh config follow by
+    themselves), evaluate the fleet;
+  - before deleting, create an annotated git tag `removed/<host>` on the
+    last commit that has the host (date and reason in the message) and
+    add a line to a list of retired hosts (`hosts/REMOVED.md`: name,
+    date, tag, reason);
+  - restore: `git checkout removed/<host> -- <paths>`, then `new-host`
+    style registration of the key.
+  Why a tag rather than an archive directory in the tree: archived Nix
+  files are no longer evaluated, so they silently stop matching the
+  modules they import and are not restorable as they are; the tag keeps
+  the host together with the exact modules it was built with. An archive
+  directory would also have to be excluded from every loader and check.
+  Secrets the host could read stay readable in git history: rotate them
+  if the machine left the house rather than being scrapped.
 - **Declarative Syncthing.** Folders and devices are set in the web GUI and
   are not in the repository. NixOS `services.syncthing.settings.devices` /
   `.folders` with `overrideDevices` / `overrideFolders = false` should keep
