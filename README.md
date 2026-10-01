@@ -77,10 +77,10 @@ nixos/
 
 ### For Fresh Installation
 
-1. **Boot NixOS installer USB**
-2. **Follow the guide**: [docs/INSTALLATION.md](docs/INSTALLATION.md)
-3. **Configure secrets**: [docs/SSH_KEYS_SETUP.md](docs/SSH_KEYS_SETUP.md)
-4. **Setup WiFi**: [docs/WIFI_SETUP.md](docs/WIFI_SETUP.md)
+1. **Register the host**: `nix run .#new-host` (see [docs/NEW-HOST.md](docs/NEW-HOST.md))
+2. **Boot the NixOS installer USB** on the machine
+3. **Install from azazel**: `nix run .#install-host -- <host> root@<address>`
+4. **Secrets and SSH**: [secrets/README.md](secrets/README.md), [docs/SSH.md](docs/SSH.md)
 
 ### Key Installation Steps:
 
@@ -255,9 +255,12 @@ y               # yazi with cd on exit
 
 ## 📚 Documentation
 
-- **[INSTALLATION.md](docs/INSTALLATION.md)**: Complete installation guide
-- **[SSH_KEYS_SETUP.md](docs/SSH_KEYS_SETUP.md)**: SSH keys and secrets management
-- **[WIFI_SETUP.md](docs/WIFI_SETUP.md)**: WiFi configuration with encrypted passwords
+- **[NEW-HOST.md](docs/NEW-HOST.md)**: adding and installing a host (`new-host`, `install-host`)
+- **[secrets/README.md](secrets/README.md)**: secrets, generated `.sops.yaml`, host keys
+- **[SSH.md](docs/SSH.md)**: keys, layered host lists, pinned host keys
+- **[hosts/README.md](hosts/README.md)**: inventory fields (machines, devices)
+- **[WIFI_SETUP.md](docs/WIFI_SETUP.md)**: WiFi configuration with encrypted passwords (to be reviewed)
+- **docs/history/**: logs of past work (upgrade to 26.05, local LLM on altair)
 
 ## 🖥️ Hosts
 

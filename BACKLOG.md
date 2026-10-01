@@ -45,9 +45,15 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   interface now come from the inventory, but gateway/DNS (`.1`), the CUDA
   cache and initrd SSH (needs its own host key on the machine) apply to
   every bare-metal server. Split before the next server.
-- **Old SSH and sops documents** (`docs/SSH_KEYS_SETUP.md`,
-  `docs/SSH_MIGRATION.md`, `docs/POST-INSTALL-SOPS-SETUP.md`) describe the
-  manual process from before stage 2. Rewrite or remove in stage 7.
+- **Documents still to review** (stage 7). Removed on 2026-10-01 as
+  superseded: SSH_KEYS_SETUP, SSH_MIGRATION, POST-INSTALL-SOPS-SETUP,
+  INSTALLATION, FIX-WIFI-ENV-VARIABLES; logs moved to `docs/history/`.
+  Left to check against the current repository: `docs/WIFI_SETUP.md`
+  (mechanism still current, details may not be),
+  `docs/DEPLOY-MULTIPURPOSE-SERVER.org` and `docs/SERVER-DEPLOYMENT.org`
+  (January 2026, before Colmena and the inventory; probably superseded),
+  the four overlapping nixvim/neovim documents (merge into one), and the
+  rest of README.md.
 - **`new-host` for aarch64.** The script writes `x86_64-linux` only; the
   Raspberry Pis need `meta.nodeNixpkgs` in the hive first.
 - **NVIDIA on sukkub** (removed 2026-09-30). With the legacy_470 driver
