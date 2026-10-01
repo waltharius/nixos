@@ -39,7 +39,7 @@
     # hunspell with UTF-8 capable dictionaries.
     # pl_PL from Nixpkgs is always ISO8859-2; a converted UTF-8 copy is
     # made by home.activation (see below). en_GB-large is already UTF-8.
-    (hunspell.withDicts (dicts: with dicts; [en_GB-large]))
+    (hunspell.withDicts (dicts: with dicts; [en_GB-large pl_PL]))
     languagetool
   ];
 
