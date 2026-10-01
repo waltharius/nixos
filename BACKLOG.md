@@ -33,10 +33,6 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 
 ## Follow-ups from stage 2
 
-- **SSH host keys of existing hosts.** `ssh.hostKey` is empty for azazel,
-  sukkub, altair and cloud-apps, so they are not pinned in
-  `/etc/ssh/ssh_known_hosts` yet (see `docs/SSH.md`). Same for the devices
-  in `hosts/devices.nix` and the initrd key of altair.
 - **Encrypted host list.** After the move to `hosts/devices.nix`, the
   `ssh_config` value in `secrets/users/marcin/admin.yaml` should hold only
   hosts that must not be in the repository (e.g. mydevil.net). Revisit once
@@ -63,6 +59,10 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   back: keep the Intel GPU as Mutter's only display device (check which
   udev tag Mutter honours), hook nvidia-suspend/resume into
   systemd-suspend-then-hibernate, test nvidia-offload.
+- **sukkub boots into emergency mode** (2026-09-30, after removing the
+  NVIDIA driver); Enter continues the boot. Not investigated. Start with
+  `systemctl --failed` and `journalctl -b -p err` (likely a mount or a
+  unit required by local-fs.target).
 
 ## Follow-ups from stage 1
 
@@ -96,13 +96,13 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
     date, tag, reason);
   - restore: `git checkout removed/<host> -- <paths>`, then `new-host`
     style registration of the key.
-  Why a tag rather than an archive directory in the tree: archived Nix
-  files are no longer evaluated, so they silently stop matching the
-  modules they import and are not restorable as they are; the tag keeps
-  the host together with the exact modules it was built with. An archive
-  directory would also have to be excluded from every loader and check.
-  Secrets the host could read stay readable in git history: rotate them
-  if the machine left the house rather than being scrapped.
+    Why a tag rather than an archive directory in the tree: archived Nix
+    files are no longer evaluated, so they silently stop matching the
+    modules they import and are not restorable as they are; the tag keeps
+    the host together with the exact modules it was built with. An archive
+    directory would also have to be excluded from every loader and check.
+    Secrets the host could read stay readable in git history: rotate them
+    if the machine left the house rather than being scrapped.
 - **Declarative Syncthing.** Folders and devices are set in the web GUI and
   are not in the repository. NixOS `services.syncthing.settings.devices` /
   `.folders` with `overrideDevices` / `overrideFolders = false` should keep
