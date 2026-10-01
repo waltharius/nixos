@@ -7,7 +7,7 @@
   tags = ["workstation" "laptop"];
   lan.ip = "192.168.50.82";
   users = {
-    marcin.groups = ["cli" "emacs" "gnome" "media" "office" "web"];
+    marcin.groups = ["cli" "emacs" "gnome" "media" "nix-local" "office" "web"];
   };
 
   # Age key derived from the SSH host key; its private part is stored
