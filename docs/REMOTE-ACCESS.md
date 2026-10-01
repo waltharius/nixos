@@ -50,17 +50,27 @@ Moving from pfSense to OPNsense means repeating this on OPNsense.
 
 ## Tailnet policy (admin console, Access controls)
 
-Tailscale's default policy lets every device reach every other one. The
-draft below allows only marcin's own devices to start connections; tagged
-devices (pfSense, managed computers) can only answer. **Merge it into the
-existing policy instead of replacing it**: keep what is already there for
-Funnel (`nodeAttrs` with the `funnel` attribute), or calibre stops being
-published. Save the current policy to a file before editing.
+Edit the policy file in the **JSON editor** of Access controls, not in the
+visual rule editor (its "Capability" field is for application
+capabilities, not for a policy). Save the current file before editing.
+
+Tailscale's default policy lets every device reach every other one (the
+grant `{"src": ["*"], "dst": ["*"], "ip": ["*"]}`). The policy below
+allows only marcin's own devices to start connections; tagged devices
+(pfSense, managed computers) can only answer. It keeps two parts of the
+default file: `nodeAttrs` with the `funnel` attribute (or calibre stops
+being published) and the Tailscale SSH rule (unused while no host runs
+`tailscale up --ssh`).
+
+`group:admin` must hold the login exactly as the Users page of the admin
+console shows it (e.g. `name@gmail.com`, or `name@github` for a GitHub
+login), in `groups` and in `tests`. The `tests` make saving fail when the
+policy does not do what it should.
 
 ```hujson
 {
   "groups": {
-    // marcin's Tailscale login. Replace before saving.
+    // marcin's Tailscale login, as shown on the Users page.
     "group:admin": ["you@example.com"],
   },
 
@@ -76,19 +86,46 @@ published. Save the current policy to a file before editing.
     },
   },
 
-  "acls": [
+  "grants": [
     // marcin's devices: every tailnet device and the home LAN.
-    {"action": "accept", "src": ["group:admin"], "dst": ["*:*", "192.168.50.0/24:*"]},
+    {"src": ["group:admin"], "dst": ["*", "192.168.50.0/24"], "ip": ["*"]},
 
     // Managed computers (stage 6): only the Atuin server. Fill in its
     // address and port before enabling.
-    // {"action": "accept", "src": ["tag:managed"], "dst": ["192.168.50.X:PORT"]},
+    // {"src": ["tag:managed"], "dst": ["192.168.50.X"], "ip": ["tcp:PORT"]},
+  ],
+
+  // Tailscale SSH (from the default policy; unused while no host runs
+  // `tailscale up --ssh`).
+  "ssh": [
+    {
+      "action": "check",
+      "src":    ["autogroup:member"],
+      "dst":    ["autogroup:self"],
+      "users":  ["autogroup:nonroot", "root"],
+    },
+  ],
+
+  // Funnel for members' own devices (calibre on a Raspberry Pi). Narrow it
+  // to a tag once that device is tagged (BACKLOG.md).
+  "nodeAttrs": [
+    {
+      "target": ["autogroup:member"],
+      "attr":   ["funnel"],
+    },
+  ],
+
+  "tests": [
+    // marcin reaches the LAN (altair's SSH) through the subnet router.
+    {"src": "you@example.com", "accept": ["192.168.50.150:22"]},
+    // Managed computers do not.
+    {"src": "tag:managed", "deny": ["192.168.50.150:22"]},
   ],
 }
 ```
 
-Devices without a rule as `src` cannot start any connection. That is the
-point for `tag:managed`, and it needs no extra rule for `tag:router`: the
+Devices without a grant as `src` cannot start any connection. That is the
+point for `tag:managed`, and it needs no extra grant for `tag:router`: the
 subnet router only forwards connections that the policy allows from their
 source. A device that is still untagged and owned by marcin counts as
 `group:admin`, including the calibre Raspberry Pi published with Funnel
