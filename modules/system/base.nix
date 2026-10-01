@@ -57,6 +57,13 @@
 
   # Colmena 0.5 comes from its flake input, built against its own nixpkgs;
   # its maintainers publish those builds in this cache.
+  # Accept store paths copied in by administrators (wheel), so azazel can
+  # build a workstation and push it: nixos-rebuild --target-host. Trusted
+  # users are effectively root to the Nix daemon; members of wheel have sudo
+  # anyway. Servers have the same setting (base-lxc.nix, base-baremetal.nix).
+  # Planned: a signing key on azazel instead (BACKLOG, deploy account).
+  nix.settings.trusted-users = ["root" "@wheel"];
+
   nix.settings.substituters = ["https://colmena.cachix.org"];
   nix.settings.trusted-public-keys = [
     "colmena.cachix.org-1:7BzpDnjjH8ki2CT3f6GdOk7QAzPOl+1t3LvTLXqYcSg="
