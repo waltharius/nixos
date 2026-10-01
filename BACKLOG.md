@@ -49,6 +49,11 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 - **pfSense is the subnet router, configured by hand** (package, tagged
   key, advertised route; `docs/REMOTE-ACCESS.md`). Repeat it on OPNsense
   when pfSense is replaced.
+- **Direct connections to pfSense.** From a phone hotspot the laptop
+  reaches pfSense only through the DERP relay in Warsaw (works, ~100 ms and
+  more). Check whether pfSense's WAN address is public; then pass UDP
+  41641 to the WAN address (or forward it on a provider router in front)
+  and see whether `tailscale status` shows `direct` (docs/REMOTE-ACCESS.md).
 - **Tag the calibre Raspberry Pi.** It publishes calibre with Funnel and is
   an untagged device of marcin's, so the tailnet policy lets it start
   connections to the whole tailnet and, through the subnet router, to the

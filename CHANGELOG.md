@@ -93,6 +93,10 @@ To be run on azazel after applying the series; record the results here
   whole LAN through the subnet router. Tag such devices.
 - Headscale cannot run behind Cloudflare Proxy or Tunnel and has no
   Funnel; moving to it needs a public address and calibre off Funnel first.
+- pfSense drops traffic from the tailnet until the Tailscale interface
+  group has a pass rule. Split DNS for `home.lan` worked before that rule
+  existed, so a working DNS lookup does not prove the LAN is reachable:
+  test with ping or SSH to a LAN host.
 
 ## [2026-10-01] Refactor stage 3 - installing hosts (baal)
 

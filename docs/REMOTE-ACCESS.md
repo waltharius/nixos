@@ -26,25 +26,73 @@ hive. Services published to the internet use Cloudflare Tunnel by default.
 
 ## pfSense (manual)
 
+Set up on pfSense CE on 2026-10-01; verified from a laptop on a phone
+hotspot (LAN reachable, `home.lan` names resolve).
+
 1. Back up the configuration: Diagnostics > Backup & Restore > Download
    configuration as XML.
-2. The tailnet policy must name `tag:router` before a tagged key can be
-   created: apply the policy below first.
-3. Admin console, Settings > Keys: generate a one-off auth key with the
-   tag `tag:router`. Tagged devices have key expiry disabled by default.
+2. The tailnet policy must name `tag:router` in `tagOwners` before a
+   tagged key can be created: save the policy below first.
+3. Admin console, Settings > Keys: generate an auth key, not reusable, not
+   ephemeral, with the tag `tag:router`. Tagged devices have key expiry
+   disabled by default.
 4. System > Package Manager > Available Packages: install `Tailscale`.
-5. On the package's settings page (VPN > Tailscale): enable it, log in
-   with the key, advertise the route `192.168.50.0/24`. Do not accept
-   routes or DNS on pfSense.
-6. The route is approved automatically by `autoApprovers` in the policy;
-   otherwise approve it in the admin console (Machines > pfSense > Edit
-   route settings).
-7. Check from away (e.g. a phone hotspot): `ping 192.168.50.150` and
-   `ssh altair` on a laptop with `acceptRoutes`.
+5. VPN > Tailscale > Authentication: paste the key. VPN > Tailscale >
+   Settings: Enable; Accept DNS off; Advertise Exit Node **off**; Accept
+   Subnet Routes off; Advertised Routes `192.168.50.0/24`. Save.
+6. The route is approved by `autoApprovers` in the policy; check it in the
+   admin console (Machines > pfsense > Edit route settings).
+7. **Firewall > Rules > Tailscale** (the interface group): add a rule.
+   Without it pfSense drops everything that arrives from the tailnet,
+   because an interface without a pass rule blocks inbound traffic.
 
-If packets reach the LAN but replies do not come back, look at outbound
-NAT for the Tailscale interface on pfSense. This is a hint from a forum
-thread, not from the official documentation; check it only if needed.
+   | Field | Value |
+   | ----- | ----- |
+   | Action | Pass |
+   | Interface | Tailscale |
+   | Address Family | IPv4 |
+   | Protocol | Any |
+   | Source | Network `100.64.0.0/10` |
+   | Destination | LAN subnets |
+   | Description | tailnet to home LAN (tailnet policy filters first) |
+
+8. Check from away (e.g. a phone hotspot) on a laptop with
+   `acceptRoutes`: `ip route get 192.168.50.150` shows `tailscale0`,
+   `ping 192.168.50.150`, `ssh altair`, `resolvectl query altair.home.lan`.
+
+Not needed here:
+
+- An access list for `100.64.0.0/10` in the DNS Resolver: `home.lan`
+  names resolved from the tailnet before the firewall rule existed.
+  Tailscale apparently hands split-DNS queries for a subnet-routed
+  nameserver to the subnet router itself rather than sending them through
+  the routed path (not verified in the Tailscale source).
+- Outbound NAT: LAN hosts see the laptop's 100.x address and answer it
+  through pfSense, their default gateway. A LAN service whose own firewall
+  accepts only `192.168.50.0/24` would reject that address; then either
+  allow `100.64.0.0/10` in the service or add hybrid outbound NAT on LAN
+  for the source `100.64.0.0/10`.
+
+If a rule on the Tailscale group does not match, check
+`ifconfig tailscale0 | grep groups` (Diagnostics > Command Prompt) for the
+group `Tailscale`: pfSense Plus 26.07 has a reported bug where the
+interface is missing from the group (redmine.pfsense.org issue 17034).
+
+### Relayed instead of direct connections
+
+`tailscale status` showing `relay "waw"` for pfsense means the traffic
+goes through a Tailscale DERP relay: it works, with more latency and less
+throughput. Tailscale notes that devices behind pfSense often end up
+relayed, and that inbound UDP 41641 open on a device's public address
+allows a direct connection whenever one is possible
+([firewalls](https://tailscale.com/docs/integrations/firewalls),
+[connection types](https://tailscale.com/kb/1257/connection-types)).
+Not done yet (BACKLOG.md):
+
+- if the WAN address of pfSense (Status > Interfaces) is the public one,
+  a WAN rule passing UDP to the WAN address, port 41641;
+- if it is a private address (a provider router in front of pfSense), a
+  port forward of UDP 41641 on that router as well.
 
 Moving from pfSense to OPNsense means repeating this on OPNsense.
 
@@ -209,6 +257,7 @@ Constraints of Headscale are listed in `BACKLOG.md`.
 | ------- | ------- |
 | not in the tailnet | `tailscale status`, `journalctl -u tailscaled -u tailscaled-set -u tailscale-join-once -b` |
 | first-boot join failed | `/var/lib/tailscale-join/auth-key` still exists; the key may have expired: delete it and run `tailscale-join` |
-| LAN unreachable from away | the route is approved in the admin console, the laptop has `acceptRoutes`, `ip route get 192.168.50.150` shows tailscale0, pfSense is online in `tailscale status` |
+| LAN unreachable from away | the route is approved in the admin console, the laptop has `acceptRoutes`, `ip route get 192.168.50.150` shows tailscale0, pfSense is online in `tailscale status`, the pass rule on Firewall > Rules > Tailscale exists (Status > System Logs > Firewall shows blocks) |
+| slow, `relay "..."` in `tailscale status` | relayed through DERP; see "Relayed instead of direct connections" |
 | LAN slow at home | `ip rule` lacks priority 2500: reconnect the home Wi-Fi profile (`nmcli connection up <profile>`) |
 | DNS | `resolvectl status`, `resolvectl query <name>.home.lan` |
