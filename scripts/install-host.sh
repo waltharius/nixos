@@ -17,10 +17,15 @@
 #   - asks for an initial password of every account on the host (the
 #     repository holds no passwords); only the yescrypt hash goes to the
 #     target, over SSH, into /etc/shadow of the new system;
+#   - asks for a one-off Tailscale auth key when the host has a
+#     `tailscale` entry (required for join = tagged, optional for owner);
+#     the key is left in /var/lib/tailscale-join/auth-key of the new
+#     system, where tailscale-join-once (lib/tailscale.nix) uses and
+#     deletes it at the first boot;
 #   - runs nixos-anywhere, which partitions the disk with disko.nix,
 #     replaces the placeholder hardware-configuration.nix with the result
 #     of nixos-generate-config on the target and installs;
-#   - sets the passwords and reboots the target.
+#   - sets the passwords, leaves the Tailscale key and reboots the target.
 # Nothing is committed: review hardware-configuration.nix, then commit.
 
 die() {
@@ -102,6 +107,24 @@ for account in "${accounts[@]}"; do
   unset pass1 pass2
 done
 
+# --- Tailscale ------------------------------------------------------------------
+
+# One-off key: Tailscale revokes it after the first use, so it is worthless
+# once the host has joined. It travels over SSH stdin, never on a command
+# line.
+ts_join=$(jq -r '.tailscale.join // empty' <<<"$inventory")
+ts_tags=$(jq -r '.tailscale.tags // [] | join(",")' <<<"$inventory")
+ts_key=""
+case $ts_join in
+  tagged)
+    ts_key=$(gum input --password --header "One-off auth key with tags $ts_tags for $host (admin console, Settings > Keys)")
+    [[ -n $ts_key ]] || die "join = tagged needs a one-off auth key with tags $ts_tags"
+    ;;
+  owner)
+    ts_key=$(gum input --password --header "One-off auth key for $host (admin console, Settings > Keys); empty: run tailscale-join on $host later")
+    ;;
+esac
+
 # --- install --------------------------------------------------------------------
 
 disk=$(grep -m1 -o 'device = "[^"]*"' "$host_dir/disko.nix" | cut -d'"' -f2)
@@ -109,6 +132,7 @@ gum style --border rounded --padding "0 1" \
   "Host:    $host ($class)" \
   "Target:  $target" \
   "Disk:    $disk - EVERYTHING ON IT WILL BE ERASED" \
+  "Tailnet: ${ts_join:-none}${ts_key:+, joins at the first boot}" \
   "Writes:  $hardware"
 gum confirm --default=false "Install $host on $target?" || exit 0
 
@@ -124,13 +148,20 @@ nixos-anywhere \
 info "Setting the initial passwords and rebooting..."
 printf '%s\n' "${shadow_lines[@]}" |
   ssh "$target" "nixos-enter --root /mnt -c 'chpasswd --encrypted'"
+if [[ -n $ts_key ]]; then
+  info "Leaving the Tailscale auth key for the first boot..."
+  printf '%s' "$ts_key" |
+    ssh "$target" "umask 077 && mkdir -p /mnt/var/lib/tailscale-join && cat >/mnt/var/lib/tailscale-join/auth-key"
+fi
+unset ts_key
 ssh "$target" reboot || true
 
 git add -- "$hardware"
 cat <<EOF
 
 $host is installed and reboots now.
-  1. Unlock the disk at the console, log in, check the system.
+  1. Unlock the disk at the console, log in, check the system
+     (docs/NEW-HOST.md), including \`tailscale status\`.
   2. Review:  git diff --cached $hardware
   3. Commit:  git commit -m 'feat(hosts): install $host, hardware configuration from nixos-generate-config'
 EOF

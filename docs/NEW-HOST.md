@@ -9,8 +9,10 @@ key and a clean `.sops.yaml` and `secrets/`.
 Host name, class (`workstation`, `server`, `virtual`), description, Colmena
 tags, LAN address (required for servers and virtual machines, suggested as
 the first free address outside the DHCP pool), the network interface
-(servers), accounts and the program groups of each account, and for
-workstations and servers the disk layout and install disk.
+(servers), accounts and the program groups of each account, for
+workstations how the machine joins the tailnet (`owner`, `tagged`,
+`shared` or none; see `docs/REMOTE-ACCESS.md`), and for workstations and
+servers the disk layout and install disk.
 
 ## What it writes
 
@@ -59,13 +61,20 @@ Script: `scripts/install-host.sh`, using
    copy your key to the installer: `ssh-copy-id root@<address>`.
 4. `nix run .#install-host -- <host> root@<address>` (on azazel, like
    every command here except step 2). It asks for the LUKS passphrase (if
-   the layout encrypts) and an initial password for every account on the
-   host, shows the disk that will be erased and asks for confirmation.
+   the layout encrypts), an initial password for every account on the
+   host and, if the host has a `tailscale` entry, a one-off auth key
+   (admin console, Settings > Keys; required with tags for `tagged`,
+   optional for `owner`), shows the disk that will be erased and asks for
+   confirmation.
    nixos-anywhere then partitions the disk, generates
    `hardware-configuration.nix` on the target (`nixos-generate-config
    --no-filesystems`; disko describes the file systems) and installs the
    system with the stored SSH host key. The script sets the passwords in
-   the installed system and reboots it.
+   the installed system, leaves the Tailscale key in
+   `/var/lib/tailscale-join/auth-key` (the unit `tailscale-join-once` joins
+   with it at the first boot and deletes it) and reboots the machine.
+   Without a key, run `tailscale-join` on the host after the first boot
+   and open the login URL it prints.
 5. Unlock the disk at the console, log in, run the checks below, commit
    `hardware-configuration.nix` and push it before the host rebuilds from
    a clone (a clone with the placeholder builds an unbootable system).
@@ -123,6 +132,8 @@ nixpkgs stable and unstable (`pkgs-unstable`) and build variants. `nix-store
 | SSH from azazel | `ssh <host>` (no question about the host key) |
 | disk usage | `df -h /`, `sudo btrfs filesystem usage /` |
 | sleep | close the lid, open, check `journalctl -b -p warning` |
+| tailnet | `tailscale status`; `systemctl status tailscale-join-once` (the key file is gone after a successful join) |
+| home LAN stays off the tunnel (`acceptRoutes`) | at home: `ip rule` lists priority 2500, `ip route get 192.168.50.1` shows the Wi-Fi interface |
 
 The installer runs from the USB stick, so nixos-anywhere does not need
 kexec (kexec is only used when the target runs some other Linux).

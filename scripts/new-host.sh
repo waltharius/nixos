@@ -8,6 +8,9 @@
 #   hosts/<class dir>/<host>/                  host files from hosts/templates/
 #   secrets/hosts/<host>/ssh_host_ed25519_key  new SSH host key, encrypted
 #                                              for the admin keys only
+# A workstation's inventory entry also says how it joins the tailnet
+# (lib/tailscale.nix); servers and virtual machines get no Tailscale, they
+# are reached through the subnet router on pfSense. The script then
 # derives the host's age key from the SSH host key, regenerates .sops.yaml
 # (nix run .#sops-config re-encrypts every secret the host uses) and
 # evaluates the new host. Nothing is committed: review, then commit.
@@ -136,6 +139,37 @@ for user in "${users[@]}"; do
   user_groups[$user]=$(gum choose --no-limit --header "Program groups of $user on $name" --selected cli "${all_groups[@]}" | tr '\n' ' ')
 done
 
+# Tailscale (lib/tailscale.nix, docs/REMOTE-ACCESS.md). Servers and virtual
+# machines get none: they are reached through the subnet router on pfSense.
+ts_join=""
+ts_accept_routes=""
+ts_tags=()
+if [[ $class == workstation ]]; then
+  ts_join=$(gum choose --header "How does $name join the tailnet?" \
+    "owner - marcin's own computer, logged in as marcin" \
+    "tagged - managed for someone else, one-off tagged auth key" \
+    "shared - in its owner's own tailnet, shared with marcin" \
+    "none - no Tailscale")
+  ts_join=${ts_join%% *}
+  case $ts_join in
+    owner)
+      printf '%s\n' "${users[@]}" | grep -qxF marcin ||
+        die "join = owner logs in as marcin (operator); marcin is not on $name"
+      if gum confirm "Use the home LAN route of the subnet router when away from home (acceptRoutes)?"; then
+        ts_accept_routes=true
+      else
+        ts_accept_routes=false
+      fi
+      ;;
+    tagged)
+      ts_tags_input=$(gum input --header "Tailscale tags, comma separated" --value "tag:managed")
+      IFS=',' read -r -a ts_tags <<<"${ts_tags_input// /}"
+      ((${#ts_tags[@]} > 0)) || die "join = tagged needs at least one tag"
+      ;;
+    none) ts_join="" ;;
+  esac
+fi
+
 layout=""
 disk=""
 extra_imports=""
@@ -161,6 +195,11 @@ fi
   for user in "${users[@]}"; do
     echo "User:        $user - ${user_groups[$user]}"
   done
+  if [[ -n $ts_join ]]; then
+    echo "Tailscale:   $ts_join${ts_accept_routes:+, acceptRoutes = $ts_accept_routes}${ts_tags[*]:+, tags ${ts_tags[*]}}"
+  else
+    echo "Tailscale:   none"
+  fi
   [[ -n $layout ]] && echo "Disk:        $layout on $disk"
   echo "Files:       hosts/machines/$name.nix, $host_dir/, secrets/hosts/$name/"
 } | gum style --border rounded --padding "0 1"
@@ -221,6 +260,19 @@ created+=("$machine_file")
     echo "    $user.groups = $(nix_list "${groups[@]}");"
   done
   echo "  };"
+  if [[ -n $ts_join ]]; then
+    echo ""
+    echo "  # Tailscale (lib/tailscale.nix, docs/REMOTE-ACCESS.md)."
+    echo "  tailscale = {"
+    echo "    join = \"$ts_join\";"
+    if [[ -n $ts_accept_routes ]]; then
+      echo "    acceptRoutes = $ts_accept_routes;"
+    fi
+    if ((${#ts_tags[@]} > 0)); then
+      echo "    tags = $(nix_list "${ts_tags[@]}");"
+    fi
+    echo "  };"
+  fi
   echo ""
   echo "  # Age key derived from the SSH host key; its private part is stored"
   echo "  # in secrets/hosts/$name/ssh_host_ed25519_key (admin keys only)."
@@ -269,3 +321,7 @@ Next:
      (docs/NEW-HOST.md). It replaces the placeholder
      $host_dir/hardware-configuration.nix. Do not deploy before.
 EOF
+if [[ -n $ts_join && $ts_join != shared ]]; then
+  echo "     Tailscale: create a one-off auth key (admin console, Settings > Keys${ts_tags[*]:+, tags ${ts_tags[*]}});"
+  echo "     install-host asks for it."
+fi
