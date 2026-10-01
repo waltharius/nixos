@@ -154,8 +154,14 @@ in {
   # Inject Passwords from SOPS into Profiles
   # ==========================================
 
-  # This runs after 'etc' activation to inject decrypted passwords
-  # Uses Python for safe handling of passwords with special characters
+  # This runs after 'etc' activation to inject decrypted passwords.
+  # The profiles use NetworkManager's keyfile format (GLib key files), which
+  # interprets backslash escapes and drops a leading space, so the password
+  # is escaped for that format before it is written. Without this a
+  # password containing a backslash was rejected by NetworkManager ("psk:
+  # invalid setting ... value that cannot be interpreted") and it asked for
+  # the password again. NixOS' networking.networkmanager.ensureProfiles
+  # would not help: it pastes the value with envsubst, unescaped as well.
   system.activationScripts.wifi-inject-passwords = lib.stringAfter ["etc"] ''
         WIFI_ENV="/run/secrets/wifi-env-file"
 
@@ -176,6 +182,18 @@ in {
                 if "=" in line and not line.startswith("#"):
                     key, value = line.split("=", 1)
                     secrets[key] = value
+
+        def keyfile_escape(value):
+            # Escapes of GLib key file string values (see "Key file format"
+            # in the GLib documentation): backslash first, then control
+            # characters, then a leading space as \s.
+            value = (value.replace("\\", "\\\\")
+                          .replace("\n", "\\n")
+                          .replace("\t", "\\t")
+                          .replace("\r", "\\r"))
+            if value.startswith(" "):
+                value = "\\s" + value[1:]
+            return value
 
         # Map connection names to their password variables
         connections = {
@@ -212,7 +230,7 @@ in {
                     content = (
                         parts[0] +
                         "\n[wifi-security]\n" +
-                        f"psk={password}\n" +
+                        f"psk={keyfile_escape(password)}\n" +
                         parts[1]
                     )
                 else:
