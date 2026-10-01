@@ -9,6 +9,7 @@
 keys:
   - &admin age1t73dnh9pj2qsz3rfqgq54t2pyxh8ew6w8xsta7pfwmmxmsjswgrshue8gx # also: azazel
   - &altair age1j73et2st2j8njdn06fsx38e5cgf3z0x00decgjuz3ldhklyk9azsqs9ggj
+  - &baal age1a0983pr4znrryh9w0nkhtz2sp57fnwrhrnq64nv80wasjtaxyc0qp6sgfp
   - &cloud-apps age1qu4pnzn2teff7m78nrhzq4vct4qczp2ajhfda559xgpk2n08qswqzyh2aw
   - &sukkub age1lrla3ltkfljhshrlp2cqr3mzm3hvyxmka6fjs68ck2ykwgnjygwql9twy2
 
@@ -54,11 +55,13 @@ creation_rules:
     key_groups:
       - age:
           - *admin
+          - *baal
           - *sukkub
   - path_regex: '(^|/)secrets/wifi\.env$'
     key_groups:
       - age:
           - *admin
+          - *baal
           - *sukkub
   # Everything else in secrets/ (host SSH keys, secrets no host uses
   # yet): admin keys only.
