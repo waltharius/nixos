@@ -32,7 +32,6 @@ The inventory is exported as JSON for external tooling:
 | `lan.interface` | server            | network interface the static address is set on (`modules/servers/base-baremetal.nix`) |
 | `deploy`      | no                  | Colmena deployment settings; override the class defaults from `lib/classes.nix` |
 | `users`       | yes                 | accounts on the machine and the program groups each one uses: `users.<n>.groups = [ ... ]`. The account must exist in `users/<n>/account.nix`, the groups in `modules/groups/default.nix`. The host gets the system part of every group of every user (see `lib/users.nix`). Servers and virtual machines must have `nixadm` |
-
 | `sops.ageKey` | yes                 | age public key of the host (see `secrets/README.md`) |
 | `sops.keySource` | yes              | `key-file` (`/var/lib/sops-nix/key.txt`, hosts from before stage 2) or `ssh-host-key` (derived from the SSH host key) |
 | `sops.extraSecrets` | no            | secret files the host must decrypt although no module uses them yet, e.g. `["secrets/foo.yaml"]` |
