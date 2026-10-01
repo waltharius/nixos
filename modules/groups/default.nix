@@ -62,6 +62,9 @@
   # Rebuilding this host from ~/nixos: rebuild-and-diff (`nrs`), nvd.
   nix-local.home = ./nix-local/home.nix;
 
+  # Syncthing as the account that has this group (one per host).
+  syncthing.nixos = ./syncthing/nixos.nix;
+
   # Command-line utilities that are handy but not essential.
   cli.home = ./cli/home.nix;
 }

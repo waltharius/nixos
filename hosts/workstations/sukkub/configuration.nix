@@ -37,13 +37,7 @@
 
   nix.settings.experimental-features = ["nix-command" "flakes"];
 
-  services.syncthing = {
-    enable = true;
-    openDefaultPorts = true;
-    user = "marcin";
-    dataDir = "/home/marcin";
-    configDir = "/home/marcin/.config/syncthing";
-  };
+  # Syncthing: group `syncthing` (hosts/machines/sukkub.nix).
 
   # DO NOT change stateVersion after the initial installation.
   system.stateVersion = "25.11";

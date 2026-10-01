@@ -17,6 +17,7 @@
     "gaming"
     "nix-admin"
     "nix-local"
+    "syncthing"
     "cli"
   ];
 
