@@ -14,9 +14,13 @@
 #   - asks for the LUKS passphrase when disko.nix encrypts the disk and
 #     passes it to the installer (/tmp/secret.key, used only while
 #     formatting);
+#   - asks for an initial password of every account on the host (the
+#     repository holds no passwords); only the yescrypt hash goes to the
+#     target, over SSH, into /etc/shadow of the new system;
 #   - runs nixos-anywhere, which partitions the disk with disko.nix,
 #     replaces the placeholder hardware-configuration.nix with the result
-#     of nixos-generate-config on the target, installs and reboots.
+#     of nixos-generate-config on the target and installs;
+#   - sets the passwords and reboots the target.
 # Nothing is committed: review hardware-configuration.nix, then commit.
 
 die() {
@@ -40,6 +44,7 @@ inventory=$(nix eval --json ".#inventory.machines.$host") || die "the inventory 
 class=$(jq -r '.class' <<<"$inventory")
 key_source=$(jq -r '.sops.keySource' <<<"$inventory")
 host_key=$(jq -r '.ssh.hostKey // empty' <<<"$inventory")
+mapfile -t accounts < <(jq -r '.users | keys[]' <<<"$inventory")
 
 case $class in
   workstation) host_dir=hosts/workstations/$host ;;
@@ -83,6 +88,20 @@ if grep -q 'passwordFile = "/tmp/secret.key"' "$host_dir/disko.nix"; then
   args+=(--disk-encryption-keys /tmp/secret.key "$tmp/disk.key")
 fi
 
+# --- initial passwords ------------------------------------------------------------
+
+# Accounts are mutable (users.mutableUsers), so a password set now stays
+# until it is changed with passwd. Without one the account is locked: SSH
+# accepts keys only and the console has nothing to accept.
+shadow_lines=()
+for account in "${accounts[@]}"; do
+  pass1=$(gum input --password --header "Initial password for $account on $host")
+  pass2=$(gum input --password --header "Initial password for $account again")
+  [[ -n $pass1 && $pass1 == "$pass2" ]] || die "the passwords for $account are empty or differ"
+  shadow_lines+=("$account:$(printf '%s' "$pass1" | mkpasswd --method=yescrypt --stdin)")
+  unset pass1 pass2
+done
+
 # --- install --------------------------------------------------------------------
 
 disk=$(grep -m1 -o 'device = "[^"]*"' "$host_dir/disko.nix" | cut -d'"' -f2)
@@ -93,11 +112,19 @@ gum style --border rounded --padding "0 1" \
   "Writes:  $hardware"
 gum confirm --default=false "Install $host on $target?" || exit 0
 
+# Without the reboot phase, so the passwords can be set in the installed
+# system (still mounted at /mnt) before it boots.
 nixos-anywhere \
   --flake ".#$host" \
   --target-host "$target" \
+  --phases kexec,disko,install \
   --generate-hardware-config nixos-generate-config "$hardware" \
   "${args[@]}"
+
+info "Setting the initial passwords and rebooting..."
+printf '%s\n' "${shadow_lines[@]}" |
+  ssh "$target" "nixos-enter --root /mnt -c 'chpasswd --encrypted'"
+ssh "$target" reboot || true
 
 git add -- "$hardware"
 cat <<EOF

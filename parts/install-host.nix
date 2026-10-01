@@ -17,7 +17,9 @@
           gnugrep
           gum
           jq
+          mkpasswd
           nixos-anywhere
+          openssh
           sops
         ];
         text = builtins.readFile ../scripts/install-host.sh;
