@@ -160,6 +160,41 @@ in {
     '';
   };
 
+  # Phone hotspot (marcin's phone, mobile data). Lowest priority: used only
+  # when no home network is in range. IPv6 through the hotspot is slow and
+  # lossy and the IPv6 DNS servers it announces are unreachable; the
+  # phone's DNS proxy stalls systemd-resolved (EDNS0 fallback on every
+  # reconnect). Public resolvers over IPv4 avoid both; home.lan still
+  # resolves through Tailscale (lib/tailscale.nix). Diagnosed 2026-10-01.
+  environment.etc."NetworkManager/system-connections/hotspot-kontestator.nmconnection" = {
+    mode = "0600";
+    text = ''
+      [connection]
+      id=hotspot-kontestator
+      type=wifi
+      autoconnect=true
+      autoconnect-priority=10
+      permissions=
+
+      [wifi]
+      mode=infrastructure
+      ssid=Kontestator net
+
+      [wifi-security]
+      auth-alg=open
+      key-mgmt=wpa-psk
+      psk-flags=0
+
+      [ipv4]
+      method=auto
+      ignore-auto-dns=true
+      dns=9.9.9.9;1.1.1.1;
+
+      [ipv6]
+      method=disabled
+    '';
+  };
+
   # ==========================================
   # Inject Passwords from SOPS into Profiles
   # ==========================================
@@ -210,6 +245,7 @@ in {
             "hegemonia5G-1": secrets.get("HEGEMONIA5G_1", ""),
             "hegemonia5G-2": secrets.get("HEGEMONIA5G_2", ""),
             "salon_new24": secrets.get("SALON_NEW24", ""),
+            "hotspot-kontestator": secrets.get("HOTSPOT_KONTESTATOR", ""),
         }
 
         # Inject passwords into nmconnection files

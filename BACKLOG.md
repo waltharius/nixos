@@ -56,6 +56,14 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   matches, removed). Option once the VPS exists: run a Tailscale peer
   relay on it, so both ends connect to a public node instead of DERP
   (`docs/REMOTE-ACCESS.md`, "Relayed instead of direct connections").
+- **systemd-resolved on bad networks.** On the phone hotspot resolved
+  stalled: unreachable IPv6 DNS servers announced by the phone, and its
+  DNS proxy made resolved fall back from EDNS0 on every reconnect, so
+  lookups timed out while `dig`/`host` answered at once. Fixed for the
+  hotspot profile in `modules/system/wifi.nix` (IPv6 off, 9.9.9.9 and
+  1.1.1.1). On another network with the same symptom: `sudo resolvectl dns
+  <interface> 9.9.9.9 1.1.1.1`; if it keeps happening, look for a general
+  fix (resolved has no "prefer IPv4" or "skip EDNS0" setting).
 - **Tag the calibre Raspberry Pi.** It publishes calibre with Funnel and is
   an untagged device of marcin's, so the tailnet policy lets it start
   connections to the whole tailnet and, through the subnet router, to the
