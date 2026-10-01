@@ -18,6 +18,12 @@ reason for reverting them.
   using nixos-anywhere, with the stored SSH host key, the LUKS passphrase
   handed to the installer and `hardware-configuration.nix` generated on
   the target.
+- `install-host` asks for an initial password of every account and sets
+  its yescrypt hash before the first boot (nixos-anywhere runs without
+  its reboot phase). baal was installed before this and came up with
+  locked accounts.
+- marcin's `openssh.authorizedKeys`: the LAN admin key, on every host with
+  marcin (fresh hosts had no way in over SSH).
 - Disk layout `btrfs-luks-writing` and host template `writing.nix`:
   marcin's writing subvolumes with snapshots, as on azazel.
 

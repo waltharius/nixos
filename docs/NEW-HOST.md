@@ -57,14 +57,72 @@ Script: `scripts/install-host.sh`, using
 3. On azazel: put the disk id into `disko.nix` (`device =
    "/dev/disk/by-id/..."`) if `new-host` got a different one, commit, and
    copy your key to the installer: `ssh-copy-id root@<address>`.
-4. `nix run .#install-host -- <host> root@<address>`. It asks for the LUKS
-   passphrase (if the layout encrypts), shows the disk that will be erased
-   and asks for confirmation. nixos-anywhere then partitions the disk,
-   generates `hardware-configuration.nix` on the target
-   (`nixos-generate-config --no-filesystems`; disko describes the file
-   systems), installs the system with the stored SSH host key and reboots.
-5. Unlock the disk at the console, log in, review and commit
-   `hardware-configuration.nix`.
+4. `nix run .#install-host -- <host> root@<address>` (on azazel, like
+   every command here except step 2). It asks for the LUKS passphrase (if
+   the layout encrypts) and an initial password for every account on the
+   host, shows the disk that will be erased and asks for confirmation.
+   nixos-anywhere then partitions the disk, generates
+   `hardware-configuration.nix` on the target (`nixos-generate-config
+   --no-filesystems`; disko describes the file systems) and installs the
+   system with the stored SSH host key. The script sets the passwords in
+   the installed system and reboots it.
+5. Unlock the disk at the console, log in, run the checks below, commit
+   `hardware-configuration.nix` and push it before the host rebuilds from
+   a clone (a clone with the placeholder builds an unbootable system).
+6. `ssh-keygen -R <installer address>`: the installer's temporary host key
+   is in `~/.ssh/known_hosts` and would clash if the host later gets that
+   address.
+
+Passwords are not in the repository, not even as hashes: accounts are
+mutable, the initial password stays until `passwd` changes it, and only
+its yescrypt hash travels to the target. A host installed without a
+password (before install-host asked for one) is fixed from the installer:
+`cryptsetup open /dev/disk/by-partlabel/disk-main-root cryptroot`, mount
+the subvolumes `@` at /mnt and `@nix` at /mnt/nix, then
+`nixos-enter --root /mnt -c 'passwd <user>'`.
+
+### What the output means
+
+Everything runs on azazel; the target only executes what nixos-anywhere
+sends over SSH, its own screen stays at the installer prompt until the
+reboot.
+
+| Output | Where / what |
+| ------ | ------------ |
+| `Warning: Identity file …/nixos-anywhere not accessible` | nixos-anywhere tries its temporary key before creating it; harmless |
+| `Uploading install SSH keys` … `All keys were skipped` | the key from `ssh-copy-id` already works; harmless |
+| `Gathering machine facts`, `Pseudo-terminal will not be allocated` | target, over SSH: architecture, installer or not (no kexec on the installer) |
+| `Generating hardware-configuration.nix` | target scans its hardware, the file is written into the repository on azazel |
+| `Git tree … is dirty` | expected: the hardware file just changed and the flake uses the new content |
+| `building …` | azazel builds the system |
+| `Uploading /run/user/…/disk.key to /tmp/secret.key` | the LUKS passphrase, for formatting only |
+| `copying path … from 'https://cache.nixos.org'` | the **target** downloads what it needs from the binary cache itself (nixos-anywhere `--substitute-on-destination`); one line per path because there is no terminal for a progress bar. Over Wi-Fi this takes long (baal: about 1.5 h) |
+| `Formatting hard drive with disko` and the `+ …` trace | target: partitions, LUKS, btrfs subvolumes, swap file |
+| `Uploading the system closure` | the rest of the system, again mostly downloaded by the target |
+| `Copying extra files` | the stored SSH host key |
+| `Installing NixOS`, `setting up secrets…` | sops-nix decrypts with the age key derived from the SSH host key; `Cannot read ssh key '/etc/ssh/ssh_host_rsa_key'` is harmless (only an ed25519 key is provided) |
+| `installation finished!` | then install-host sets the passwords and reboots |
+
+The same package name and version can appear two or three times with
+different hashes: the hash covers every build input, and the system mixes
+nixpkgs stable and unstable (`pkgs-unstable`) and build variants. `nix-store
+--query --referrers <path>` on the host shows what needs a given copy.
+
+## Checks after the first boot
+
+| Check | Command |
+| ----- | ------- |
+| nothing failed | `systemctl --failed`, `journalctl -b -p err` |
+| boot entries | `bootctl status` |
+| mounts and swap | `findmnt -t btrfs,vfat`, `swapon --show` |
+| writing subvolumes owned by the user | `ls -ld ~/Documents ~/notes ~/syncthing` |
+| snapshots configured | `sudo snapper list-configs` |
+| secrets decrypted | `sudo ls -l /run/secrets/`, `ls -l ~/.ssh/` |
+| git keys and pinned host keys | `ssh -T git@github.com`, `ssh -T git@gitlab.com` |
+| home Wi-Fi address | `ip -br a` |
+| SSH from azazel | `ssh <host>` (no question about the host key) |
+| disk usage | `df -h /`, `sudo btrfs filesystem usage /` |
+| sleep | close the lid, open, check `journalctl -b -p warning` |
 
 The installer runs from the USB stick, so nixos-anywhere does not need
 kexec (kexec is only used when the target runs some other Linux).
