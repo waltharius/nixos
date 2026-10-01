@@ -65,6 +65,13 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 
 ## Follow-ups from stage 1
 
+- **Signed deployments instead of trusted users.** Workstations trust
+  `@wheel` in the Nix daemon (so `nixos-rebuild --target-host` from azazel
+  works). Replace with a signing key on azazel (private key in sops,
+  `nix.settings.secret-key-files`) and its public key in
+  `trusted-public-keys` on every host, together with the `deploy` account.
+- **Hibernation on baal.** Swap file exists (8 GiB); resume device and
+  `resume_offset` still to be configured.
 - **Declarative Syncthing.** Folders and devices are set in the web GUI and
   are not in the repository. NixOS `services.syncthing.settings.devices` /
   `.folders` with `overrideDevices` / `overrideFolders = false` should keep
