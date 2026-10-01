@@ -8,6 +8,7 @@
   imports = [
     # e.g. ../../../modules/laptop/thunderbolt.nix
     ./writing.nix
+    ./hibernate.nix
   ];
 
   # sops-nix with the host key derived from the SSH host key
