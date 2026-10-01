@@ -37,6 +37,9 @@ reason for reverting them.
   note-taking tool is Emacs).
 - `video=efifb:3840x2160` moved from `modules/system/boot.nix` (every
   workstation) to azazel, whose panel it describes.
+- Group `syncthing` replaces the identical `services.syncthing` blocks in
+  azazel's and sukkub's configuration.nix; Syncthing runs as the account
+  that has the group (baal gets it by adding the group).
 
 ### Fixed
 
