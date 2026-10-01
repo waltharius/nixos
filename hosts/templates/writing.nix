@@ -15,12 +15,6 @@
       syncthing = "/home/marcin/syncthing";
     };
   };
-
-  # disko creates the subvolumes as root; their roots must belong to marcin.
-  # tmpfiles `d` also fixes owner and mode of existing directories.
-  systemd.tmpfiles.rules = [
-    "d /home/marcin/Documents 0700 marcin users -"
-    "d /home/marcin/notes 0700 marcin users -"
-    "d /home/marcin/syncthing 0700 marcin users -"
-  ];
+  # Owner and mode of the subvolume roots (disko creates them as root) are
+  # set by modules/system/btrfs.nix (tmpfiles `z` rules).
 }

@@ -16,6 +16,7 @@
     "media"
     "gaming"
     "nix-admin"
+    "nix-local"
     "cli"
   ];
 

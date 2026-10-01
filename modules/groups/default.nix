@@ -59,6 +59,9 @@
   # Tools for managing this repository and the fleet.
   nix-admin.home = ./nix-admin/home.nix;
 
+  # Rebuilding this host from ~/nixos: rebuild-and-diff (`nrs`), nvd.
+  nix-local.home = ./nix-local/home.nix;
+
   # Command-line utilities that are handy but not essential.
   cli.home = ./cli/home.nix;
 }
