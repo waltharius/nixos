@@ -87,12 +87,18 @@ relayed, and that inbound UDP 41641 open on a device's public address
 allows a direct connection whenever one is possible
 ([firewalls](https://tailscale.com/docs/integrations/firewalls),
 [connection types](https://tailscale.com/kb/1257/connection-types)).
-Not done yet (BACKLOG.md):
+Here pfSense's WAN address is private (192.168.11.x): the provider's
+roof antenna does NAT in front of it and cannot be configured, so no port
+can be forwarded to pfSense. A WAN rule passing UDP 41641 to the WAN
+address was tried on 2026-10-01: it never matched a packet, and from a
+phone hotspot `tailscale ping pfsense` still reported "direct connection
+not established". Mobile networks usually put clients behind carrier NAT
+as well; with NAT on both ends that cannot be configured, the relay is
+what remains. From other networks (a friend's Wi-Fi, an office) a direct
+connection may still work: check with `tailscale ping pfsense`.
 
-- if the WAN address of pfSense (Status > Interfaces) is the public one,
-  a WAN rule passing UDP to the WAN address, port 41641;
-- if it is a private address (a provider router in front of pfSense), a
-  port forward of UDP 41641 on that router as well.
+The way out is a node with a public address that both ends can reach, for
+example a Tailscale peer relay on the planned VPS (BACKLOG.md).
 
 Moving from pfSense to OPNsense means repeating this on OPNsense.
 
