@@ -71,6 +71,15 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   works). Replace with a signing key on azazel (private key in sops,
   `nix.settings.secret-key-files`) and its public key in
   `trusted-public-keys` on every host, together with the `deploy` account.
+- **Hibernation on baal does not resume.** `systemctl hibernate` powers
+  off, but the next boot starts a fresh session instead of restoring the
+  old one (`hosts/workstations/baal/hibernate.nix`: resume device
+  `/dev/mapper/cryptroot`, `resume_offset=533760`). To check: after
+  booting, `cat /sys/power/resume /sys/power/resume_offset`; the previous
+  boot's log (`journalctl -b -1 | grep -i -E 'hibernat|resume|PM:'`);
+  whether the scripted initrd tries to resume after unlocking LUKS
+  (maybe `boot.initrd.systemd.enable` is needed); the offset against
+  `btrfs inspect-internal map-swapfile -r`.
 - **`remove-host`: retire a machine cleanly.** Counterpart of `new-host`
   for a machine that is gone: removing it from the repository shows at
   once (evaluation, `nix flake check`) whether anything else still
