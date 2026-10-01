@@ -32,6 +32,11 @@
 #     share an address
 #   - SSH alias names (machine names, `ssh.aliases`, device `ssh`) are
 #     unique
+#   - `tailscale` (lib/tailscale.nix): known fields only; `join` is owner,
+#     tagged or shared; owner and shared only on workstations; acceptRoutes
+#     and operator only with owner, the operator has an account on the
+#     machine; tagged needs tags (tag:<name>), the others have none
+#   - tailscale.loginServer in hosts/fleet.nix is null or an https:// URL
 {
   lib,
   classes,
@@ -71,6 +76,46 @@
   # age X25519 public key: "age1" + 58 bech32 characters.
   isAgeKey = key: builtins.isString key && builtins.match "age1[02-9ac-hj-np-z]{58}" key != null;
   keySources = ["key-file" "ssh-host-key"];
+
+  # Tailscale client of a machine (lib/tailscale.nix).
+  tailscaleJoins = ["owner" "tagged" "shared"];
+  tailscaleFields = ["join" "acceptRoutes" "tags" "operator"];
+  isTag = t: builtins.isString t && builtins.match "tag:[a-z0-9][a-z0-9-]*" t != null;
+
+  tailscaleErrors = name: m: let
+    ts = m.tailscale;
+    join = ts.join or null;
+    operator = ts.operator or "marcin";
+    label = "${name}: tailscale";
+  in
+    if !builtins.isAttrs ts
+    then ["${label} must be an attribute set, e.g. { join = \"owner\"; }"]
+    else
+      map (f: "${label}: unknown field `${f}` (known: ${lib.concatStringsSep ", " tailscaleFields})")
+      (builtins.filter (f: !(builtins.elem f tailscaleFields)) (builtins.attrNames ts))
+      ++ lib.optional (!(builtins.elem join tailscaleJoins))
+      "${label}.join must be one of ${lib.concatStringsSep ", " tailscaleJoins}"
+      ++ lib.optional (builtins.elem join ["owner" "shared"] && (m.class or null) != "workstation")
+      "${label}.join = \"${join}\" is for workstations; servers are reached through the subnet router (docs/REMOTE-ACCESS.md)"
+      ++ lib.optional (ts ? acceptRoutes && !builtins.isBool ts.acceptRoutes)
+      "${label}.acceptRoutes must be true or false"
+      ++ lib.optional ((ts.acceptRoutes or false) == true && join != "owner")
+      "${label}.acceptRoutes is only for join = \"owner\""
+      ++ lib.optional (join == "tagged" && (ts.tags or []) == [])
+      "${label}: join = \"tagged\" needs `tags`, e.g. [\"tag:managed\"]"
+      ++ lib.optional (join != "tagged" && ts ? tags)
+      "${label}.tags are only for join = \"tagged\""
+      ++ map (t: "${label}.tags: ${builtins.toJSON t} is not a tag (tag:<name>; lowercase letters, digits, -)")
+      (builtins.filter (t: !isTag t) (ts.tags or []))
+      ++ lib.optional (ts ? operator && join != "owner")
+      "${label}.operator is only for join = \"owner\""
+      ++ lib.optional (join == "owner" && !((m.users or {}) ? ${operator}))
+      "${label}: operator `${operator}` has no account on ${name} (users)";
+
+  loginServer = raw.tailscale.loginServer or null;
+  fleetTailscaleErrors =
+    lib.optional (loginServer != null && !(builtins.isString loginServer && lib.hasPrefix "https://" loginServer))
+    "hosts/fleet.nix: tailscale.loginServer must be null (Tailscale) or an https:// URL (Headscale)";
 
   adminErrors =
     lib.optional ((raw.sops.admins or {}) == {}) "hosts/fleet.nix: no admin key in `sops.admins`"
@@ -118,7 +163,8 @@
       "${name}: user `${user}` has no users/${user}/account.nix"
       ++ map (g: "${name}: user `${user}` has unknown group `${g}` (known: ${lib.concatStringsSep ", " knownGroups})")
       (builtins.filter (g: !(builtins.elem g knownGroups)) (u.groups or [])))
-    (m.users or {}));
+    (m.users or {}))
+    ++ lib.optionals (m ? tailscale) (tailscaleErrors name m);
 
   deviceErrorsFor = name: let
     d = devices.${name};
@@ -164,6 +210,7 @@
 
   errors =
     adminErrors
+    ++ fleetTailscaleErrors
     ++ lib.concatMap errorsFor names
     ++ lib.concatMap deviceErrorsFor deviceNames
     ++ duplicateErrors
