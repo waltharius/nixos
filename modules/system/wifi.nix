@@ -20,10 +20,18 @@
   # where lib/inventory.nix checks it (in the LAN, outside the router's DHCP
   # pool, not used twice). Without lan.ip the host uses DHCP at home too.
   lanIP = host.lan.ip or null;
-  ipv4Section =
-    if lanIP != null
-    then
-      lib.concatStringsSep "\n" [
+
+  # Hosts that accept the home LAN route from the Tailscale subnet router
+  # (lib/tailscale.nix) would send LAN traffic through the tunnel even at
+  # home. The rule keeps it on the LAN, and only while a home profile is
+  # up: elsewhere the same addresses must still go to the tunnel.
+  lanRoutingRule = config.fleet.tailscale.lanRoutingRule;
+  routingRules = lib.optional (lanRoutingRule != null) "routing-rule1=${lanRoutingRule}";
+
+  ipv4Section = lib.concatStringsSep "\n" (
+    (
+      if lanIP != null
+      then [
         "[ipv4]"
         "address1=${lanIP}/24"
         "dns=192.168.50.1;"
@@ -31,11 +39,13 @@
         "gateway=192.168.50.1"
         "method=manual"
       ]
-    else
-      lib.concatStringsSep "\n" [
+      else [
         "[ipv4]"
         "method=auto"
-      ];
+      ]
+    )
+    ++ routingRules
+  );
 in {
   # Enable NetworkManager
   # Note: networking.wireless is managed internally by NetworkManager in 26.05+

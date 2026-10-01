@@ -28,7 +28,6 @@
 
     # --- host features ---
     ../../../modules/system/auto-upgrade.nix
-    ../../../modules/services/tailscale.nix
     ../../../modules/services/podman.nix
   ];
 

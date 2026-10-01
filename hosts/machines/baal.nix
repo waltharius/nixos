@@ -10,6 +10,13 @@
     marcin.groups = ["cli" "emacs" "gnome" "media" "nix-local" "office" "web"];
   };
 
+  # Tailscale (lib/tailscale.nix, docs/REMOTE-ACCESS.md): marcin's own
+  # laptop; the home LAN route of the pfSense subnet router when away.
+  tailscale = {
+    join = "owner";
+    acceptRoutes = true;
+  };
+
   # Age key derived from the SSH host key; its private part is stored
   # in secrets/hosts/baal/ssh_host_ed25519_key (admin keys only).
   sops = {

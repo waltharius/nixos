@@ -21,7 +21,11 @@
   # known_hosts and the ssh_config texts for admins (lib/ssh.nix).
   fleetSsh = import ./ssh.nix {inherit lib inventory;};
 
-  hostModules = name: machine: (classOf machine).modules name machine ++ [fleetSsh];
+  # Tailscale client of machines with a `tailscale` entry; the others get
+  # only its option (lib/tailscale.nix).
+  fleetTailscale = import ./tailscale.nix {inherit lib inventory;};
+
+  hostModules = name: machine: (classOf machine).modules name machine ++ [fleetSsh fleetTailscale];
   hostSpecialArgs = name: machine: (classOf machine).specialArgs name machine;
 
   # `lib.nixosSystem` (used for nixosConfigurations) evaluates with the

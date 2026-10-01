@@ -56,8 +56,6 @@ in {
     # -------------------------------------------------------------------------
     # Phase 4+ modules — uncomment when ready:
     # -------------------------------------------------------------------------
-    # ../../../modules/servers/network/tailscale.nix
-    # ../../../modules/servers/network/yggdrasil.nix
     # ../../../modules/servers/monitoring/prometheus.nix
     # ../../../modules/servers/monitoring/grafana.nix
     # ../../../modules/servers/monitoring/psu-monitor.nix

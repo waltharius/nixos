@@ -21,6 +21,13 @@
     "cli"
   ];
 
+  # Tailscale (lib/tailscale.nix, docs/REMOTE-ACCESS.md): marcin's own
+  # laptop; the home LAN route of the pfSense subnet router when away.
+  tailscale = {
+    join = "owner";
+    acceptRoutes = true;
+  };
+
   ssh.hostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG7lgvMgxcyiT9UNSjj3arWi5AXINsekHoTQnscTrmDa";
 
   sops = {
