@@ -187,9 +187,13 @@ age_key=$(ssh-to-age <"$tmp/ssh_host_ed25519_key.pub")
 # Encrypted for the admin keys only (catch-all rule of .sops.yaml).
 mkdir -p "secrets/hosts/$name"
 created+=("secrets/hosts/$name")
+# Encrypt into the temporary directory first: --filename-override only
+# selects the .sops.yaml rule, but writing straight to that path looks like
+# reading and writing one file in a pipeline (shellcheck SC2094).
 sops encrypt --filename-override "secrets/hosts/$name/ssh_host_ed25519_key" \
   --input-type binary --output-type binary \
-  "$tmp/ssh_host_ed25519_key" >"secrets/hosts/$name/ssh_host_ed25519_key"
+  "$tmp/ssh_host_ed25519_key" >"$tmp/ssh_host_ed25519_key.sops"
+install -m 0644 "$tmp/ssh_host_ed25519_key.sops" "secrets/hosts/$name/ssh_host_ed25519_key"
 
 info "Writing hosts/machines/$name.nix and $host_dir/..."
 machine_file=hosts/machines/$name.nix
