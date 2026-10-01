@@ -9,6 +9,91 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
+## [2026-10-01] Refactor stage 4 - remote access (Tailscale)
+
+Goal of this stage: reach the home network from away through a Tailscale
+subnet router on pfSense, and declare in the inventory which machines run
+Tailscale and how they join the tailnet. Servers and virtual machines stay
+off the tailnet and are reached through the subnet router.
+
+### Added
+
+- `tailscale` field of `hosts/machines/<host>.nix`: `join` (`owner`,
+  `tagged`, `shared`), `acceptRoutes`, `tags`, `operator`; and
+  `tailscale.loginServer` in `hosts/fleet.nix` (null: Tailscale's control
+  server; later Headscale). `lib/inventory.nix` validates both.
+- `lib/tailscale.nix`, a module generated from the inventory and imported
+  by every host (like `lib/ssh.nix`). For machines with a `tailscale`
+  entry: the client with the firewall port open for direct connections,
+  `tailscale0` trusted, client settings re-applied on every boot with
+  `tailscale set`, the `tailscale-join` command (`tailscale up` with every
+  flag from the repository), the first-boot unit `tailscale-join-once`,
+  and for `owner` systemd-resolved (NetworkManager hands DNS to it),
+  operator marcin and `tailscale-systray`.
+- Home Wi-Fi profiles of hosts with `acceptRoutes` carry the routing rule
+  `priority 2500 to 192.168.50.0/24 table 254`, so LAN traffic stays off
+  the tunnel at home but still uses it away (`modules/system/wifi.nix`).
+- `new-host` asks how a workstation joins the tailnet and writes the
+  `tailscale` entry; `install-host` asks for a one-off auth key (required
+  for `tagged`, optional for `owner`) and leaves it in
+  `/var/lib/tailscale-join/auth-key` of the new system, sent over SSH
+  stdin.
+- `docs/REMOTE-ACCESS.md`: pfSense as subnet router, a draft tailnet
+  policy, split DNS for `home.lan`, client behaviour, troubleshooting.
+- azazel, sukkub and baal: `join = "owner"`, `acceptRoutes = true`.
+
+### Changed
+
+- azazel: Tailscale is configured by the repository and stays connected,
+  instead of `tailscale up --accept-routes` by hand when needed.
+- `owner` workstations resolve names through systemd-resolved instead of
+  a `/etc/resolv.conf` written by NetworkManager.
+
+### Removed
+
+- `modules/services/tailscale.nix` (azazel only), replaced by
+  `lib/tailscale.nix`.
+- The commented-out imports of the non-existent
+  `modules/servers/network/tailscale.nix` and `yggdrasil.nix` in altair's
+  configuration.
+
+### Verification
+
+To be run on azazel after applying the series; record the results here
+(and remove this note):
+
+- `nix flake check` passes.
+- altair and cloud-apps: system derivations equal to the previous commit
+  (they only gain the option `fleet.tailscale.lanRoutingRule`).
+- azazel, sukkub, baal (`nvd diff`): only the expected differences -
+  Tailscale and `tailscale-join`, `tailscale-systray`, systemd-resolved,
+  the units `tailscaled-set` and `tailscale-join-once`, the routing rule
+  in the home Wi-Fi profiles.
+- After switching: `tailscale status`; `tailscaled-set` succeeded on a
+  host that was not yet logged in; at home `ip rule` shows priority 2500
+  and `ip route get 192.168.50.1` the Wi-Fi interface; away (phone
+  hotspot) `ping 192.168.50.150`, `ssh altair` and a `home.lan` name
+  resolve and connect through pfSense.
+
+### Lessons learned
+
+- On Linux, a client that accepts subnet routes sends traffic for its own
+  LAN through the subnet router when the router advertises that LAN:
+  Tailscale's policy routing rules (5200-5500) win over the normal route.
+  The documented bypass rule is meant for fixed networks; tying it to the
+  home Wi-Fi profiles keeps it from applying on foreign networks.
+- Without a DNS manager Tailscale rewrites `/etc/resolv.conf` and fights
+  whatever else writes it; with systemd-resolved it adds its DNS per
+  interface.
+- A subnet router on a server would make remote access depend on two
+  machines; on the router it depends on one that the network needs
+  anyway.
+- An untagged device that publishes a service with Funnel counts as one of
+  marcin's devices in the tailnet policy and can start connections to the
+  whole LAN through the subnet router. Tag such devices.
+- Headscale cannot run behind Cloudflare Proxy or Tunnel and has no
+  Funnel; moving to it needs a public address and calibre off Funnel first.
+
 ## [2026-10-01] Refactor stage 3 - installing hosts (baal)
 
 ### Added

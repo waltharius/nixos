@@ -6,7 +6,6 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 
 ## Refactor stages still ahead
 
-4. Remote access (Tailscale on every host, subnet router for the LAN).
 5. Monitoring: generated scrape targets for servers, push for laptops,
    Alertmanager.
 6. Class `managed` for family and friends' laptops (`keeper` admin account,
@@ -30,6 +29,44 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   moving the LXC containers from Proxmox.
 - **Lint hooks.** Enable statix and deadnix in `parts/dev.nix` after a
   one-time cleanup of the existing code.
+
+## Repository cleanup
+
+- **Dead files.** The repository still holds files nothing uses: modules
+  no host imports, stale commented-out imports (e.g. the "Phase 4+" block
+  in `hosts/physical/altair/configuration.nix`: Prometheus and Grafana
+  already come in through `monitoring/default.nix`, `psu-monitor.nix` does
+  not exist), scripts and documents left from earlier setups. Stage 1 removed the obvious ones. Do one pass after the
+  refactor: list every `.nix` file under `modules/` and `hosts/` that no
+  host evaluates (compare the files in the tree with the imports of all
+  `nixosConfigurations`), grep for commented imports and for paths that
+  do not exist, remove them with the system derivations of all hosts
+  unchanged, and record what went in the changelog. Documents are covered
+  by "Documents still to review" below.
+
+## Follow-ups from stage 4
+
+- **pfSense is the subnet router, configured by hand** (package, tagged
+  key, advertised route; `docs/REMOTE-ACCESS.md`). Repeat it on OPNsense
+  when pfSense is replaced.
+- **Tag the calibre Raspberry Pi.** It publishes calibre with Funnel and is
+  an untagged device of marcin's, so the tailnet policy lets it start
+  connections to the whole tailnet and, through the subnet router, to the
+  home LAN. A compromise of the published service would reach everything.
+  Re-authenticate it with a tag (e.g. `tag:funnel`), give the `funnel`
+  attribute to the tag in `nodeAttrs` and no `src` rule to the tag. Moot
+  once calibre moves to Cloudflare Tunnel (see Infrastructure).
+- **Firewall on `tailscale0`.** Workstations trust the interface
+  (`networking.firewall.trustedInterfaces`); the tailnet policy is the
+  only filter. Replace with explicit ports once it is clear which services
+  must be reachable over the tailnet.
+- **`join = "tagged"` is untested.** `install-host` hands over the key
+  and `tailscale-join-once` uses it, but no tagged machine exists yet.
+  Test with the first managed computer (stage 6), together with the
+  `tag:managed` rule for the Atuin server in the tailnet policy.
+- **Servers stay off the tailnet.** A server gets its own Tailscale only to
+  publish a service with Funnel when the service has no Cloudflare Tunnel;
+  it then needs a `tailscale` entry with `join = "tagged"` and a tagged key.
 
 ## Follow-ups from stage 2
 
@@ -156,9 +193,18 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 - Calibre on a Raspberry Pi is published with Tailscale Funnel; consider
   moving it behind Cloudflare Tunnel as well.
 - Tailnet access policy (ACL) is managed manually in the Tailscale admin
-  console for now. Consider policy-as-code (policy file in a repository,
-  applied automatically) later.
-- Add Headscale next to Tailscale.
+  console for now (draft in `docs/REMOTE-ACCESS.md`). Consider
+  policy-as-code (policy file in a repository, applied automatically)
+  later.
+- **Headscale**, together with a VPS (worth having anyway). Known
+  constraints: it does not work behind Cloudflare Proxy or Cloudflare
+  Tunnel (it needs a direct public address with TLS, e.g. the VPS);
+  Funnel, Serve and network flow logs are not implemented, so calibre must
+  leave Funnel first; one tailnet only, so machine sharing between
+  tailnets does not exist (`join = "shared"` machines stay on Tailscale);
+  clients must be among the last 10 Tailscale releases; a client talks to
+  one control server at a time. Switch with `tailscale.loginServer` in
+  `hosts/fleet.nix`, then `tailscale-join` on every machine.
 - Reinstall the Proxmox host with NixOS and move its containers to altair
   (separate stage).
 - Raspberry Pi 5 machines (aarch64) - add to the fleet later; needs
