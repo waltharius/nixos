@@ -115,7 +115,7 @@ suggest_ip() {
 
 ip=""
 interface=""
-if [[ $class != workstation ]] || gum confirm --default=false "Document a DHCP reservation (lan.ip) for this workstation?"; then
+if [[ $class != workstation ]] || gum confirm --default=false "Static address on the home Wi-Fi (lan.ip)? Without it the workstation uses DHCP at home."; then
   ip=$(gum input --header "LAN address (outside $prefix.$pool_first-$pool_last)" --value "$(suggest_ip)")
   grep -qxF "$ip" <<<"$used_ips" && die "$ip is already used"
 fi
@@ -151,6 +151,7 @@ if [[ $class != virtual ]]; then
 fi
 
 # --- summary ----------------------------------------------------------------
+# Nothing has been written up to here: interrupting is always safe.
 
 {
   echo "Host:        $name ($class, $system)"
