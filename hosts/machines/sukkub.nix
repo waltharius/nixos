@@ -4,6 +4,8 @@
   system = "x86_64-linux";
   description = "ThinkPad P50 - test/POC workstation";
   tags = ["workstation" "laptop"];
+  # Static address on the home Wi-Fi (modules/system/wifi.nix).
+  lan.ip = "192.168.50.81";
   users.marcin.groups = [
     "gnome"
     "emacs"

@@ -28,7 +28,7 @@ The inventory is exported as JSON for external tooling:
 | `system`      | yes                 | Nix system, e.g. `x86_64-linux` |
 | `description` | no                  | free text, shown in the exported inventory |
 | `tags`        | no                  | Colmena tags; select with `colmena apply --on @<tag>` |
-| `lan.ip`      | server, virtual     | static LAN address. For laptops only documentation of the DHCP reservation (laptops roam between networks) |
+| `lan.ip`      | server, virtual     | static LAN address. Workstations: the static address on the home Wi-Fi profiles (`modules/system/wifi.nix`); without it they use DHCP at home as everywhere else |
 | `lan.interface` | server            | network interface the static address is set on (`modules/servers/base-baremetal.nix`) |
 | `deploy`      | no                  | Colmena deployment settings; override the class defaults from `lib/classes.nix` |
 | `users`       | yes                 | accounts on the machine and the program groups each one uses: `users.<n>.groups = [ ... ]`. The account must exist in `users/<n>/account.nix`, the groups in `modules/groups/default.nix`. The host gets the system part of every group of every user (see `lib/users.nix`). Servers and virtual machines must have `nixadm` |

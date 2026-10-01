@@ -13,17 +13,29 @@
   config,
   lib,
   pkgs,
-  hostname,
+  host,
   ...
 }: let
-  # Host-specific IP addresses
-  hostIP =
-    {
-      azazel = "192.168.50.80";
-      sukkub = "192.168.50.81";
-    }.${
-      hostname
-    } or "192.168.50.99"; # Fallback IP if host unknown
+  # Address on the home networks: `lan.ip` from hosts/machines/<host>.nix,
+  # where lib/inventory.nix checks it (in the LAN, outside the router's DHCP
+  # pool, not used twice). Without lan.ip the host uses DHCP at home too.
+  lanIP = host.lan.ip or null;
+  ipv4Section =
+    if lanIP != null
+    then
+      lib.concatStringsSep "\n" [
+        "[ipv4]"
+        "address1=${lanIP}/24"
+        "dns=192.168.50.1;"
+        "dns-search=home.lan;"
+        "gateway=192.168.50.1"
+        "method=manual"
+      ]
+    else
+      lib.concatStringsSep "\n" [
+        "[ipv4]"
+        "method=auto"
+      ];
 in {
   # Enable NetworkManager
   # Note: networking.wireless is managed internally by NetworkManager in 26.05+
@@ -76,12 +88,7 @@ in {
       key-mgmt=wpa-psk
       psk-flags=0
 
-      [ipv4]
-      address1=${hostIP}/24
-      dns=192.168.50.1;
-      dns-search=home.lan;
-      gateway=192.168.50.1
-      method=manual
+      ${ipv4Section}
 
       [ipv6]
       addr-gen-mode=default
@@ -108,12 +115,7 @@ in {
       key-mgmt=wpa-psk
       psk-flags=0
 
-      [ipv4]
-      address1=${hostIP}/24
-      dns=192.168.50.1;
-      dns-search=home.lan;
-      gateway=192.168.50.1
-      method=manual
+      ${ipv4Section}
 
       [ipv6]
       addr-gen-mode=default
@@ -140,12 +142,7 @@ in {
       key-mgmt=wpa-psk
       psk-flags=0
 
-      [ipv4]
-      address1=${hostIP}/24
-      dns=192.168.50.1;
-      dns-search=home.lan;
-      gateway=192.168.50.1
-      method=manual
+      ${ipv4Section}
 
       [ipv6]
       addr-gen-mode=default

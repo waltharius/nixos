@@ -4,6 +4,8 @@
   system = "x86_64-linux";
   description = "ThinkPad T16 Gen3 - primary workstation";
   tags = ["workstation" "laptop"];
+  # Static address on the home Wi-Fi (modules/system/wifi.nix).
+  lan.ip = "192.168.50.80";
   users.marcin.groups = [
     "gnome"
     "emacs"
