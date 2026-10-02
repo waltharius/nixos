@@ -68,7 +68,14 @@
     static_configs = [
       {
         targets = ["127.0.0.1:${toString port}"];
-        labels = {host = host.name;} // labels;
+        # instance = host name, like the generated jobs, so dashboards show
+        # "altair" instead of 127.0.0.1:<port>.
+        labels =
+          {
+            instance = host.name;
+            host = host.name;
+          }
+          // labels;
       }
     ];
   };
@@ -138,6 +145,7 @@ in {
           {
             targets = ["127.0.0.1:9101"];
             labels = {
+              instance = host.name;
               host = host.name;
               role = "incus";
             };

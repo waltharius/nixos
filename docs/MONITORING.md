@@ -37,19 +37,27 @@ smartctl). The monitoring stack itself listens on loopback, except Grafana
 | `modules/servers/monitoring/alertmanager.nix` | routing, e-mail, Watchdog webhook, inhibition |
 | `modules/servers/monitoring/mail.nix` | send-only Postfix |
 | `modules/servers/monitoring/blackbox.nix` | ping and HTTP probes |
-| `modules/servers/monitoring/grafana.nix` | Grafana, data sources, dashboards |
+| `modules/servers/monitoring/grafana.nix` | Grafana, data sources, dashboards, image renderer |
+| `modules/servers/monitoring/dashboards/*.nix` | the repository's own dashboards (Fleet overview), as Nix data |
 | `modules/servers/monitoring/nvidia-exporter.nix` | GPU metrics (altair only) |
 
 ## Where to look
 
 - **Grafana** (`http://192.168.50.150:3000`):
-  - Alerting -> Alert rules: every rule with its state. The "State" view
-    lists what is firing, like the problem list in Checkmk. This works
-    even when e-mail does not.
+  - Home dashboard **Fleet overview**: a table of every pending or firing
+    alert (empty = nothing wrong) and UP/DOWN tiles for hosts, websites
+    and exporters. This is the Checkmk-like view and works even when
+    e-mail does not. It is defined in
+    `modules/servers/monitoring/dashboards/fleet-overview.nix`; edits in
+    the UI are not kept.
+  - Alerting -> Alert rules: every rule with its state and expression.
   - Alerting -> Silences (choose the "Alertmanager" data source at the
     top): mute alerts during maintenance.
-  - Dashboards: Node Exporter Full (per host), Prometheus Blackbox
-    (ping and websites), NVIDIA GPU.
+  - Dashboards: Node Exporter Full (per host: choose job `node`, then the
+    instance), NVIDIA GPU (job `nvidia`), Prometheus Blackbox. The
+    Blackbox dashboard is built for HTTP probes: choose a page in
+    `target`; for a pinged host only Status and Probe Duration show data,
+    the HTTP, SSL and DNS panels stay empty by design.
 - **E-mail**: every alert, when it fires and when it is resolved, to
   `monitoring.mail.to` in `hosts/fleet.nix`. A still-firing alert is
   repeated every 12 hours.
@@ -90,6 +98,38 @@ loaded.
 | Silence an alert | Grafana -> Alerting -> Silences -> data source "Alertmanager" -> New silence |
 | Start a scrub now | `sudo systemctl start btrfs-scrub-mnt-data.service` (or `btrfs-scrub--.service` for `/`; `systemctl list-units 'btrfs-scrub-*'` lists them), then `sudo systemctl start btrfs-scrub-metrics.service` |
 | Export a result through the textfile collector | write `<name>.prom` (Prometheus text format) to `/var/lib/node-exporter-textfile/`: write a temporary file in the same directory, `chmod 0644`, then `mv` it over the old one, so node_exporter never reads half a file. Example: `btrfs-scrub.nix` |
+
+## Exporting images and data
+
+- **Image of a panel or dashboard**: Share -> Export as image (rendered
+  by the image renderer service on the monitoring server).
+- **Data behind a panel** (better for analysis than an image): panel
+  menu -> Inspect -> Data -> Download CSV, or Inspect -> Panel JSON /
+  Query for the exact query.
+- **A whole dashboard's definition**: Share -> Export -> JSON.
+
+## Removing old series
+
+Series keep their labels for the whole retention (90 days). When jobs or
+labels are renamed, the old names stay in Grafana's drop-downs with empty
+graphs until they age out. To delete them earlier, Prometheus' admin API
+has to be on for a moment; it stays off normally, because anything that
+can reach port 9090 on altair (including the Podman containers on the host
+network) could then delete data.
+
+1. In `modules/servers/monitoring/prometheus.nix`, inside
+   `services.prometheus`, add `extraFlags = ["--web.enable-admin-api"];`
+   and activate without making it permanent:
+   `colmena apply test --on altair`.
+2. On altair, delete by label matcher and free the space:
+   ```sh
+   curl -s -X POST -g 'http://127.0.0.1:9090/api/v1/admin/tsdb/delete_series' \
+     --data-urlencode 'match[]={job="old-job-name"}'
+   curl -s -X POST 'http://127.0.0.1:9090/api/v1/admin/tsdb/clean_tombstones'
+   ```
+3. Remove the flag again and `colmena apply --on altair`.
+
+Deleted series cannot be restored; their history is gone.
 
 ## Alert e-mail
 

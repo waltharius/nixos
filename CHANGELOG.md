@@ -9,6 +9,54 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
+## [2026-10-02] Monitoring: fleet overview dashboard, image export, instance labels
+
+Follow-up to stage 5a after the first days of use.
+
+### Added
+
+- Grafana home dashboard "Fleet overview"
+  (`modules/servers/monitoring/dashboards/fleet-overview.nix`, Nix data
+  provisioned as JSON): table of pending and firing alerts (Prometheus'
+  `ALERTS` series, Watchdog excluded) and UP/DOWN tiles for pinged hosts,
+  websites and exporters, website response times, certificate expiry. The
+  Checkmk-like overview that also works when e-mail does not.
+- Grafana image rendering (`services.grafana-image-renderer`, headless
+  Chromium): Share -> Export as image.
+- `docs/MONITORING.md`: exporting images and data, removing old series,
+  how to read the Blackbox dashboard.
+
+### Changed
+
+- Local scrape jobs on the monitoring server (`nvidia`, `incus`,
+  `prometheus`, `alertmanager`, `blackbox`) set `instance` to the host
+  name, like the generated jobs: dashboards show `altair` instead of
+  `127.0.0.1:<port>`.
+
+### Removed
+
+- Series of the jobs renamed in stage 5a (`altair-node`, `altair-nvidia`,
+  `opnsense firewall`) and of the old `127.0.0.1:*` instances, deleted
+  through the admin API once (procedure in `docs/MONITORING.md`). They
+  showed up as empty choices in the dashboards' drop-downs.
+
+### Verification
+
+To be run after the deploy; record the results here (and remove this
+note):
+
+- Grafana opens on "Fleet overview"; the alerts table is empty or lists
+  only real problems; tiles show every pinged host and website.
+- Share -> Export as image produces a PNG.
+- Job drop-downs in Node Exporter Full and NVIDIA GPU list only `node`
+  and `nvidia`; the instance is `altair`.
+
+### Lessons learned
+
+- Renaming a scrape job or a label leaves the old series for the whole
+  retention; plan label names before the first deploy, or budget a
+  one-off delete through the admin API.
+
 ## [2026-10-02] Refactor stage 5a - monitoring from the inventory, alerting
 
 Goal of this stage: every NixOS server and VM is monitored without naming

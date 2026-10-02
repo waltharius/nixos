@@ -6,7 +6,9 @@
 #                  set domain, root_url, cookie_secure = true.
 #
 # Everything Grafana shows is provisioned from this file: the Prometheus
-# and Alertmanager data sources and the community dashboards below. Nothing
+# and Alertmanager data sources, the community dashboards below and the
+# repository's own dashboards in ./dashboards/ (the home dashboard "Fleet
+# overview" lists active alerts and what is up or down). Nothing
 # is configured by hand in the UI, so grafana.db holds no state worth
 # keeping (metrics live in Prometheus, not in Grafana).
 #
@@ -30,7 +32,15 @@
   pkgs,
   host,
   ...
-}: {
+}: let
+  # Dashboards defined in Nix (./dashboards/<name>.nix -> <name>.json).
+  fleetDashboards = pkgs.linkFarm "grafana-fleet-dashboards" [
+    {
+      name = "fleet-overview.json";
+      path = pkgs.writeText "fleet-overview.json" (builtins.toJSON (import ./dashboards/fleet-overview.nix));
+    }
+  ];
+in {
   services.grafana = {
     enable = true;
     settings = {
@@ -63,6 +73,8 @@
       # replace bundled plugins that live read-only in the Nix store.
       # Bundled plugin versions now move with the Grafana package instead.
       plugins.preinstall_disabled = true;
+      # Opening Grafana shows the fleet overview (active alerts, up/down).
+      dashboards.default_home_dashboard_path = "${fleetDashboards}/fleet-overview.json";
       users.allow_sign_up = false;
       "auth.anonymous".enabled = false;
     };
@@ -111,6 +123,15 @@
             disableDeletion = true; # prevent accidental deletion via UI
             updateIntervalSeconds = 30;
             options.path = "/var/lib/grafana/dashboards";
+          }
+          # Dashboards written in this repository (./dashboards/*.nix),
+          # read-only in the Nix store.
+          {
+            name = "fleet";
+            type = "file";
+            disableDeletion = true;
+            allowUiUpdates = false;
+            options.path = fleetDashboards;
           }
         ];
       };
@@ -199,6 +220,16 @@
     group = "grafana";
     mode = "0400";
     # Key in secrets/altair.yaml: grafana-secret-key (raw value, no KEY= prefix)
+  };
+
+  # Image rendering: "Share -> Export as image" and the render links of
+  # panels. Grafana hands the rendering to a separate service that drives a
+  # headless Chromium; `provisionGrafana` points Grafana at it (and the
+  # callback URL back to Grafana). Its port is not opened in the firewall,
+  # so only Grafana on this host reaches it. Pulls in Chromium.
+  services.grafana-image-renderer = {
+    enable = true;
+    provisionGrafana = true;
   };
 
   # Firewall rule: allow Grafana from the LAN interface only
