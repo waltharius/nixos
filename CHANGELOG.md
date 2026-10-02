@@ -94,6 +94,16 @@ off the tailnet and are reached through the subnet router.
 - `docs/REMOTE-ACCESS.md`: pfSense as subnet router, a draft tailnet
   policy, split DNS for `home.lan`, client behaviour, troubleshooting.
 - azazel, sukkub and baal: `join = "owner"`, `acceptRoutes = true`.
+- pfSense as the subnet router for `192.168.50.0/24` (Tailscale package,
+  tag `tag:router`, pass rule on the Tailscale interface group), set up by
+  hand and described in `docs/REMOTE-ACCESS.md`.
+- Tailnet policy in `grants` syntax with tests, edited in the JSON editor
+  of the admin console (copy in `docs/REMOTE-ACCESS.md`); split DNS
+  `home.lan` -> 192.168.50.1 and the search domain `home.lan`.
+- Declarative profile `hotspot-kontestator` for the phone hotspot in
+  `modules/system/wifi.nix`: lowest autoconnect priority, IPv6 off, DNS
+  9.9.9.9 and 1.1.1.1 (password `HOTSPOT_KONTESTATOR` in
+  `secrets/wifi.env`).
 
 ### Changed
 
@@ -101,6 +111,9 @@ off the tailnet and are reached through the subnet router.
   instead of `tailscale up --accept-routes` by hand when needed.
 - `owner` workstations resolve names through systemd-resolved instead of
   a `/etc/resolv.conf` written by NetworkManager.
+- Tailnet: Tailscale's default allow-all policy replaced; only
+  `group:admin` (marcin's devices) may start connections, tagged devices
+  only answer.
 
 ### Removed
 
@@ -112,21 +125,25 @@ off the tailnet and are reached through the subnet router.
 
 ### Verification
 
-To be run on azazel after applying the series; record the results here
-(and remove this note):
+Run on azazel on 2026-10-01:
 
-- `nix flake check` passes.
-- altair and cloud-apps: system derivations equal to the previous commit
-  (they only gain the option `fleet.tailscale.lanRoutingRule`).
-- azazel, sukkub, baal (`nvd diff`): only the expected differences -
-  Tailscale and `tailscale-join`, `tailscale-systray`, systemd-resolved,
-  the units `tailscaled-set` and `tailscale-join-once`, the routing rule
-  in the home Wi-Fi profiles.
-- After switching: `tailscale status`; `tailscaled-set` succeeded on a
-  host that was not yet logged in; at home `ip rule` shows priority 2500
-  and `ip route get 192.168.50.1` the Wi-Fi interface; away (phone
-  hotspot) `ping 192.168.50.150`, `ssh altair` and a `home.lan` name
-  resolve and connect through pfSense.
+- Away from home (phone hotspot): `ip route get 192.168.50.150` shows
+  `tailscale0`, `ping` and `ssh altair` work, `resolvectl query
+  altair.home.lan` answers through `tailscale0`. The connection to pfSense
+  is relayed through DERP (Warsaw), never direct (`tailscale ping
+  pfsense`): about 100-200 ms.
+- At home: `ip rule` shows the rule with priority 2500 (only while a home
+  profile is up).
+- Tailnet policy tests pass on save.
+- Browsing on the hotspot failed until the hotspot profile got IPv6 off
+  and public DNS (see Added, Lessons learned).
+
+Still to check, with the rebuild of sukkub and baal:
+
+- `tailscaled-set` succeeds on a host that is not yet logged in;
+  `tailscale-join` logs it in.
+- altair and cloud-apps: system derivations equal to the commit before
+  the stage (they only gain the option `fleet.tailscale.lanRoutingRule`).
 
 ### Lessons learned
 
@@ -146,14 +163,23 @@ To be run on azazel after applying the series; record the results here
   whole LAN through the subnet router. Tag such devices.
 - Headscale cannot run behind Cloudflare Proxy or Tunnel and has no
   Funnel; moving to it needs a public address and calibre off Funnel first.
-- systemd-resolved is less forgiving than a plain `/etc/resolve.conf`:
-  with a phone hotspot's DNS proxy and unreachable IPv6 DNS servers its
+- systemd-resolved is less forgiving than a plain `/etc/resolv.conf`:
+  with a phone hotspot's DNS proxy and unreachable IPv6 DNS servers it
   timed out, while baal (still without resolved) worked on the same network.
   Test a resolver change on the networks actually used.
 - pfSense drops traffic from the tailnet until the Tailscale interface
   group has a pass rule. Split DNS for `home.lan` worked before that rule
   existed, so a working DNS lookup does not prove the LAN is reachable:
   test with ping or SSH to a LAN host.
+- Android accepts subnet routes by default: the phone reaches the home
+  LAN through the subnet route, no exit node needed. An exit node sends
+  all internet traffic through home (and here through the relay).
+- After `tailscale down`, bring the client back with `tailscale-join`, not
+  a bare `tailscale up`, which refuses to change settings unless every
+  non-default flag is repeated.
+- Rewriting commits that are already pushed (`git rebase HEAD~N` over
+  `origin/main`) or editing on one of two remotes makes the histories of
+  GitLab and GitHub diverge; only rewrite commits after `@{upstream}`.
 
 ## [2026-10-01] Refactor stage 3 - installing hosts (baal)
 
