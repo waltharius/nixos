@@ -7,9 +7,9 @@
 # Scrub reads every block and checks it against its checksum, so silent
 # corruption on a disk is found while the data can still be repaired or
 # restored. A scrub works on a whole filesystem, so it runs once per btrfs
-# device, not once per subvolume: for every device the shortest mount point
-# is used (on altair: / for the system disk, /mnt/data for the data disk).
-# A host can override `services.btrfs.autoScrub.fileSystems`.
+# device, not once per subvolume; nixpkgs picks one mount point per device
+# by default (on altair: / for the system disk, /mnt/data for the data
+# disk). A host can override `services.btrfs.autoScrub.fileSystems`.
 #
 # btrfs-scrub-metrics (hourly, cheap: it only reads the status btrfs keeps
 # of the last scrub) writes btrfs-scrub.prom:
@@ -28,20 +28,6 @@
   textfileDir = config.fleet.monitoring.textfileDir;
 
   btrfsMounts = lib.filterAttrs (_: fs: fs.fsType == "btrfs") config.fileSystems;
-
-  # device -> shortest mount point on it
-  deviceKey = fs:
-    if fs.device != null
-    then fs.device
-    else "label:${toString fs.label}";
-  mountPerDevice = lib.foldlAttrs (acc: _: fs: let
-    key = deviceKey fs;
-  in
-    if acc ? ${key} && builtins.stringLength acc.${key} <= builtins.stringLength fs.mountPoint
-    then acc
-    else acc // {${key} = fs.mountPoint;}) {}
-  btrfsMounts;
-  scrubMounts = lib.sort (a: b: a < b) (lib.attrValues mountPerDevice);
 
   metricsScript = pkgs.writeShellApplication {
     name = "btrfs-scrub-metrics";
@@ -97,17 +83,22 @@
     '';
   };
 in {
+  # nixpkgs already defaults `fileSystems` to one mount point per btrfs
+  # device (lib.mkDefault in nixos/modules/tasks/filesystems/btrfs.nix).
+  # Setting it here at the same priority would concatenate the two lists
+  # and scrub every filesystem twice (stage 5a did exactly that).
   services.btrfs.autoScrub = {
-    enable = lib.mkDefault (scrubMounts != []);
+    enable = lib.mkDefault (btrfsMounts != {});
     interval = lib.mkDefault "monthly";
-    fileSystems = lib.mkDefault scrubMounts;
   };
 
   systemd.services.btrfs-scrub-metrics = lib.mkIf config.services.btrfs.autoScrub.enable {
     description = "Export the last btrfs scrub results to node_exporter";
     serviceConfig = {
       Type = "oneshot";
-      ExecStart = "${lib.getExe metricsScript} ${lib.escapeShellArgs config.services.btrfs.autoScrub.fileSystems}";
+      # unique: a duplicate mount point would write duplicate series, which
+      # node_exporter rejects.
+      ExecStart = "${lib.getExe metricsScript} ${lib.escapeShellArgs (lib.unique config.services.btrfs.autoScrub.fileSystems)}";
     };
   };
 

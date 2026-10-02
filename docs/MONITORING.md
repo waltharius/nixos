@@ -141,18 +141,23 @@ Test the path without waiting for an alert:
 
 ```sh
 # On the monitoring server: Postfix alone
-printf 'Subject: postfix test\n\ntest from altair\n' | sendmail -f alertmanager@altair.home.lan alerts.pavement456@passmail.net
+printf 'Subject: postfix test\n\ntest from altair\n' | sendmail -f alertmanager@altair.home.lan marcin@waltharius.pl
 mailq                      # empty once delivered
 journalctl -u postfix -n 50   # 'status=sent' or the reason for a rejection
 
 # Through Alertmanager: a test alert that resolves after 5 minutes
 nix shell nixpkgs#prometheus-alertmanager -c amtool --alertmanager.url=http://127.0.0.1:9093 \
-  alert add TestAlert severity=warning host=altair --annotation=summary='Test alert, ignore'
+  alert add TestAlert severity=warning host=altair --annotation='summary="Test alert, ignore"'
 ```
 
 If the receiving server rejects or spam-files the mail (a home address has
 no SPF record and no matching reverse DNS), relay through an authenticated
-mailbox instead (BACKLOG.md, "Alert mail relay").
+mailbox instead (BACKLOG.md, "Alert mail relay"). Known case: Proton Pass
+aliases (SimpleLogin, `passmail.net`) reject the sender
+`alertmanager@altair.home.lan` because `home.lan` is not a public domain;
+`mailq` then lists the messages with "Sender address rejected: Domain not
+found". Messages stuck that way are retried for days: delete them with
+`sudo postsuper -d ALL` after fixing the cause.
 
 ## Watchdog (healthchecks.io)
 

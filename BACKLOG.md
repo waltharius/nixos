@@ -138,12 +138,12 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   whenever Ollama keeps a large model loaded, which is normal. Add a
   meaningful GPU memory alert if one is needed (e.g. for OOM errors in
   Ollama's log once logs are collected).
-- **Check the metric names after the first deploy**: smartctl_exporter
-  (`smartctl_device_smart_status`, `_temperature`, `_critical_warning`,
-  `_percentage_used`) and nvidia_gpu_exporter
-  (`nvidia_smi_utilization_gpu_ratio`, label `uuid`) are taken from the
-  exporters' documentation and examples; an alert on a wrong name never
-  fires. Compare in Grafana Explore and fix `alert-rules.nix`.
+- **NVMe metric names**: checked on 2026-10-02. GPU names and the
+  smartctl `smart_status` and `temperature` series exist;
+  `smartctl_device_critical_warning` and `smartctl_device_percentage_used`
+  do not, so NvmeCriticalWarning and NvmeWearHigh never fire. Find the
+  names this smartctl_exporter version uses for the NVMe drive (or why it
+  exposes none) and fix `alert-rules.nix`.
 - **Alertmanager UTF-8 mode.** Matchers are written in the classic syntax;
   consider `--enable-feature=utf8-strict-mode` after `amtool check-config`
   shows no warnings.
@@ -339,9 +339,12 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   success, so outages seen from outside are reported too. Possibly also
   replace healthchecks.io for the Watchdog with a small PHP endpoint plus
   a cron freshness check there.
-- **Alert mail relay**, if direct delivery from altair is rejected or
-  spam-filtered: relay Postfix through an authenticated mailbox (e.g. on
-  mydevil.net), password in sops.
+- **Alert mail relay**: direct delivery from altair works to the own
+  domain (waltharius.pl) but is rejected by Proton Pass aliases, because
+  the sender domain `home.lan` does not exist publicly. Relay Postfix
+  through an authenticated mailbox (e.g. on mydevil.net, password in sops,
+  `texthash:` map) with a real sender address, so delivery no longer
+  depends on the receiving server's tolerance.
 
 ## Repository privacy
 

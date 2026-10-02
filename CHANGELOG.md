@@ -30,10 +30,23 @@ Follow-up to stage 5a after the first days of use.
 
 ### Changed
 
+- Alert e-mail recipient: marcin@waltharius.pl instead of the Proton Pass
+  alias, which rejects the sender domain `home.lan` (`hosts/fleet.nix`).
+- `docs/MONITORING.md`: the amtool test command quotes the annotation
+  value (`summary="..."`) for Alertmanager's new matcher parser.
 - Local scrape jobs on the monitoring server (`nvidia`, `incus`,
   `prometheus`, `alertmanager`, `blackbox`) set `instance` to the host
   name, like the generated jobs: dashboards show `altair` instead of
   `127.0.0.1:<port>`.
+
+### Fixed
+
+- btrfs scrub ran twice per filesystem and `btrfs-scrub.prom` held every
+  series twice: nixpkgs already sets `services.btrfs.autoScrub.fileSystems`
+  to one mount point per device with `mkDefault`, and the stage 5a module
+  set the same list at the same priority, so the module system
+  concatenated them. The module no longer sets `fileSystems`; the metrics
+  job deduplicates its arguments.
 
 ### Removed
 
@@ -55,6 +68,9 @@ note):
 
 ### Lessons learned
 
+- List options merge by concatenation when two modules define them at
+  the same priority. Before setting a list option to "the right value",
+  check whether nixpkgs already defines it with `mkDefault`.
 - Grafana 13 treats the default `[rendering] renderer_token` as a fatal
   error in production mode; enabling the NixOS renderer module alone
   stopped Grafana from starting. A shared token is required.
@@ -135,25 +151,25 @@ and full metrics in stage 5b (BACKLOG.md). Overview: `docs/MONITORING.md`.
 
 ### Verification
 
-To be run after the deploy; record the results here (and remove this
-note):
+Run on 2026-10-02 after the deploy:
 
-- `nix flake check` passes; `colmena apply --on altair` and
-  `--on cloud-apps` succeed.
-- Prometheus targets all up: `curl -s localhost:9090/api/v1/targets | jq
-  -r '.data.activeTargets[] | "\(.health) \(.labels.job) \(.labels.instance)"'`
-  on altair. Devices that are permanently down: remove
-  `monitoring.ping` or their file.
-- Grafana: Alerting -> Alert rules lists the rule groups; only Watchdog
-  fires.
-- Test e-mail through Postfix and through Alertmanager arrives
-  (`docs/MONITORING.md`, "Alert e-mail").
-- healthchecks.io check is green; stopping alertmanager produces its
+- Deploy of altair and cloud-apps succeeded; Grafana Alerting -> Alert
+  rules shows only Watchdog firing.
+- healthchecks.io: check green; stopping alertmanager produced its
   e-mail.
-- First btrfs scrub started by hand on altair; `btrfs_scrub_*` series
-  appear after `btrfs-scrub-metrics` runs.
-- smartctl and GPU metric names match the rules (BACKLOG.md, "Check the
-  metric names").
+- E-mail: rejected by the Proton Pass alias (SimpleLogin: sender domain
+  `home.lan` not found); delivered directly to marcin@waltharius.pl. The
+  recipient was changed (follow-up entry above).
+- btrfs scrub started by hand on `/` and `/mnt/data`; `btrfs_scrub_*`
+  series present, no errors. Found: every series written twice (fixed in
+  the follow-up entry).
+- Metric names: `nvidia_smi_temperature_gpu`,
+  `nvidia_smi_utilization_gpu_ratio` (label `uuid` present),
+  `smartctl_device_smart_status`, `smartctl_device_temperature` exist.
+  `smartctl_device_critical_warning` and `smartctl_device_percentage_used`
+  do not: NvmeCriticalWarning and NvmeWearHigh cannot fire yet
+  (BACKLOG.md).
+- Not yet checked: the full list of Prometheus targets.
 
 ### Lessons learned
 

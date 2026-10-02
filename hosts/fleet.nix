@@ -28,11 +28,13 @@
     server = "altair";
 
     # Alert e-mails. A local Postfix on the monitoring server delivers
-    # them straight to the recipient's mail server (no relay). `to` is a
-    # Proton Pass alias: if it starts receiving spam, disable it in Proton
-    # Pass and put a new one here.
+    # them straight to the recipient's mail server (no relay). The sender
+    # domain home.lan does not exist publicly: the recipient's server
+    # accepts that (tested 2026-10-02), Proton Pass aliases (SimpleLogin)
+    # do not ("Sender address rejected: Domain not found"). A relay with a
+    # real sender is in BACKLOG.md ("Alert mail relay").
     mail = {
-      to = "alerts.pavement456@passmail.net";
+      to = "marcin@waltharius.pl";
       from = "alertmanager@altair.home.lan";
     };
   };
