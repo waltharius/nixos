@@ -29,6 +29,16 @@
     description = "Grafana on altair (health endpoint)";
   };
 
+  # Internal page, probed for its certificate: pveproxy serves a FreeIPA
+  # certificate (valid until 2027-09-13) that the pve exporter verifies;
+  # WebsiteCertificateExpiring warns before it runs out. The blackbox
+  # exporter checks it against the system CA bundle, which holds the
+  # FreeIPA CA (modules/system/certificates.nix).
+  pve-web = {
+    url = "https://192.168.50.200:8006/";
+    description = "Proxmox web UI on pve (FreeIPA certificate)";
+  };
+
   example-public = {
     url = "https://example.com";
     description = "Placeholder for a public page; replace or remove";

@@ -180,6 +180,8 @@ in {
         # Blackbox exporter probes: hosts up/down, websites, response times
         # (updated version of dashboard 7587)
         "blackbox.json" = "https://grafana.com/api/dashboards/15873/revisions/latest/download";
+        # Proxmox via Prometheus (pve exporter, job pve): host, guests, storage
+        "proxmox.json" = "https://grafana.com/api/dashboards/10347/revisions/latest/download";
       };
       downloads = lib.concatStrings (lib.mapAttrsToList (file: url: ''
           if [ ! -f "/var/lib/grafana/dashboards/${file}" ]; then

@@ -13,6 +13,7 @@ no module names a host.
 | NixOS machines of class `server` (bare metal) | additionally smartctl_exporter (disks), temperatures, monthly btrfs scrub | same, automatically |
 | Workstations (laptops) | not monitored | - |
 | Devices without NixOS | ping (up/down); full metrics follow in stage 5b | `monitoring.ping = true` in `hosts/devices/<name>.nix` |
+| Proxmox VE (host, VMs, LXC containers, storage) | pve exporter on the monitoring server reading the Proxmox API with a read-only token; nothing installed on Proxmox | `monitoring.pve = true` in `hosts/devices/<name>.nix` |
 | Web pages | HTTP probe: status, response time, certificate expiry | `hosts/websites.nix` |
 | Internet connection | ping of 1.1.1.1 and 9.9.9.9 | `modules/servers/monitoring/prometheus.nix` |
 | GPUs (altair) | nvidia_gpu_exporter | `hosts/physical/altair/configuration.nix` |
@@ -37,6 +38,7 @@ smartctl). The monitoring stack itself listens on loopback, except Grafana
 | `modules/servers/monitoring/alertmanager.nix` | routing, e-mail, Watchdog webhook, inhibition |
 | `modules/servers/monitoring/mail.nix` | send-only Postfix |
 | `modules/servers/monitoring/blackbox.nix` | ping and HTTP probes |
+| `modules/servers/monitoring/pve.nix` | Proxmox API exporter, its token (sops) and CA |
 | `modules/servers/monitoring/grafana.nix` | Grafana, data sources, dashboards, image renderer |
 | `modules/servers/monitoring/dashboards/*.nix` | the repository's own dashboards (Fleet overview), as Nix data |
 | `modules/servers/monitoring/nvidia-exporter.nix` | GPU metrics (altair only) |
@@ -54,7 +56,8 @@ smartctl). The monitoring stack itself listens on loopback, except Grafana
   - Alerting -> Silences (choose the "Alertmanager" data source at the
     top): mute alerts during maintenance.
   - Dashboards: Node Exporter Full (per host: choose job `node`, then the
-    instance), NVIDIA GPU (job `nvidia`), Prometheus Blackbox. The
+    instance), NVIDIA GPU (job `nvidia`), Prometheus Blackbox, Proxmox via
+    Prometheus (choose instance `pve`). The
     Blackbox dashboard is built for HTTP probes: choose a page in
     `target`; for a pinged host only Status and Probe Duration show data,
     the HTTP, SSL and DNS panels stay empty by design.
@@ -80,6 +83,7 @@ info alerts are suppressed.
 | resources | DiskSpaceLow, DiskSpaceCritical, DiskWillFillIn24h, FilesystemReadOnly, CpuBusy12h, OomKill |
 | services and time | SystemdUnitFailed, ClockNotSynchronised, TextfileCollectorError |
 | hardware (bare metal) | HostTemperatureHigh, HostTemperatureCriticalAlarm, GpuTemperatureHigh, GpuBusy12h, SmartHealthFailed, DiskTemperatureHigh, NvmeCriticalWarning, NvmeWearHigh, BtrfsScrubErrors, BtrfsScrubUncorrectable, BtrfsScrubStale |
+| proxmox | PveExporterDown, PveGuestDown (only guests set to start at boot), PveGuestNotBackedUp, PveStorageLow, PveStorageCritical |
 | monitoring | Watchdog, MonitoringTargetDown, AlertmanagerNotificationsFailing, PrometheusRuleEvaluationFailures, PrometheusConfigReloadFailed |
 
 CpuBusy12h includes the current GPU utilisation of the same host, and
@@ -92,6 +96,7 @@ loaded.
 | ---- | ----- |
 | Monitor a new NixOS server or VM | `nix run .#new-host` (class `server` or `virtual`), deploy the host, then deploy the monitoring server (`colmena apply --on altair`) so Prometheus learns the new target |
 | Ping a device | add `monitoring.ping = true;` to `hosts/devices/<name>.nix`, deploy the monitoring server |
+| Monitor a Proxmox host | create the read-only token (commands at the top of `pve.nix`), put its value in `secrets/altair.yaml` as `pve-exporter-token`, add `monitoring.pve = true;` to the device file, deploy the monitoring server. Check the token on Proxmox with `pveum user token permissions prometheus@pve monitoring` |
 | Stop pinging a device | remove the line (or the whole file), deploy the monitoring server |
 | Add a web page | add an entry to `hosts/websites.nix`, deploy the monitoring server |
 | Change a threshold | edit the `t` set at the top of `alert-rules.nix`, deploy the monitoring server |

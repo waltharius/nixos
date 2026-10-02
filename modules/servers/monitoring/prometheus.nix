@@ -11,6 +11,8 @@
 #                       `monitoring.ping = true` (hosts/devices/)
 #   blackbox-http     - pages from hosts/websites.nix
 #   blackbox-internet - ping of public DNS resolvers (InternetDown)
+#   pve               - Proxmox API of devices with `monitoring.pve = true`,
+#                       through the local pve exporter (pve.nix)
 #   nvidia, incus     - only on a monitoring server that has them (altair)
 #   prometheus, alertmanager, blackbox - the monitoring stack itself
 #
@@ -30,8 +32,19 @@
     inherit (x) labels;
   });
 
-  # Blackbox pattern: the target becomes the ?target= parameter and the
-  # scrape goes to the local blackbox exporter.
+  # Multi-target pattern (blackbox, pve): the target becomes the ?target=
+  # parameter and the scrape goes to the local exporter.
+  viaExporter = exporter: [
+    {
+      source_labels = ["__address__"];
+      target_label = "__param_target";
+    }
+    {
+      target_label = "__address__";
+      replacement = exporter;
+    }
+  ];
+
   blackboxExporter = "127.0.0.1:${toString config.services.prometheus.exporters.blackbox.port}";
   blackboxJob = name: module: interval: targetList: {
     job_name = name;
@@ -39,16 +52,7 @@
     metrics_path = "/probe";
     params.module = [module];
     static_configs = staticConfigs targetList;
-    relabel_configs = [
-      {
-        source_labels = ["__address__"];
-        target_label = "__param_target";
-      }
-      {
-        target_label = "__address__";
-        replacement = blackboxExporter;
-      }
-    ];
+    relabel_configs = viaExporter blackboxExporter;
   };
 
   # Public resolvers for the internet check.
@@ -126,6 +130,20 @@ in {
         (localJob "alertmanager" config.services.prometheus.alertmanager.port {})
         (localJob "blackbox" config.services.prometheus.exporters.blackbox.port {})
       ]
+      # Proxmox: one API read per scrape and one more per guest (config
+      # collector), hence the longer interval and timeout.
+      ++ lib.optional (targets.pve != []) {
+        job_name = "pve";
+        scrape_interval = "30s";
+        scrape_timeout = "20s";
+        metrics_path = "/pve";
+        params = {
+          cluster = ["1"];
+          node = ["1"];
+        };
+        static_configs = staticConfigs targets.pve;
+        relabel_configs = viaExporter "127.0.0.1:${toString config.services.prometheus.exporters.pve.port}";
+      }
       ++ lib.optional nvidiaEnabled
       (localJob "nvidia" config.services.prometheus.exporters.nvidia-gpu.port {role = "gpu";})
       # Incus container/VM metrics. Requires the metrics listener on

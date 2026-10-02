@@ -207,6 +207,54 @@ in {
       ];
     }
 
+    # Proxmox VE through the pve exporter (job pve, pve.nix). Guest metrics
+    # carry only `id` (qemu/<vmid>, lxc/<vmid>); the guest's name is joined
+    # from pve_guest_info. `host` is the Proxmox host, so HostDown on it
+    # suppresses these alerts. Mind PromQL precedence: `*` binds tighter
+    # than `==` and `and`, hence the parentheses.
+    {
+      name = "proxmox";
+      rules = [
+        (rule "PveExporterDown" ''up{job="pve"} == 0'' "5m" "warning"
+          "Proxmox API of ${hostRef} cannot be read"
+          "The pve exporter on the monitoring server fails to read the Proxmox API of ${hostRef}: exporter stopped, token revoked or expired, or the pveproxy certificate no longer verifies against the FreeIPA CA. journalctl -u prometheus-pve-exporter on the monitoring server.")
+
+        # Only guests set to start at boot: a guest kept off on purpose has
+        # onboot = 0 and is ignored.
+        (rule "PveGuestDown" ''
+            (
+              (pve_up{job="pve",id=~"(qemu|lxc)/.*"} == 0)
+              and on (host, id) (pve_onboot_status{job="pve"} == 1)
+            )
+            * on (host, id) group_left (name) pve_guest_info{job="pve"}
+          '' "5m" "warning"
+          "Proxmox guest {{ $labels.name }} ({{ $labels.id }}) on ${hostRef} is not running"
+          "{{ $labels.id }} ({{ $labels.name }}) is set to start at boot but has not been running for 5 minutes. Check it in the Proxmox web UI or with qm status / pct status on ${hostRef}.")
+
+        (rule "PveGuestNotBackedUp" ''
+            pve_not_backed_up_info{job="pve"}
+            * on (host, id) group_left (name) pve_guest_info{job="pve"}
+          '' "1h" "warning"
+          "Proxmox guest {{ $labels.name }} ({{ $labels.id }}) is in no backup job"
+          "No backup job on ${hostRef} covers {{ $labels.id }} ({{ $labels.name }}). Add it to a job under Datacenter -> Backup, or remove the guest if it is not needed.")
+
+        # Storage size 0 means inactive or unavailable storage: skipped.
+        (rule "PveStorageLow" ''
+            1 - pve_disk_usage_bytes{job="pve",id=~"storage/.*"} / pve_disk_size_bytes{job="pve",id=~"storage/.*"} < ${toString t.diskFreeWarning}
+            and on (host, id) pve_disk_size_bytes{job="pve",id=~"storage/.*"} > 0
+          '' "15m" "warning"
+          "Proxmox storage {{ $labels.id }} on ${hostRef} is filling up"
+          "{{ $labels.id }} has {{ $value | humanizePercentage }} free.")
+
+        (rule "PveStorageCritical" ''
+            1 - pve_disk_usage_bytes{job="pve",id=~"storage/.*"} / pve_disk_size_bytes{job="pve",id=~"storage/.*"} < ${toString t.diskFreeCritical}
+            and on (host, id) pve_disk_size_bytes{job="pve",id=~"storage/.*"} > 0
+          '' "5m" "critical"
+          "Proxmox storage {{ $labels.id }} on ${hostRef} is almost full"
+          "{{ $labels.id }} has {{ $value | humanizePercentage }} free.")
+      ];
+    }
+
     {
       name = "monitoring";
       rules = [

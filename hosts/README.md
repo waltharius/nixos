@@ -65,6 +65,7 @@ copying a similar file. Each file starts with
 | `ssh.<alias>.hostKey` | public host key, pinned in `/etc/ssh/ssh_known_hosts` |
 | `ssh.<alias>.extraOptions` | other ssh_config options, e.g. `{PreferredAuthentications = "publickey";}` |
 | `monitoring.ping` | `true`: the monitoring server pings the device; HostDown alert when it stops answering. Needs `lan.ip`. Leave it out for devices that are often switched off |
+| `monitoring.pve` | `true`: a Proxmox VE host; the pve exporter on the monitoring server reads its API (host, VMs, containers, storage) at `https://<lan.ip>:8006`. Needs `lan.ip`, the read-only token from `modules/servers/monitoring/pve.nix` and a pveproxy certificate that covers the address |
 
 Temporary SSH hosts do not belong here: use `~/.ssh/config.d/local` (see
 `docs/SSH.md`).
@@ -93,5 +94,5 @@ a `tailscale` entry breaks the rules in the table above (unknown field or
 `join`, a field that does not fit the `join`, a malformed tag, a
 `loginServer` in `fleet.nix` that is not null or an `https://` URL), the
 `monitoring` settings in `fleet.nix` are missing or name no server, a
-device's `monitoring` has an unknown field or `ping` without `lan.ip`, or a
+device's `monitoring` has an unknown field or `ping`/`pve` without `lan.ip`, or a
 page in `websites.nix` has an invalid name or no `http(s)://` URL.

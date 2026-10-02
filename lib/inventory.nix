@@ -43,7 +43,8 @@
 #   - tailscale.loginServer in hosts/fleet.nix is null or an https:// URL
 #   - `monitoring` in hosts/fleet.nix names an existing machine of class
 #     server as `server`, and mail addresses that contain an @
-#   - device `monitoring` has known fields only; `ping` needs `lan.ip`
+#   - device `monitoring` has known fields only; `ping` and `pve` need
+#     `lan.ip`
 #   - websites have a valid name and an http:// or https:// `url`
 {
   lib,
@@ -150,8 +151,8 @@
     ++ lib.optional (!isMailAddress (monitoring.mail.from or null))
     "hosts/fleet.nix: monitoring.mail.from must be an e-mail address";
 
-  # Fields a device may set under `monitoring`. Stage 5b adds exporters.
-  deviceMonitoringFields = ["ping"];
+  # Fields a device may set under `monitoring`.
+  deviceMonitoringFields = ["ping" "pve"];
 
   deviceMonitoringErrors = name: d: let
     mon = d.monitoring;
@@ -165,7 +166,11 @@
       ++ lib.optional (mon ? ping && !builtins.isBool mon.ping)
       "${label}.ping must be true or false"
       ++ lib.optional ((mon.ping or false) && ipOf d == null)
-      "${label}.ping needs the device's `lan.ip`";
+      "${label}.ping needs the device's `lan.ip`"
+      ++ lib.optional (mon ? pve && !builtins.isBool mon.pve)
+      "${label}.pve must be true or false"
+      ++ lib.optional ((mon.pve or false) && ipOf d == null)
+      "${label}.pve needs the device's `lan.ip`";
 
   websiteFields = ["url" "description"];
 

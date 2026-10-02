@@ -10,18 +10,11 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
    5a covered the NixOS machines, ping of devices, websites and alerting;
    docs/MONITORING.md). Decided on 2026-10-02, in this order (the user's
    priority is Proxmox and containers):
-   1. **Proxmox: prometheus-pve-exporter on altair** (nothing installed on
-      Proxmox). Read-only API token, created on the Proxmox host:
-      `pveum user add prometheus@pve`,
-      `pveum acl modify / --users prometheus@pve --roles PVEAuditor`,
-      `pveum user token add prometheus@pve monitoring --privsep 0`
-      (syntax from memory; check). Secret in `secrets/altair.yaml` as
-      `pve-exporter-token`. Gives status and CPU/RAM/disk/network of every
-      VM and LXC; the backup-info collector lists guests no backup job
-      covers. Backup results already arrive as Proxmox e-mails.
-   2. **Containers**: cAdvisor on the Docker VM (`docker`) and on
-      walthpi16 (Docker; GitLab probably runs there in a container -
-      confirm with `docker ps`), prometheus-podman-exporter on altair
+   1. ~~Proxmox: prometheus-pve-exporter on altair~~: done on 2026-10-02
+      (CHANGELOG.md).
+   2. **Containers**: cAdvisor on the Docker VM (`docker`: portainer
+      agent, atuin-server) and on walthpi16 (`docker ps` on 2026-10-02:
+      gitlab-ce, vikunja, portainer), prometheus-podman-exporter on altair
       (Open WebUI, SearXNG, zotero2readwise), Incus is already scraped.
       Labels `host` and `runtime` (docker, podman, incus, lxc, vm); a
       "Containers" dashboard: choose a host, see every container.
@@ -170,9 +163,6 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 
 ## Follow-ups from stage 5a
 
-- **Next session (new thread)**: bring a fresh zip of the repository and
-  the output of `docker ps` on walthpi16; say whether the Proxmox token is
-  in sops. Start with 5b step 1.
 - **Grafana "Export as image" fails** in the browser with "Failed to
   fetch"; the renderer receives no render request and Grafana logs no
   error. Likely cause (not verified): `server.root_url` is unset, so
@@ -189,6 +179,16 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   NvmeWearHigh and its DiskTemperatureHigh never fire. Check
   `journalctl -u prometheus-smartctl-exporter`, whether the unit's device
   sandbox lets it open `/dev/nvme0`, and the module's `devices` option.
+- **Links in alert e-mails do not open.** "View In Alertmanager" points to
+  `http://altair:9093/#/alerts?...` and "Source" to `http://altair:9090/graph?...`:
+  the default external URLs (host name plus port) of services that listen
+  on loopback only, so the browser times out. Options (to decide): open
+  both UIs on the LAN interface and set `webExternalUrl` (no
+  authentication: anyone in the LAN can silence alerts), or override the
+  e-mail template's links to point at Grafana (Alerting pages, Explore),
+  or wait for Phase B (Caddy with TLS and authentication in front of
+  Grafana, Alertmanager and Prometheus). Decide together with Grafana's
+  `root_url` (image export, above).
 - **Placeholder website** `example-public` in `hosts/websites.nix`:
   replace with the real public pages.
 - **Network traffic per host**: the switch (Cudy GS1016) is unmanaged, so
@@ -209,6 +209,20 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 - **Alertmanager UTF-8 mode.** Matchers are written in the classic syntax;
   consider `--enable-feature=utf8-strict-mode` after `amtool check-config`
   shows no warnings.
+
+- **Proxmox certificate renewal.** pveproxy serves a FreeIPA certificate
+  (`pveproxy-ssl.pem`, valid until 2027-09-13), probably uploaded by
+  hand; check whether anything renews it. The probe `pve-web` warns 14 days ahead. Renew through
+  FreeIPA (or certmonger on the host) before then, or the pve exporter
+  stops (PveExporterDown).
+- **Atuin server on an untagged image.** The container on the Docker VM
+  runs image `027f8688c923` (shown without a name: its tag now points
+  elsewhere or is gone), 11 months old; clients run 18.15.2 (nixpkgs
+  26.05). `atuin.home.lan` resolves to the Caddy VM (192.168.50.114), which
+  proxies to the Docker VM. Planned: move it to altair (to decide: native
+  `services.atuin` or a Podman container), together with the Atuin items
+  under "Follow-ups from stage 1" (key rotation, separate account for
+  servers, workstation login from sops).
 
 ## Follow-ups from stage 4
 

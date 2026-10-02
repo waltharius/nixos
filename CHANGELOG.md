@@ -9,6 +9,75 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
+## [2026-10-02] Refactor stage 5b step 1 - Proxmox through the pve exporter
+
+First step of stage 5b (BACKLOG.md): Proxmox VE, its guests and storage
+are read through the Proxmox API by an exporter on the monitoring server;
+nothing is installed on Proxmox.
+
+### Added
+
+- `modules/servers/monitoring/pve.nix`: prometheus-pve-exporter on the
+  monitoring server (loopback, port 9221), enabled when a device sets
+  `monitoring.pve = true`. Read-only API token `prometheus@pve!monitoring`
+  (PVEAuditor on `/`, privilege separation off); its value is
+  `pve-exporter-token` in `secrets/altair.yaml`, the environment file is a
+  sops template. Exporter defaults kept (including backup-info, which the
+  NixOS module has no option for); replication collector off.
+- Device field `monitoring.pve` (validated in `lib/inventory.nix`), set on
+  `hosts/devices/pve.nix`; target list `fleet.monitoring.targets.pve`.
+- Prometheus job `pve` (multi-target, `/pve?target=<lan.ip>&cluster=1&node=1`,
+  every 30 s, timeout 20 s), labels `instance` and `host` = `pve`.
+- Alert group `proxmox`: PveExporterDown, PveGuestDown (guests set to start
+  at boot, not running for 5 minutes), PveGuestNotBackedUp (guest in no
+  backup job for an hour), PveStorageLow and PveStorageCritical (same free
+  space thresholds as the filesystems). Guest alerts carry the guest name
+  joined from `pve_guest_info`.
+- Grafana dashboard "Proxmox via Prometheus" (grafana.com 10347).
+- Website probe `pve-web` (`https://192.168.50.200:8006/`), so the FreeIPA
+  certificate of pveproxy is watched by WebsiteCertificateExpiring.
+- `certs/freeipa-ca.crt`: the FreeIPA CA as a file.
+
+### Changed
+
+- `modules/system/certificates.nix` reads the FreeIPA CA from
+  `certs/freeipa-ca.crt` instead of an inline string (same string, so the
+  system CA bundle of every host should stay the same).
+- `prometheus.nix`: the `?target=` relabelling of the blackbox jobs is a
+  helper (`viaExporter`) shared with the pve job; the blackbox jobs are
+  unchanged.
+
+### Verification
+
+To be run after the deploy; record the results here (and remove this
+note):
+
+- `nvd diff` on a host other than altair (e.g. cloud-apps or azazel):
+  no change from the certificate file.
+- On altair: `systemctl status prometheus-pve-exporter`, then
+  `curl -s 'http://127.0.0.1:9221/pve?target=192.168.50.200&cluster=1&node=1' | grep -E '^pve_(up|not_backed_up)'`
+  lists the node, every guest and storage.
+- Prometheus target `pve` up; Grafana dashboard Proxmox via Prometheus
+  shows data for instance `pve`.
+- Alerting -> Alert rules lists the `proxmox` group; check whether
+  PveGuestNotBackedUp fires for any guest.
+- Blackbox target `pve-web` up, certificate expiry about 2027-09-13.
+
+### Lessons learned
+
+- Python programs from nixpkgs verify TLS against nixpkgs' own CA bundle
+  (certifi points at `cacert`), not the system bundle that
+  `security.pki` fills. An internal CA has to be passed explicitly, here
+  with `REQUESTS_CA_BUNDLE`.
+- Proxmox serves `pveproxy-ssl.pem` when it exists; `pve-ssl.pem` (signed
+  by the cluster CA, with the old address 192.168.50.109 in its SAN) is
+  then not what clients see. Check the certificate the service actually
+  presents before deciding how to verify it.
+- In PromQL `*` binds tighter than `==` and `and`; joining a label with
+  `* on (...) group_left (...)` after a filter needs parentheses, or the
+  join silently lands on the wrong operand. Tested with `promtool test
+  rules` before the commit.
+
 ## [2026-10-02] Monitoring: fleet overview dashboard, image export, instance labels
 
 Follow-up to stage 5a after the first days of use.

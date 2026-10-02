@@ -22,6 +22,8 @@
 #   - machines of class server/virtual: node_exporter (and smartctl for
 #     class server), plus an ICMP probe;
 #   - devices with `monitoring.ping = true`: an ICMP probe;
+#   - devices with `monitoring.pve = true`: the Proxmox API, read by the pve
+#     exporter on the monitoring server (modules/servers/monitoring/pve.nix);
 #   - hosts/websites.nix: an HTTP probe per page.
 # The generated lists are exposed as `fleet.monitoring.targets` and read by
 # modules/servers/monitoring/prometheus.nix. See docs/MONITORING.md.
@@ -58,6 +60,7 @@
   monitoredMachines = lib.filterAttrs (_: isMonitored) machines;
   baremetalMachines = lib.filterAttrs (_: isBaremetal) machines;
   pingedDevices = lib.filterAttrs (_: d: d.monitoring.ping or false) devices;
+  pveDevices = lib.filterAttrs (_: d: d.monitoring.pve or false) devices;
 
   boolLabel = b:
     if b
@@ -94,6 +97,17 @@
     ping =
       lib.mapAttrsToList (pingTarget "machine") (lib.filterAttrs (n: _: n != serverName) monitoredMachines)
       ++ lib.mapAttrsToList (pingTarget "device") pingedDevices;
+    # Proxmox hosts. The address is the API host the exporter connects to
+    # (https://<address>:8006); it must be in the pveproxy certificate.
+    pve =
+      lib.mapAttrsToList (name: d: {
+        address = d.lan.ip;
+        labels = {
+          instance = name;
+          host = name;
+        };
+      })
+      pveDevices;
     websites =
       lib.mapAttrsToList (name: w: {
         address = w.url;
