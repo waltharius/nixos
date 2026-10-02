@@ -71,6 +71,8 @@ and full metrics in stage 5b (BACKLOG.md). Overview: `docs/MONITORING.md`.
 ### Removed
 
 - `hosts/devices.nix` entry `check-mk` (Checkmk is switched off).
+- Device `bedroom-asus` (192.168.50.219): only two ASUS routers exist
+  (RT-AX92U, gnuton firmware); the entry was left over from the old list.
 - Monitoring of OPNsense (broken since an update; the device file stays
   so its address remains reserved).
 - Alert GPUMemoryHigh: VRAM above 95 % is the normal state while Ollama
