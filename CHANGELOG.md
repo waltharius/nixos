@@ -9,6 +9,59 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
+## [2026-10-02] Emacs: Polish Hunspell dictionary converted to UTF-8 at build time
+
+### Fixed
+
+- Spell checking in Emacs could not be enabled: Hunspell printed
+  `error - iconv: ISO8859-2 -> UTF-8` after its version line and Emacs
+  rejected the process. `hunspell.withDicts` (stage 1) wraps the binary
+  with `--prefix DICPATH : <env>/share/hunspell`, so the ISO8859-2
+  `pl_PL` from nixpkgs is found before the UTF-8 copy the Emacs
+  configuration pointed `DICPATH` at. `modules/groups/emacs/home.nix`
+  now converts `hunspellDicts.pl_PL` to UTF-8 in a `runCommand`
+  (`hunspellPlUtf8`) and passes it to `withDicts` instead of `pl_PL`.
+  The build fails when the source is not declared ISO8859-2 or the
+  result is not valid UTF-8.
+
+### Removed
+
+- `home.activation.hunspellUtf8`, which converted the dictionary into
+  `~/.local/share/hunspell` at activation. The wrapper never reached
+  that copy, and the copy never refreshed: store files have mtime 1, so
+  its `-nt` test was false after the first run. Leftover
+  `~/.local/share/hunspell/pl_PL.{aff,dic}` are unused and can be
+  deleted by hand.
+- The unused `lib` argument of `modules/groups/emacs/home.nix`.
+
+### Verification
+
+To be run on azazel; record the results here (and remove this note):
+
+- `nix flake check` passes; `nvd diff` shows only the new dictionary
+  derivation and a new `hunspell-with-dicts`.
+- `head -c 300 /etc/profiles/per-user/marcin/share/hunspell/pl_PL.aff`
+  shows `SET UTF-8`.
+- `echo 'błendem colour' | hunspell -a -d pl_PL,en_GB -i UTF-8` prints
+  the version line, a suggestion `błędem` and `*`, with no `iconv`
+  error.
+- In Emacs after a restart: misspellings are underlined while typing,
+  and `*Warnings*` has no `my/spelling` entry.
+
+### Lessons learned
+
+- A wrapper that prepends to a search path silently overrides anything
+  a client adds to the same variable. Replacing separate packages with
+  `withDicts` changed which file Hunspell loads without changing any
+  name in the configuration.
+- Fixes for a package's data belong in the build, not in an activation
+  script writing to the home directory: the latter is invisible to the
+  wrapper, outside rollback, and stale after updates.
+- The failure was first ruled out by a test on Ubuntu, where the same
+  Hunspell 1.7.2 converts ISO8859-2 without errors. A test outside
+  NixOS proves nothing about NixOS behaviour; the comment that already
+  described the iconv error was the better evidence.
+
 ## [2026-10-01] Refactor stage 4 - remote access (Tailscale)
 
 Goal of this stage: reach the home network from away through a Tailscale
@@ -93,10 +146,6 @@ To be run on azazel after applying the series; record the results here
   whole LAN through the subnet router. Tag such devices.
 - Headscale cannot run behind Cloudflare Proxy or Tunnel and has no
   Funnel; moving to it needs a public address and calibre off Funnel first.
-- systemd-resolved is less forgiving than a plain `/etc/resolv.conf`:
-  with a phone hotspot's DNS proxy and unreachable IPv6 DNS servers it
-  timed out, while baal (still without resolved) worked on the same
-  network. Test a resolver change on the networks actually used.
 - pfSense drops traffic from the tailnet until the Tailscale interface
   group has a pass rule. Split DNS for `home.lan` worked before that rule
   existed, so a working DNS lookup does not prove the LAN is reachable:

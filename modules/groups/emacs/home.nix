@@ -5,10 +5,54 @@
 # external programs that configuration relies on.
 {
   config,
-  lib,
   pkgs,
   ...
-}: {
+}: let
+  # ---------------------------------------------------------------------------
+  # Polish Hunspell dictionary converted to UTF-8 at build time
+  #
+  # hunspellDicts.pl_PL (LibreOffice dictionaries) is ISO8859-2. Hunspell on
+  # NixOS fails to convert it for a UTF-8 client: Emacs starts it with
+  # `-i UTF-8', Hunspell prints "error - iconv: ISO8859-2 -> UTF-8", and
+  # ispell rejects the process, so flyspell cannot be enabled.
+  #
+  # `hunspell.withDicts' wraps the binary with
+  # `--prefix DICPATH : <env>/share/hunspell', so its dictionaries are always
+  # found before any directory a client adds to DICPATH. A converted copy
+  # outside the store (the former home.activation.hunspellUtf8, writing
+  # ~/.local/share/hunspell) is therefore never read. Converting here puts
+  # the UTF-8 files in that env instead: part of the generation, rebuilt on
+  # every nixpkgs update, covered by rollback.
+  #
+  # The build fails if the source header is not ISO8859-2 or the result is
+  # not valid UTF-8, so a change upstream is noticed at rebuild time and
+  # not as missing underlines in Emacs.
+  # ---------------------------------------------------------------------------
+  hunspellPlUtf8 = let
+    src = pkgs.hunspellDicts.pl_PL;
+  in
+    pkgs.runCommand "hunspell-dict-pl-pl-utf8-${src.version}" {} ''
+      set -euo pipefail
+      src_dir=${src}/share/hunspell
+      out_dir=$out/share/hunspell
+      mkdir -p "$out_dir"
+
+      if ! grep -q '^SET ISO8859-2' "$src_dir/pl_PL.aff"; then
+        echo "pl_PL.aff is not declared ISO8859-2; review the conversion" >&2
+        exit 1
+      fi
+
+      ${pkgs.glibc.bin}/bin/iconv -f ISO8859-2 -t UTF-8 "$src_dir/pl_PL.aff" \
+        | sed 's/^SET ISO8859-2/SET UTF-8/' > "$out_dir/pl_PL.aff"
+      ${pkgs.glibc.bin}/bin/iconv -f ISO8859-2 -t UTF-8 "$src_dir/pl_PL.dic" \
+        > "$out_dir/pl_PL.dic"
+
+      # Sanity checks: header switched, both files valid UTF-8.
+      grep -q '^SET UTF-8' "$out_dir/pl_PL.aff"
+      ${pkgs.glibc.bin}/bin/iconv -f UTF-8 -t UTF-8 "$out_dir/pl_PL.aff" > /dev/null
+      ${pkgs.glibc.bin}/bin/iconv -f UTF-8 -t UTF-8 "$out_dir/pl_PL.dic" > /dev/null
+    '';
+in {
   home.packages = with pkgs; [
     emacs
 
@@ -36,10 +80,10 @@
     pandoc
 
     # --- language / spell checking ---
-    # hunspell with UTF-8 capable dictionaries.
-    # pl_PL from Nixpkgs is always ISO8859-2; a converted UTF-8 copy is
-    # made by home.activation (see below). en_GB-large is already UTF-8.
-    (hunspell.withDicts (dicts: with dicts; [en_GB-large pl_PL]))
+    # hunspell with UTF-8 dictionaries only: en_GB-large is UTF-8 upstream
+    # (installed as en_GB.aff/.dic), pl_PL is the build-time conversion
+    # above. Emacs: ~/.emacs.d/modules/03-spelling.el.
+    (hunspell.withDicts (dicts: [dicts.en_GB-large hunspellPlUtf8]))
     languagetool
   ];
 
@@ -50,30 +94,5 @@
   # listed above through pkg-config in the user profile.
   programs.bash.bashrcExtra = ''
     export PKG_CONFIG_PATH="/etc/profiles/per-user/${config.home.username}/lib/pkgconfig''${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
-  '';
-
-  # ---------------------------------------------------------------------------
-  # Hunspell UTF-8 dictionary for pl_PL
-  #
-  # hunspellDicts.pl_PL ships ISO8859-2 which causes iconv errors at runtime.
-  # The .aff and .dic files are converted to UTF-8 once and stored in
-  # ~/.local/share/hunspell/. Emacs points DICPATH there (see 03-spelling.el).
-  # The activation re-runs only when the source file is newer than the output.
-  # ---------------------------------------------------------------------------
-  home.activation.hunspellUtf8 = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    SRC="/etc/profiles/per-user/${config.home.username}/share/hunspell"
-    DST="$HOME/.local/share/hunspell"
-    $DRY_RUN_CMD mkdir -p "$DST"
-
-    for lang in pl_PL; do
-      if [ "$SRC/''${lang}.aff" -nt "$DST/''${lang}.aff" ] || [ ! -f "$DST/''${lang}.aff" ]; then
-        $DRY_RUN_CMD ${pkgs.glibc.bin}/bin/iconv -f ISO8859-2 -t UTF-8 \
-          "$SRC/''${lang}.aff" \
-          | ${pkgs.gnused}/bin/sed 's/^SET ISO8859-2/SET UTF-8/' \
-          > "$DST/''${lang}.aff"
-        $DRY_RUN_CMD ${pkgs.glibc.bin}/bin/iconv -f ISO8859-2 -t UTF-8 \
-          "$SRC/''${lang}.dic" > "$DST/''${lang}.dic"
-      fi
-    done
   '';
 }
