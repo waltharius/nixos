@@ -6,34 +6,72 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 
 ## Refactor stages still ahead
 
-5b. Monitoring of devices without NixOS (stage 5a covered the NixOS
-   machines, ping of devices, websites and alerting; docs/MONITORING.md).
-   Decided on 2026-10-02:
-   - Full metrics, not only up/down: node_exporter on Linux (Debian,
-     Ubuntu, Alpine, Rocky, Proxmox, Raspberry Pi OS) and on pfSense;
-     SNMP where no agent can run. Hardware alerts only on bare metal
-     (a `baremetal` field for device files). win11 stays unmonitored
-     (switched on only for work).
-   - Onboarding: a `gum` script asks for the device, writes
-     `hosts/devices/<name>.nix` and runs Ansible with the
-     `prometheus.prometheus` collection (roles node_exporter,
-     smartctl_exporter, snmp_exporter). The Ansible inventory is
-     generated from `nix eval --json .#inventory`. Check first whether the
-     roles support Alpine (OpenRC). The same Ansible setup is meant for
-     the log agents and the audit export later.
-   - pfSense 2.7.2 (2.8.1 hangs on this box): the package node_exporter
-     is known to fail with 'cannot allocate memory' in the uname and os
-     collectors on 2.7.x (https://redmine.pfsense.org/issues/14452; fixed
-     only in 24.11 Plus). Try the package with those two collectors
-     disabled; install through the GUI package manager, not the shell.
-   - UPS: APC Back-UPS 850 (BE850G2-GR) on USB to pfSense, which runs NUT
-     and tells Proxmox to shut down. Scrape it with nut_exporter on the
-     monitoring server against pfSense's upsd (needs a NUT user and upsd
-     listening on the LAN). Alerts: on battery, battery low, replace
-     battery, UPS unreachable, load high.
-   - Two ASUS RT-AX92U on gnuton firmware (Asuswrt-Merlin port): check
-     whether SNMP is available; otherwise node_exporter from Entware, or
-     ping only.
+5b. Monitoring of Proxmox, containers and devices without NixOS (stage
+   5a covered the NixOS machines, ping of devices, websites and alerting;
+   docs/MONITORING.md). Decided on 2026-10-02, in this order (the user's
+   priority is Proxmox and containers):
+   1. **Proxmox: prometheus-pve-exporter on altair** (nothing installed on
+      Proxmox). Read-only API token, created on the Proxmox host:
+      `pveum user add prometheus@pve`,
+      `pveum acl modify / --users prometheus@pve --roles PVEAuditor`,
+      `pveum user token add prometheus@pve monitoring --privsep 0`
+      (syntax from memory; check). Secret in `secrets/altair.yaml` as
+      `pve-exporter-token`. Gives status and CPU/RAM/disk/network of every
+      VM and LXC; the backup-info collector lists guests no backup job
+      covers. Backup results already arrive as Proxmox e-mails.
+   2. **Containers**: cAdvisor on the Docker VM (`docker`) and on
+      walthpi16 (Docker; GitLab probably runs there in a container -
+      confirm with `docker ps`), prometheus-podman-exporter on altair
+      (Open WebUI, SearXNG, zotero2readwise), Incus is already scraped.
+      Labels `host` and `runtime` (docker, podman, incus, lxc, vm); a
+      "Containers" dashboard: choose a host, see every container.
+   3. **node_exporter on everything with Linux** (pve, Proxmox guests on
+      Debian/Ubuntu/Alpine/Rocky, walthpi, walthpi16), smartctl_exporter
+      on the bare-metal ones. Onboarding: `nix run .#monitor-device`, a
+      `gum` script that asks for the device, writes
+      `hosts/devices/<name>.nix` and runs Ansible underneath (the user
+      never runs Ansible by hand). Ansible is a runtime input of the
+      script only (pinned by flake.lock, not installed in any group); the
+      `prometheus.prometheus` collection is pinned in `requirements.yml`
+      and installed into a git-ignored directory in the repository. The
+      script has an "apply to all devices" mode for version or setting
+      changes. Ansible inventory generated from
+      `nix eval --json .#inventory`. Check whether the roles support
+      Alpine (OpenRC). Hardware alerts only for devices with
+      `baremetal = true`; new device field `category` (e.g. `network`,
+      `proxmox-guest`, `pi`) to group tiles. win11 stays unmonitored.
+   4. **Overview v2**: a recording rule computes a status per host:
+      0 green, 1 yellow (a firing warning alert, or load without e-mail:
+      CPU > 90 % for 15 min, RAM > 90 %, disk > 85 %, PSI pressure),
+      2 red (a firing critical alert, HostDown). Tiles per host grouped by
+      category, showing CPU, RAM and uptime (adjust after use); a state
+      timeline below; click a tile -> new "Host detail" dashboard (status,
+      the host's alerts, CPU/RAM/disk/network, failed units, temperatures,
+      SMART and scrub on bare metal) -> Node Exporter Full / NVIDIA /
+      Explore for that host. Native panels (Stat with data links), no
+      plugins; Polystat only if wanted later.
+   5. **pfSense, UPS, Wi-Fi routers**:
+      - pfSense 2.7.2 (2.8.1 hangs on this box): the package node_exporter
+        is known to fail with 'cannot allocate memory' in the uname and
+        os collectors on 2.7.x (https://redmine.pfsense.org/issues/14452;
+        fixed only in 24.11 Plus). Try the package with those two
+        collectors disabled; install through the GUI package manager.
+      - UPS: APC Back-UPS 850 (BE850G2-GR) on USB to pfSense, which runs
+        NUT and tells Proxmox to shut down. nut_exporter on the monitoring
+        server against pfSense's upsd (needs a NUT user and upsd listening
+        on the LAN). Alerts: on battery, battery low, replace battery, UPS
+        unreachable, load high.
+      - Two ASUS RT-AX92U on gnuton firmware (Asuswrt-Merlin port): check
+        whether SNMP is available; otherwise node_exporter from Entware,
+        or ping only. Check whether per-client Wi-Fi traffic can be
+        exported.
+5c. Service exporters (after 5b): Nextcloud (nextcloud-exporter), MariaDB
+   (mysqld_exporter), Redis, Immich (built-in, `IMMICH_TELEMETRY_INCLUDE=all`),
+   Caddy and GitLab (built-in), Podman if not done in 5b; dashboards in
+   folders Overview, Hosts, Containers, Services, Network. No known
+   exporter for Calibre and Ollama: HTTP probes only. Check whether
+   Syncthing exposes Prometheus metrics. Later and optional:
+   healthchecks.io, Cloudflare, any JSON API through the Infinity plugin.
 6. Class `managed` for family and friends' laptops (`keeper` admin account,
    Flathub and GNOME Software/KDE Discover for the user).
 7. Documentation: rewrite `README.md` (still describes `colmena.nix` and the
@@ -132,18 +170,42 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 
 ## Follow-ups from stage 5a
 
+- **Next session (new thread)**: bring a fresh zip of the repository and
+  the output of `docker ps` on walthpi16; say whether the Proxmox token is
+  in sops. Start with 5b step 1.
+- **Grafana "Export as image" fails** in the browser with "Failed to
+  fetch"; the renderer receives no render request and Grafana logs no
+  error. Likely cause (not verified): `server.root_url` is unset, so
+  Grafana builds absolute URLs with its default `http://localhost:3000`,
+  and the browser on the laptop fetches its own localhost. Check the
+  failing request's URL in the browser's developer tools (Network tab);
+  if it points to localhost, set `root_url = "http://192.168.50.150:3000/"`
+  in grafana.nix (until Phase B gives grafana.home.lan). No browser
+  extension is needed. The same setting fixes the "View in Alertmanager"
+  and "Source" links in alert e-mails only partly: those come from
+  Alertmanager's and Prometheus' own external URLs, which are loopback.
+- **NVMe not seen by smartctl_exporter**: only `sda` (Toshiba HDD)
+  appears; the NVMe drive is missing, so NvmeCriticalWarning,
+  NvmeWearHigh and its DiskTemperatureHigh never fire. Check
+  `journalctl -u prometheus-smartctl-exporter`, whether the unit's device
+  sandbox lets it open `/dev/nvme0`, and the module's `devices` option.
+- **Placeholder website** `example-public` in `hosts/websites.nix`:
+  replace with the real public pages.
+- **Network traffic per host**: the switch (Cudy GS1016) is unmanaged, so
+  traffic inside the LAN is visible only from exporters on the hosts.
+  Per-client internet traffic comes with OPNsense's NetFlow and Insight
+  after the router swap (decide then whether Insight is enough or flows go
+  to Grafana). A managed rack switch is planned in some months: then
+  per-port counters over SNMP.
+- **Backups after Proxmox**: Proxmox backup e-mails work today; when the
+  Proxmox host becomes NixOS, the backup setup has to be rebuilt.
+
 - **`autodefrag` on altair's `/mnt/data`** (backup target): breaks
   reflinks and inflates snapshot space. Decide with the backup design.
 - **GPU memory alert removed.** The old rule (VRAM > 95 %) would fire
   whenever Ollama keeps a large model loaded, which is normal. Add a
   meaningful GPU memory alert if one is needed (e.g. for OOM errors in
   Ollama's log once logs are collected).
-- **NVMe metric names**: checked on 2026-10-02. GPU names and the
-  smartctl `smart_status` and `temperature` series exist;
-  `smartctl_device_critical_warning` and `smartctl_device_percentage_used`
-  do not, so NvmeCriticalWarning and NvmeWearHigh never fire. Find the
-  names this smartctl_exporter version uses for the NVMe drive (or why it
-  exposes none) and fix `alert-rules.nix`.
 - **Alertmanager UTF-8 mode.** Matchers are written in the classic syntax;
   consider `--enable-feature=utf8-strict-mode` after `amtool check-config`
   shows no warnings.

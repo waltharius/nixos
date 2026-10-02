@@ -57,14 +57,24 @@ Follow-up to stage 5a after the first days of use.
 
 ### Verification
 
-To be run after the deploy; record the results here (and remove this
-note):
+Run on 2026-10-02:
 
-- Grafana opens on "Fleet overview"; the alerts table is empty or lists
-  only real problems; tiles show every pinged host and website.
-- Share -> Export as image produces a PNG.
-- Job drop-downs in Node Exporter Full and NVIDIA GPU list only `node`
-  and `nvidia`; the instance is `altair`.
+- First `colmena apply test` failed: Grafana 13 refused the default
+  renderer token (fixed with the shared token before the commit).
+- Node Exporter Full and NVIDIA GPU list only the jobs `node` and
+  `nvidia`, instance `altair`. Not confirmed: whether the old series were
+  deleted through the admin API (a series query still returned
+  `instance="127.0.0.1:9835"` before the cleanup step).
+- Alert e-mail to marcin@waltharius.pl: Postfix test and an amtool test
+  alert (FIRING TestAlert) delivered.
+- `btrfs-scrub.prom` after the fix: each series once (2 mount points).
+- Prometheus: all 27 targets up (node altair and cloud-apps, smartctl,
+  nvidia, incus, monitoring stack, 15 ICMP probes, 2 HTTP probes,
+  2 internet probes).
+- smartctl_exporter sees only `sda`, not the NVMe drive (BACKLOG.md).
+- Share -> Export as image fails with "Failed to fetch"; nothing reaches
+  the renderer, nothing in Grafana's log (BACKLOG.md).
+- Not yet checked: the Fleet overview dashboard itself.
 
 ### Lessons learned
 
@@ -169,7 +179,7 @@ Run on 2026-10-02 after the deploy:
   `smartctl_device_critical_warning` and `smartctl_device_percentage_used`
   do not: NvmeCriticalWarning and NvmeWearHigh cannot fire yet
   (BACKLOG.md).
-- Not yet checked: the full list of Prometheus targets.
+- Prometheus targets: all up (checked with the follow-up entry above).
 
 ### Lessons learned
 
