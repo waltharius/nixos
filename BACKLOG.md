@@ -30,6 +30,21 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 - **Lint hooks.** Enable statix and deadnix in `parts/dev.nix` after a
   one-time cleanup of the existing code.
 
+- **NixOS 26.11: restarts from the activation script.** Rebuilds warn
+  that restarting or reloading systemd units from the activation script is
+  deprecated and will be removed in 26.11. Likely source: sops-nix
+  `restartUnits = ["NetworkManager.service"]` on `wifi-env-file`
+  (`modules/system/wifi.nix`). Find every source (`grep -rn
+  'restartUnits\|reloadUnits' --include=*.nix .`, the rebuild output
+  around the warning), then switch sops-nix to systemd-based activation if
+  the locked version has it, update sops-nix, or drop `restartUnits`.
+  Before upgrading to 26.11.
+- **Two git remotes.** GitLab (`origin`) and GitHub diverged twice: an
+  edit made on GitHub, and a rebase over pushed commits. Choose one way of
+  working: GitLab only with a push mirror to GitHub (GitHub read-only), or
+  a rule never to edit on GitHub. Decide together with "Repository
+  privacy".
+
 ## Repository cleanup
 
 - **Dead files.** The repository still holds files nothing uses: modules
@@ -46,6 +61,9 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 
 ## Follow-ups from stage 4
 
+- **Finish stage 4 on sukkub and baal.** Rebuild both, delete any
+  hand-made hotspot profile first, run `tailscale-join`, then record the
+  remaining checks in the stage 4 changelog entry (Verification).
 - **pfSense is the subnet router, configured by hand** (package, tagged
   key, advertised route; `docs/REMOTE-ACCESS.md`). Repeat it on OPNsense
   when pfSense is replaced.
@@ -53,8 +71,8 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   reaches pfSense only through the DERP relay in Warsaw (works, ~100-200
   ms, limited throughput). pfSense sits behind the provider's NAT (roof
   antenna, no access), and a WAN rule for UDP 41641 did not help (no
-  matches, removed). Option once the VPS exists: run a Tailscale peer
-  relay on it, so both ends connect to a public node instead of DERP
+  matches, removed; Advertise Exit Node switched off). Option once the
+  VPS exists: run a Tailscale peer relay on it, so both ends connect to a public node instead of DERP
   (`docs/REMOTE-ACCESS.md`, "Relayed instead of direct connections").
 - **systemd-resolved on bad networks.** On the phone hotspot resolved
   stalled: unreachable IPv6 DNS servers announced by the phone, and its
@@ -219,7 +237,8 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   tailnets does not exist (`join = "shared"` machines stay on Tailscale);
   clients must be among the last 10 Tailscale releases; a client talks to
   one control server at a time. Switch with `tailscale.loginServer` in
-  `hosts/fleet.nix`, then `tailscale-join` on every machine.
+  `hosts/fleet.nix`, then `tailscale-join` on every machine. The same VPS
+  can run a Tailscale peer relay (see "Direct connections to pfSense").
 - Reinstall the Proxmox host with NixOS and move its containers to altair
   (separate stage).
 - Raspberry Pi 5 machines (aarch64) - add to the fleet later; needs
