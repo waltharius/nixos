@@ -146,6 +146,10 @@ To be run on azazel after applying the series; record the results here
   whole LAN through the subnet router. Tag such devices.
 - Headscale cannot run behind Cloudflare Proxy or Tunnel and has no
   Funnel; moving to it needs a public address and calibre off Funnel first.
+- systemd-resolved is less forgiving than a plain `/etc/resolve.conf`:
+  with a phone hotspot's DNS proxy and unreachable IPv6 DNS servers its
+  timed out, while baal (still without resolved) worked on the same network.
+  Test a resolver change on the networks actually used.
 - pfSense drops traffic from the tailnet until the Tailscale interface
   group has a pass rule. Split DNS for `home.lan` worked before that rule
   existed, so a working DNS lookup does not prove the LAN is reachable:
