@@ -47,9 +47,11 @@ in {
       server = {
         http_addr = "0.0.0.0"; # nftables restricts to LAN
         http_port = 3000;
-        # Phase B: uncomment and set when Caddy proxy is live:
-        # domain   = "grafana.home.lan";
-        # root_url = "https://grafana.home.lan";
+        # Absolute URLs Grafana builds (share links, image export, links in
+        # notifications) use root_url; without it they point to
+        # http://localhost:3000, i.e. the viewer's own machine.
+        # Phase B: https://grafana.home.lan behind Caddy.
+        root_url = "http://${host.name}.${config.networking.domain}:3000/";
       };
       security = {
         admin_user = "admin";

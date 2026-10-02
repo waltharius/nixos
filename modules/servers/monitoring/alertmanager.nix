@@ -1,8 +1,12 @@
 # modules/servers/monitoring/alertmanager.nix
 #
 # Alertmanager on the monitoring server: groups the alerts Prometheus sends
-# and delivers them. Listens on loopback only; Grafana shows its alerts and
-# silences through the Alertmanager data source (grafana.nix).
+# and delivers them. Grafana shows its alerts and silences through the
+# Alertmanager data source (grafana.nix). The web UI is open on the LAN
+# interface (port 9093, no authentication: anyone in the LAN can create
+# silences) so the "View In Alertmanager" link in alert e-mails works; the
+# link is built from `webExternalUrl`, by default http://<host name>:9093.
+# Phase B (BACKLOG.md) puts Caddy with TLS and authentication in front.
 #
 # Receivers:
 #   email        - every alert, firing and resolved, through the local
@@ -18,14 +22,19 @@
 #
 # Inhibition: while a host is down (HostDown), its other warnings and info
 # alerts are not sent.
-{config, ...}: let
+{
+  config,
+  host,
+  ...
+}: let
   mail = config.fleet.monitoring.mail;
   credential = "healthchecks-url";
 in {
   services.prometheus.alertmanager = {
     enable = true;
-    listenAddress = "127.0.0.1";
+    listenAddress = "0.0.0.0"; # firewall below: LAN interface only
     port = 9093;
+    webExternalUrl = "http://${host.name}.${config.networking.domain}:${toString config.services.prometheus.alertmanager.port}";
 
     configuration = {
       global = {
@@ -91,6 +100,9 @@ in {
   systemd.services.alertmanager.serviceConfig.LoadCredential = [
     "${credential}:${config.sops.secrets.healthchecks-watchdog-url.path}"
   ];
+
+  # Web UI from the LAN interface only, as for Grafana and Prometheus.
+  networking.firewall.interfaces.${host.lan.interface}.allowedTCPPorts = [config.services.prometheus.alertmanager.port];
 
   sops.secrets.healthchecks-watchdog-url = {
     sopsFile = ../../../secrets/altair.yaml;

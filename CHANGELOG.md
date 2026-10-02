@@ -9,6 +9,42 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
+## [2026-10-02] Monitoring: working links in alert e-mails, Grafana root_url
+
+### Changed
+
+- Alertmanager and Prometheus listen on all addresses; ports 9093 and 9090
+  are open on altair's LAN interface only (like Grafana's 3000), without
+  authentication. Their `webExternalUrl` is
+  `http://<host>.<networking.domain>:<port>` (`http://altair.home.lan:9093`,
+  `:9090`). Before, the "View In Alertmanager" and "Source" links in alert
+  e-mails used the default external URL (`http://altair:9093`) of a
+  service listening on loopback only, and the browser timed out.
+- Grafana `root_url` set to `http://altair.home.lan:3000/`: absolute links
+  built by Grafana (share links, image export) pointed to
+  `http://localhost:3000`.
+- PveGuestDown and PveGuestNotBackedUp skip templates
+  (`pve_guest_info{template="1"}`); PveGuestNotBackedUp also skips guests
+  with the Proxmox tag `nobackup`.
+
+### Verification
+
+To be run after the deploy; record the results here (and remove this
+note):
+
+- From azazel: `http://altair.home.lan:9093` and `:9090` open; an amtool
+  test alert (docs/MONITORING.md) arrives with a "View In Alertmanager"
+  link to `http://altair.home.lan:9093/#/alerts?receiver=email` that
+  opens, and "Source" opens the expression in Prometheus.
+- Grafana: Share -> Export as image works (BACKLOG.md, "Grafana Export as
+  image fails"), or the browser's Network tab shows which URL fails.
+
+### Lessons learned
+
+- Alertmanager and Prometheus put their external URL into every
+  notification. A service that listens on loopback still needs a
+  reachable external URL as soon as anything it sends leaves the host.
+
 ## [2026-10-02] Refactor stage 5b step 1 - Proxmox through the pve exporter
 
 First step of stage 5b (BACKLOG.md): Proxmox VE, its guests and storage
@@ -49,18 +85,21 @@ nothing is installed on Proxmox.
 
 ### Verification
 
-To be run after the deploy; record the results here (and remove this
-note):
+Run on 2026-10-02 after the deploy:
 
-- `nvd diff` on a host other than altair (e.g. cloud-apps or azazel):
-  no change from the certificate file.
-- On altair: `systemctl status prometheus-pve-exporter`, then
-  `curl -s 'http://127.0.0.1:9221/pve?target=192.168.50.200&cluster=1&node=1' | grep -E '^pve_(up|not_backed_up)'`
-  lists the node, every guest and storage.
-- Prometheus target `pve` up; Grafana dashboard Proxmox via Prometheus
-  shows data for instance `pve`.
-- Alerting -> Alert rules lists the `proxmox` group; check whether
-  PveGuestNotBackedUp fires for any guest.
+- `curl -s 'http://127.0.0.1:9221/pve?target=192.168.50.200&cluster=1&node=1'`
+  on altair lists the node, 9 LXC containers, 2 VMs and 6 storages
+  (token and FreeIPA CA verification work). Two guests are stopped and in
+  no backup job: `lxc/108` and `lxc/9000`.
+- Grafana dashboard Proxmox via Prometheus shows data.
+
+Still to check:
+
+- `nvd diff` on a host other than altair: no change from the
+  certificate file.
+- Alerting -> Alert rules lists the `proxmox` group;
+  PveGuestNotBackedUp for `lxc/108` (and `lxc/9000` if it is not a
+  template, see the follow-up entry).
 - Blackbox target `pve-web` up, certificate expiry about 2027-09-13.
 
 ### Lessons learned

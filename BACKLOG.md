@@ -170,7 +170,9 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   and the browser on the laptop fetches its own localhost. Check the
   failing request's URL in the browser's developer tools (Network tab);
   if it points to localhost, set `root_url = "http://192.168.50.150:3000/"`
-  in grafana.nix (until Phase B gives grafana.home.lan). No browser
+  in grafana.nix (until Phase B gives grafana.home.lan). Update
+  2026-10-02: `root_url` is now set (`http://altair.home.lan:3000/`); test
+  again, and if it still fails look at the request in the Network tab. No browser
   extension is needed. The same setting fixes the "View in Alertmanager"
   and "Source" links in alert e-mails only partly: those come from
   Alertmanager's and Prometheus' own external URLs, which are loopback.
@@ -179,16 +181,6 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   NvmeWearHigh and its DiskTemperatureHigh never fire. Check
   `journalctl -u prometheus-smartctl-exporter`, whether the unit's device
   sandbox lets it open `/dev/nvme0`, and the module's `devices` option.
-- **Links in alert e-mails do not open.** "View In Alertmanager" points to
-  `http://altair:9093/#/alerts?...` and "Source" to `http://altair:9090/graph?...`:
-  the default external URLs (host name plus port) of services that listen
-  on loopback only, so the browser times out. Options (to decide): open
-  both UIs on the LAN interface and set `webExternalUrl` (no
-  authentication: anyone in the LAN can silence alerts), or override the
-  e-mail template's links to point at Grafana (Alerting pages, Explore),
-  or wait for Phase B (Caddy with TLS and authentication in front of
-  Grafana, Alertmanager and Prometheus). Decide together with Grafana's
-  `root_url` (image export, above).
 - **Placeholder website** `example-public` in `hosts/websites.nix`:
   replace with the real public pages.
 - **Network traffic per host**: the switch (Cudy GS1016) is unmanaged, so
@@ -219,10 +211,22 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   runs image `027f8688c923` (shown without a name: its tag now points
   elsewhere or is gone), 11 months old; clients run 18.15.2 (nixpkgs
   26.05). `atuin.home.lan` resolves to the Caddy VM (192.168.50.114), which
-  proxies to the Docker VM. Planned: move it to altair (to decide: native
-  `services.atuin` or a Podman container), together with the Atuin items
-  under "Follow-ups from stage 1" (key rotation, separate account for
-  servers, workstation login from sops).
+  proxies to the Docker VM. The server reports version 18.8.0; the image
+  (`ghcr.io/atuinsh/atuin:latest`) was built on 2025-08-04; its data is in
+  the Docker volume `atuin_atuin-data` (`/data`). Decided 2026-10-02:
+  move it to altair as the native NixOS service `services.atuin` (same
+  package as the clients, upgraded with flake.lock), not a container. The
+  move only needs Caddy's upstream changed (`reverse_proxy` in the `atuin`
+  block on the Caddy VM) and port 8888 on altair opened to the Caddy VM;
+  it can wait for the Caddy migration. The module defaults to PostgreSQL;
+  if the old server uses SQLite, start with an empty server and push the
+  store from one client instead of migrating the database. Combine with
+  the Atuin items under "Follow-ups from stage 1" (key rotation, separate
+  account for servers, workstation login from sops).
+- **Stopped Proxmox guests outside backups**: `lxc/108` (stopped) and
+  `lxc/9000` (stopped, maybe a template) are in no backup job. Decide per
+  guest: add to a backup job, tag `nobackup` in Proxmox (PveGuestNotBackedUp
+  skips it), or delete it.
 
 ## Follow-ups from stage 4
 

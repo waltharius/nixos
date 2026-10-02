@@ -21,8 +21,11 @@ no module names a host.
 
 Exporters listen on all addresses; the firewall of each host lets only the
 monitoring server's address reach the exporter ports (9100 node, 9633
-smartctl). The monitoring stack itself listens on loopback, except Grafana
-(port 3000, LAN interface).
+smartctl). Of the monitoring stack, Grafana (3000), Prometheus (9090) and
+Alertmanager (9093) are reachable on the monitoring server's LAN interface,
+without authentication (the LAN is trusted; Phase B adds Caddy with TLS and
+a login in front); the exporters on the monitoring server itself (blackbox,
+pve, GPU) listen on loopback.
 
 ## Files
 
@@ -45,7 +48,7 @@ smartctl). The monitoring stack itself listens on loopback, except Grafana
 
 ## Where to look
 
-- **Grafana** (`http://192.168.50.150:3000`):
+- **Grafana** (`http://altair.home.lan:3000`):
   - Home dashboard **Fleet overview**: a table of every pending or firing
     alert (empty = nothing wrong) and UP/DOWN tiles for hosts, websites
     and exporters. This is the Checkmk-like view and works even when
@@ -61,6 +64,12 @@ smartctl). The monitoring stack itself listens on loopback, except Grafana
     Blackbox dashboard is built for HTTP probes: choose a page in
     `target`; for a pinged host only Status and Probe Duration show data,
     the HTTP, SSL and DNS panels stay empty by design.
+- **Alertmanager UI** (`http://altair.home.lan:9093`): the target of the
+  "View In Alertmanager" link in alert e-mails; current alerts and
+  silences, the same as Grafana's Alerting pages.
+- **Prometheus UI** (`http://altair.home.lan:9090`): the target of the
+  "Source" link in alert e-mails (the rule's expression as a graph);
+  Status -> Targets shows every scrape target and its last error.
 - **E-mail**: every alert, when it fires and when it is resolved, to
   `monitoring.mail.to` in `hosts/fleet.nix`. A still-firing alert is
   repeated every 12 hours.
@@ -119,8 +128,8 @@ Series keep their labels for the whole retention (90 days). When jobs or
 labels are renamed, the old names stay in Grafana's drop-downs with empty
 graphs until they age out. To delete them earlier, Prometheus' admin API
 has to be on for a moment; it stays off normally, because anything that
-can reach port 9090 on altair (including the Podman containers on the host
-network) could then delete data.
+can reach port 9090 on altair (every device in the LAN, and the Podman
+containers on the host network) could then delete data.
 
 1. In `modules/servers/monitoring/prometheus.nix`, inside
    `services.prometheus`, add `extraFlags = ["--web.enable-admin-api"];`

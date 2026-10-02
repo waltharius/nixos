@@ -1,7 +1,11 @@
 # modules/servers/monitoring/prometheus.nix
 #
-# Prometheus on the monitoring server. Listens on loopback only; Grafana
-# queries it locally. Retention 90 days.
+# Prometheus on the monitoring server. Retention 90 days. Grafana queries it
+# over loopback. The web UI is open on the LAN interface (port 9090, no
+# authentication; the LAN is trusted) so the "Source" links in alert
+# e-mails work: they are built from `webExternalUrl`, by default
+# http://<host name>:9090, which pointed at a loopback-only service before.
+# Phase B (BACKLOG.md) puts Caddy with TLS and authentication in front.
 #
 # Scrape targets come from the inventory (lib/monitoring.nix,
 # `fleet.monitoring.targets`); nothing here names a host. Jobs:
@@ -91,8 +95,9 @@
 in {
   services.prometheus = {
     enable = true;
-    listenAddress = "127.0.0.1";
+    listenAddress = "0.0.0.0"; # firewall below: LAN interface only
     port = 9090;
+    webExternalUrl = "http://${host.name}.${config.networking.domain}:${toString config.services.prometheus.port}";
     retentionTime = "90d";
     checkConfig = "syntax-only";
 
@@ -171,4 +176,8 @@ in {
         ];
       };
   };
+
+  # Web UI from the LAN interface only (`lan.interface` in
+  # hosts/machines/<host>.nix), not from Incus containers (incusbr0).
+  networking.firewall.interfaces.${host.lan.interface}.allowedTCPPorts = [config.services.prometheus.port];
 }

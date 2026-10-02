@@ -220,23 +220,25 @@ in {
           "The pve exporter on the monitoring server fails to read the Proxmox API of ${hostRef}: exporter stopped, token revoked or expired, or the pveproxy certificate no longer verifies against the FreeIPA CA. journalctl -u prometheus-pve-exporter on the monitoring server.")
 
         # Only guests set to start at boot: a guest kept off on purpose has
-        # onboot = 0 and is ignored.
+        # onboot = 0 and is ignored. Templates never run and are skipped.
         (rule "PveGuestDown" ''
             (
               (pve_up{job="pve",id=~"(qemu|lxc)/.*"} == 0)
               and on (host, id) (pve_onboot_status{job="pve"} == 1)
             )
-            * on (host, id) group_left (name) pve_guest_info{job="pve"}
+            * on (host, id) group_left (name) pve_guest_info{job="pve",template!="1"}
           '' "5m" "warning"
           "Proxmox guest {{ $labels.name }} ({{ $labels.id }}) on ${hostRef} is not running"
           "{{ $labels.id }} ({{ $labels.name }}) is set to start at boot but has not been running for 5 minutes. Check it in the Proxmox web UI or with qm status / pct status on ${hostRef}.")
 
+        # Skipped: templates, and guests with the Proxmox tag `nobackup`
+        # (a guest deliberately left out of every backup job).
         (rule "PveGuestNotBackedUp" ''
             pve_not_backed_up_info{job="pve"}
-            * on (host, id) group_left (name) pve_guest_info{job="pve"}
+            * on (host, id) group_left (name) pve_guest_info{job="pve",template!="1",tags!~"(.*;)?nobackup(;.*)?"}
           '' "1h" "warning"
           "Proxmox guest {{ $labels.name }} ({{ $labels.id }}) is in no backup job"
-          "No backup job on ${hostRef} covers {{ $labels.id }} ({{ $labels.name }}). Add it to a job under Datacenter -> Backup, or remove the guest if it is not needed.")
+          "No backup job on ${hostRef} covers {{ $labels.id }} ({{ $labels.name }}). Add it to a job under Datacenter -> Backup, give it the tag nobackup if it is left out on purpose, or remove the guest if it is not needed.")
 
         # Storage size 0 means inactive or unavailable storage: skipped.
         (rule "PveStorageLow" ''
