@@ -22,7 +22,9 @@ Follow-up to stage 5a after the first days of use.
   websites and exporters, website response times, certificate expiry. The
   Checkmk-like overview that also works when e-mail does not.
 - Grafana image rendering (`services.grafana-image-renderer`, headless
-  Chromium): Share -> Export as image.
+  Chromium): Share -> Export as image. Grafana and the renderer share a
+  token (`grafana-renderer-token` in `secrets/altair.yaml`): Grafana 13
+  refuses to start with the default renderer token.
 - `docs/MONITORING.md`: exporting images and data, removing old series,
   how to read the Blackbox dashboard.
 
@@ -53,6 +55,9 @@ note):
 
 ### Lessons learned
 
+- Grafana 13 treats the default `[rendering] renderer_token` as a fatal
+  error in production mode; enabling the NixOS renderer module alone
+  stopped Grafana from starting. A shared token is required.
 - Renaming a scrape job or a label leaves the old series for the whole
   retention; plan label names before the first deploy, or budget a
   one-off delete through the admin API.

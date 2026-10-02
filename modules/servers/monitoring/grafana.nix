@@ -214,6 +214,15 @@ in {
     # Key in secrets/altair.yaml: grafana-admin-password
   };
 
+  sops.secrets.grafana-renderer-token = {
+    sopsFile = ../../../secrets/altair.yaml;
+    owner = "grafana";
+    group = "grafana";
+    mode = "0400";
+    # Key in secrets/altair.yaml: grafana-renderer-token (raw value, e.g.
+    # from `openssl rand -hex 32`)
+  };
+
   sops.secrets.grafana-secret-key = {
     sopsFile = ../../../secrets/altair.yaml;
     owner = "grafana";
@@ -225,12 +234,28 @@ in {
   # Image rendering: "Share -> Export as image" and the render links of
   # panels. Grafana hands the rendering to a separate service that drives a
   # headless Chromium; `provisionGrafana` points Grafana at it (and the
-  # callback URL back to Grafana). Its port is not opened in the firewall,
-  # so only Grafana on this host reaches it. Pulls in Chromium.
+  # callback URL back to Grafana). The renderer listens on localhost:8081
+  # only. Pulls in Chromium.
+  #
+  # Shared token: Grafana sends it in X-Auth-Token, the renderer accepts
+  # only requests carrying it. Grafana 13 refuses to start with the default
+  # token ("-"). One sops value feeds both sides: Grafana reads the raw
+  # file, the renderer gets AUTH_TOKEN from an environment file rendered by
+  # sops-nix (its systemd unit uses a dynamic user, so the file is read by
+  # systemd as root).
   services.grafana-image-renderer = {
     enable = true;
     provisionGrafana = true;
   };
+
+  services.grafana.settings.rendering.renderer_token = "$__file{${config.sops.secrets.grafana-renderer-token.path}}";
+
+  systemd.services.grafana-image-renderer.serviceConfig.EnvironmentFile =
+    config.sops.templates."grafana-image-renderer.env".path;
+
+  sops.templates."grafana-image-renderer.env".content = ''
+    AUTH_TOKEN=${config.sops.placeholder.grafana-renderer-token}
+  '';
 
   # Firewall rule: allow Grafana from the LAN interface only
   # (`lan.interface` in hosts/machines/<host>.nix), so Grafana is not
