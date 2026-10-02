@@ -1,9 +1,83 @@
 # modules/servers/monitoring/prometheus.nix
 #
-# Prometheus TSDB. Listens on loopback only — Grafana scrapes via localhost.
-# Incus metrics require metricsAddress to be set in incus.nix (see comment below).
-# Retention 90 days — enough baseline for GPU comparison across burn-in runs.
-{...}: {
+# Prometheus on the monitoring server. Listens on loopback only; Grafana
+# queries it locally. Retention 90 days.
+#
+# Scrape targets come from the inventory (lib/monitoring.nix,
+# `fleet.monitoring.targets`); nothing here names a host. Jobs:
+#   node              - node_exporter of every machine of class server/virtual
+#   smartctl          - smartctl_exporter of every machine of class server
+#   blackbox-icmp     - ping of monitored machines and of devices with
+#                       `monitoring.ping = true` (hosts/devices/)
+#   blackbox-http     - pages from hosts/websites.nix
+#   blackbox-internet - ping of public DNS resolvers (InternetDown)
+#   nvidia, incus     - only on a monitoring server that has them (altair)
+#   prometheus, alertmanager, blackbox - the monitoring stack itself
+#
+# Alert rules: alert-rules.nix. Alerts go to Alertmanager (alertmanager.nix).
+{
+  config,
+  lib,
+  pkgs,
+  host,
+  ...
+}: let
+  targets = config.fleet.monitoring.targets;
+
+  # One static_config per target, so each keeps its own labels.
+  staticConfigs = map (x: {
+    targets = [x.address];
+    inherit (x) labels;
+  });
+
+  # Blackbox pattern: the target becomes the ?target= parameter and the
+  # scrape goes to the local blackbox exporter.
+  blackboxExporter = "127.0.0.1:${toString config.services.prometheus.exporters.blackbox.port}";
+  blackboxJob = name: module: interval: targetList: {
+    job_name = name;
+    scrape_interval = interval;
+    metrics_path = "/probe";
+    params.module = [module];
+    static_configs = staticConfigs targetList;
+    relabel_configs = [
+      {
+        source_labels = ["__address__"];
+        target_label = "__param_target";
+      }
+      {
+        target_label = "__address__";
+        replacement = blackboxExporter;
+      }
+    ];
+  };
+
+  # Public resolvers for the internet check.
+  internetTargets = [
+    {
+      address = "1.1.1.1";
+      labels.instance = "cloudflare-dns";
+    }
+    {
+      address = "9.9.9.9";
+      labels.instance = "quad9-dns";
+    }
+  ];
+
+  localJob = name: port: labels: {
+    job_name = name;
+    static_configs = [
+      {
+        targets = ["127.0.0.1:${toString port}"];
+        labels = {host = host.name;} // labels;
+      }
+    ];
+  };
+
+  nvidiaEnabled = config.services.prometheus.exporters.nvidia-gpu.enable or false;
+  incusEnabled = config.virtualisation.incus.enable or false;
+
+  rulesFile = pkgs.writeText "fleet-alert-rules.yml" (builtins.toJSON (import ./alert-rules.nix));
+in {
   services.prometheus = {
     enable = true;
     listenAddress = "127.0.0.1";
@@ -11,27 +85,46 @@
     retentionTime = "90d";
     checkConfig = "syntax-only";
 
-    globalConfig.scrape_interval = "15s";
+    globalConfig = {
+      scrape_interval = "15s";
+      evaluation_interval = "15s";
+    };
 
-    scrapeConfigs = [
-      # ── Host hardware + OS ──────────────────────────────────────────────────
+    alertmanagers = [
       {
-        job_name = "altair-node";
         static_configs = [
-          {
-            targets = ["127.0.0.1:9100"];
-            labels = {
-              host = "altair";
-              role = "baremetal";
-            };
-          }
+          {targets = ["127.0.0.1:${toString config.services.prometheus.alertmanager.port}"];}
         ];
       }
+    ];
 
-      # ── Incus container/VM metrics ──────────────────────────────────────────
-      # Requires: virtualisation.incus.metrics.enable = true in incus.nix
-      # and metricsAddress = "127.0.0.1:9101"
-      {
+    ruleFiles = [rulesFile];
+
+    scrapeConfigs =
+      [
+        {
+          job_name = "node";
+          static_configs = staticConfigs targets.node;
+        }
+        {
+          job_name = "smartctl";
+          scrape_interval = "60s";
+          static_configs = staticConfigs targets.smartctl;
+        }
+        (blackboxJob "blackbox-icmp" "icmp" "30s" targets.ping)
+        (blackboxJob "blackbox-http" "http_2xx" "30s" targets.websites)
+        (blackboxJob "blackbox-internet" "icmp" "30s" internetTargets)
+
+        (localJob "prometheus" config.services.prometheus.port {})
+        (localJob "alertmanager" config.services.prometheus.alertmanager.port {})
+        (localJob "blackbox" config.services.prometheus.exporters.blackbox.port {})
+      ]
+      ++ lib.optional nvidiaEnabled
+      (localJob "nvidia" config.services.prometheus.exporters.nvidia-gpu.port {role = "gpu";})
+      # Incus container/VM metrics. Requires the metrics listener on
+      # 127.0.0.1:9101 (modules/servers/incus/default.nix) and the client
+      # certificate in /var/lib/prometheus-incus/.
+      ++ lib.optional incusEnabled {
         job_name = "incus";
         scrape_interval = "30s";
         scheme = "https";
@@ -45,95 +138,11 @@
           {
             targets = ["127.0.0.1:9101"];
             labels = {
-              host = "altair";
+              host = host.name;
               role = "incus";
             };
           }
         ];
-      }
-
-      # ── GPU metrics ─────────────────────────────────────────────────────────
-      # Phase C: uncomment when nvidia-exporter.nix is added
-      {
-        job_name = "altair-nvidia";
-        static_configs = [
-          {
-            targets = ["127.0.0.1:9835"];
-            labels = {
-              host = "altair";
-              role = "gpu";
-            };
-          }
-        ];
-      }
-
-      # OPNsense metrics
-      {
-        job_name = "opnsense firewall";
-        static_configs = [
-          {
-            targets = ["192.168.50.149:9100"];
-            labels = {
-              host = "opnsense";
-              role = "firewall";
-            };
-          }
-        ];
-      }
-    ];
-
-    # Alerting rules
-    rules = [
-      ''
-        groups:
-          - name: altair
-            rules:
-
-              - alert: NodeExporterDown
-                expr: up{job="altair-node"} == 0
-                for: 2m
-                labels: { severity: critical }
-                annotations:
-                  summary: "Altair node exporter unreachable"
-
-              - alert: DataDiskLow
-                expr: >
-                  node_filesystem_avail_bytes{job="altair-node",mountpoint="/mnt/data"}
-                  / node_filesystem_size_bytes{job="altair-node",mountpoint="/mnt/data"} < 0.10
-                for: 15m
-                labels: { severity: warning }
-                annotations:
-                  summary: "Data disk < 10% free on altair"
-
-              - alert: CPUTempHigh
-                expr: node_hwmon_temp_celsius{job="altair-node",chip=~".*k10temp.*",sensor="Tctl"} > 85
-                for: 5m
-                labels: { severity: warning }
-                annotations:
-                  summary: "CPU Tctl above 85°C"
-
-              - alert: SystemdUnitFailed
-                expr: node_systemd_unit_state{job="altair-node",state="failed"} == 1
-                for: 1m
-                labels: { severity: warning }
-                annotations:
-                  summary: "Systemd unit {{ $labels.name }} is in failed state"
-
-              - alert: GPUTempHigh
-                expr: nvidia_smi_temperature_gpu > 85
-                for: 5m
-                labels: { severity: warning }
-                annotations:
-                  summary: "GPU {{ $labels.gpu }} above 85°C on altair"
-
-              - alert: GPUMemoryHigh
-                expr: >
-                 nvidia_smi_memory_used_bytes / nvidia_smi_memory_total_bytes > 0.95
-                for: 10m
-                labels: { severity: warning }
-                annotations:
-                  summary: "GPU {{ $labels.gpu }} VRAM > 95% on altair"
-      ''
-    ];
+      };
   };
 }

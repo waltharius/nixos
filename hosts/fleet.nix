@@ -21,6 +21,22 @@
   # `tailscale-join` on each of them.
   tailscale.loginServer = null;
 
+  # Monitoring (lib/monitoring.nix, docs/MONITORING.md). Every machine of
+  # class server or virtual runs node_exporter and is scraped by the
+  # Prometheus on `server`, which also runs Alertmanager and Grafana.
+  monitoring = {
+    server = "altair";
+
+    # Alert e-mails. A local Postfix on the monitoring server delivers
+    # them straight to the recipient's mail server (no relay). `to` is a
+    # Proton Pass alias: if it starts receiving spam, disable it in Proton
+    # Pass and put a new one here.
+    mail = {
+      to = "alerts.pavement456@passmail.net";
+      from = "alertmanager@altair.home.lan";
+    };
+  };
+
   # Age keys that can decrypt every secret: the sops CLI of the
   # administrator (~/.config/sops/age/keys.txt on azazel). Host keys are in
   # the machine files. See secrets/README.md.

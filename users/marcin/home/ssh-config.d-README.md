@@ -8,7 +8,7 @@ the first value it finds for an option, so earlier layers win:
 | `local`   | this directory                                 | you        | yes        |
 | `hosts`   | `secrets/users/marcin/admin.yaml` (encrypted)  | sops-nix   | no         |
 | `fleet`   | `hosts/machines/*.nix` (NixOS machines)        | Nix        | no         |
-| `devices` | `hosts/devices.nix` (everything else)          | Nix        | no         |
+| `devices` | `hosts/devices/*.nix` (everything else)        | Nix        | no         |
 
 Blocks written directly in `~/.ssh/config` (github.com, gitlab.com,
 gitlab.home.lan, 192.168.50.*) come before all layers.
@@ -24,7 +24,7 @@ hosts in `/etc/ssh/ssh_known_hosts`.
 - **A NixOS machine of the fleet** -> `nix run .#new-host` in the nixos
   repository; it appears in `fleet` automatically.
 - **A permanent device without NixOS** (router, VM, Raspberry Pi) ->
-  `hosts/devices.nix`, then rebuild. Its address is also checked against
+  a new file in `hosts/devices/`, then rebuild. Its address is also checked against
   the rest of the network.
 - **Private and not for the repository** (external servers, account names)
   -> `hosts`: `sops secrets/users/marcin/admin.yaml`, key `ssh_config`.

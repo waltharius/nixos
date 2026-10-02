@@ -258,7 +258,8 @@ y               # yazi with cd on exit
 - **[NEW-HOST.md](docs/NEW-HOST.md)**: adding and installing a host (`new-host`, `install-host`)
 - **[secrets/README.md](secrets/README.md)**: secrets, generated `.sops.yaml`, host keys
 - **[SSH.md](docs/SSH.md)**: keys, layered host lists, pinned host keys
-- **[hosts/README.md](hosts/README.md)**: inventory fields (machines, devices)
+- **[hosts/README.md](hosts/README.md)**: inventory fields (machines, devices, websites)
+- **[MONITORING.md](docs/MONITORING.md)**: what is monitored, alerts, where to look, adding hosts and pages
 - **[WIFI_SETUP.md](docs/WIFI_SETUP.md)**: WiFi configuration with encrypted passwords (to be reviewed)
 - **docs/history/**: logs of past work (upgrade to 26.05, local LLM on altair)
 

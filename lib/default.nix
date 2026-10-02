@@ -25,7 +25,11 @@
   # only its option (lib/tailscale.nix).
   fleetTailscale = import ./tailscale.nix {inherit lib inventory;};
 
-  hostModules = name: machine: (classOf machine).modules name machine ++ [fleetSsh fleetTailscale];
+  # Exporters on servers and virtual machines, the monitoring stack on the
+  # monitoring server, scrape targets for all of it (lib/monitoring.nix).
+  fleetMonitoring = import ./monitoring.nix {inherit lib inventory;};
+
+  hostModules = name: machine: (classOf machine).modules name machine ++ [fleetSsh fleetTailscale fleetMonitoring];
   hostSpecialArgs = name: machine: (classOf machine).specialArgs name machine;
 
   # `lib.nixosSystem` (used for nixosConfigurations) evaluates with the
@@ -50,14 +54,13 @@
 in {
   inherit inventory;
 
-  nixosConfigurations =
-    lib.mapAttrs (name: machine:
-      lib.nixosSystem {
-        inherit (machine) system;
-        specialArgs = hostSpecialArgs name machine;
-        modules = hostModules name machine;
-      })
-    inventory.machines;
+  nixosConfigurations = lib.mapAttrs (name: machine:
+    lib.nixosSystem {
+      inherit (machine) system;
+      specialArgs = hostSpecialArgs name machine;
+      modules = hostModules name machine;
+    })
+  inventory.machines;
 
   colmena =
     {

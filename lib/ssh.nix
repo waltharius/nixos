@@ -5,7 +5,7 @@
 #
 #   /etc/ssh/ssh_known_hosts  - host keys of the fleet (`ssh.hostKey` in
 #                               hosts/machines/<host>.nix), of devices and
-#                               aliases with `hostKey` (hosts/devices.nix),
+#                               aliases with `hostKey` (hosts/devices/),
 #                               and the published keys of github.com and
 #                               gitlab.com. No trust on first use for these.
 #   fleet.ssh.fleetConfig     - ssh_config `Host` blocks for the NixOS
@@ -127,7 +127,7 @@ in {
     devicesConfig = lib.mkOption {
       type = lib.types.str;
       readOnly = true;
-      description = "ssh_config Host blocks for hosts/devices.nix.";
+      description = "ssh_config Host blocks for the devices in hosts/devices/.";
     };
   };
 
@@ -136,7 +136,7 @@ in {
       header "hosts/machines/*.nix"
       + lib.concatMapStringsSep "\n" hostBlock fleetAliases;
     fleet.ssh.devicesConfig =
-      header "hosts/devices.nix"
+      header "hosts/devices/*.nix"
       + lib.concatMapStringsSep "\n" hostBlock deviceAliasList;
 
     programs.ssh.knownHosts =

@@ -6,12 +6,83 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 
 ## Refactor stages still ahead
 
-5. Monitoring: generated scrape targets for servers, push for laptops,
-   Alertmanager.
+5b. Monitoring of devices without NixOS (stage 5a covered the NixOS
+   machines, ping of devices, websites and alerting; docs/MONITORING.md).
+   Decided on 2026-10-02:
+   - Full metrics, not only up/down: node_exporter on Linux (Debian,
+     Ubuntu, Alpine, Rocky, Proxmox, Raspberry Pi OS) and on pfSense;
+     SNMP where no agent can run. Hardware alerts only on bare metal
+     (a `baremetal` field for device files). win11 stays unmonitored
+     (switched on only for work).
+   - Onboarding: a `gum` script asks for the device, writes
+     `hosts/devices/<name>.nix` and runs Ansible with the
+     `prometheus.prometheus` collection (roles node_exporter,
+     smartctl_exporter, snmp_exporter). The Ansible inventory is
+     generated from `nix eval --json .#inventory`. Check first whether the
+     roles support Alpine (OpenRC). The same Ansible setup is meant for
+     the log agents and the audit export later.
+   - pfSense 2.7.2 (2.8.1 hangs on this box): the package node_exporter
+     is known to fail with 'cannot allocate memory' in the uname and os
+     collectors on 2.7.x (https://redmine.pfsense.org/issues/14452; fixed
+     only in 24.11 Plus). Try the package with those two collectors
+     disabled; install through the GUI package manager, not the shell.
+   - UPS: APC Back-UPS 850 (BE850G2-GR) on USB to pfSense, which runs NUT
+     and tells Proxmox to shut down. Scrape it with nut_exporter on the
+     monitoring server against pfSense's upsd (needs a NUT user and upsd
+     listening on the LAN). Alerts: on battery, battery low, replace
+     battery, UPS unreachable, load high.
+   - Two ASUS RT-AX92U on gnuton firmware (Asuswrt-Merlin port): check
+     whether SNMP is available; otherwise node_exporter from Entware, or
+     ping only.
 6. Class `managed` for family and friends' laptops (`keeper` admin account,
    Flathub and GNOME Software/KDE Discover for the user).
 7. Documentation: rewrite `README.md` (still describes `colmena.nix` and the
    removed `nixos-test` host) and add an architecture document.
+
+## Stages after the refactor
+
+- **Router swap.** OPNsense on the smaller Wyse 5070 (8 GB/64 GB) broke
+  during an update and needs repair (removed from monitoring in stage
+  5a, device file kept). Then: OPNsense replaces pfSense (repeat the
+  Tailscale subnet router and the NUT/UPS setup there), and the bigger
+  Wyse 5070 (16 GB/256 GB) is reinstalled with NixOS as an encrypted
+  container server.
+- **Proxmox to NixOS, with central logs.** Move the services of the
+  Proxmox guests to altair as declarative NixOS services where possible,
+  migrate Cloudflare Tunnel and Caddy from their Debian VMs, reinstall the
+  Proxmox host with NixOS and add it to the fleet. Central log collection
+  belongs to this stage, as declarative services on altair (e.g. Loki or
+  VictoriaLogs) with agents on the remaining non-NixOS hosts (Debian,
+  Ubuntu, Alpine, Rocky/FreeIPA, pfSense, Raspberry Pi). The
+  documentation must state for every service what it is and where it
+  runs (bare-metal service, container, VM, service in a VM).
+- **Unattended LUKS unlock (Clevis + Tang).** NixOS has
+  `boot.initrd.clevis` (Tang, TPM2 and Shamir combinations; falls back to
+  the passphrase prompt). Plan: two Tang servers on the UPS, joined with
+  SSS threshold 1, so either one unlocks: a dedicated small Raspberry Pi
+  with wired Ethernet (Pi 4 2 GB preferred over Pi 3B+, whose 1 GB RAM
+  cannot build anything), and possibly the RPi 5 that runs calibre -
+  only after calibre is tagged or moved behind Cloudflare Tunnel (see
+  "Tag the calibre Raspberry Pi"), because a compromised public service
+  would expose the Tang keys. Back up the Tang keys (sops or backup); keep
+  the passphrase and initrd SSH as the fallback. Check that clevis retries
+  when Tang is not up yet after a long power cut. Optional: SSS with
+  TPM2 + Tang to bind the disks to the board as well.
+- **Second UPS for altair** (the current one cannot carry the GPUs); add
+  it to monitoring and alerting like the first.
+- **Documentation stage** (with stage 7): diagrams generated with
+  nix-topology (https://github.com/oddlama/nix-topology, flake-parts
+  module; reads services, microvm.nix guests and NixOS containers from
+  the configurations, devices added by hand), per-host and per-service
+  pages generated from `nix eval --json .#inventory` for the private
+  org/Hugo documentation, hand-written notes only where nothing can be
+  generated.
+- **Audit export.** One command that collects a description of the whole
+  infrastructure into a bundle for analysis and audit: for NixOS machines
+  from the evaluated configurations (services, open ports, users,
+  versions), for other hosts from Ansible facts plus package lists,
+  services and listening ports. Build together with the documentation
+  stage.
 
 ## Decisions to make before a stage
 
@@ -59,6 +130,24 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   unchanged, and record what went in the changelog. Documents are covered
   by "Documents still to review" below.
 
+## Follow-ups from stage 5a
+
+- **`autodefrag` on altair's `/mnt/data`** (backup target): breaks
+  reflinks and inflates snapshot space. Decide with the backup design.
+- **GPU memory alert removed.** The old rule (VRAM > 95 %) would fire
+  whenever Ollama keeps a large model loaded, which is normal. Add a
+  meaningful GPU memory alert if one is needed (e.g. for OOM errors in
+  Ollama's log once logs are collected).
+- **Check the metric names after the first deploy**: smartctl_exporter
+  (`smartctl_device_smart_status`, `_temperature`, `_critical_warning`,
+  `_percentage_used`) and nvidia_gpu_exporter
+  (`nvidia_smi_utilization_gpu_ratio`, label `uuid`) are taken from the
+  exporters' documentation and examples; an alert on a wrong name never
+  fires. Compare in Grafana Explore and fix `alert-rules.nix`.
+- **Alertmanager UTF-8 mode.** Matchers are written in the classic syntax;
+  consider `--enable-feature=utf8-strict-mode` after `amtool check-config`
+  shows no warnings.
+
 ## Follow-ups from stage 4
 
 - **Finish stage 4 on sukkub and baal.** Rebuild both, delete any
@@ -103,7 +192,7 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 
 ## Follow-ups from stage 2
 
-- **Encrypted host list.** After the move to `hosts/devices.nix`, the
+- **Encrypted host list.** After the move to `hosts/devices/`, the
   `ssh_config` value in `secrets/users/marcin/admin.yaml` should hold only
   hosts that must not be in the repository (e.g. mydevil.net). Revisit once
   the repository is private.
@@ -220,9 +309,9 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 
 ## Infrastructure (outside this repository or later stages)
 
-- Migrate Cloudflare Tunnel and Caddy from the Debian VMs on Proxmox
-  (installed with the Proxmox helper scripts) to NixOS. New services in this
-  repository use Cloudflare Tunnel for public exposure by default.
+- New services in this repository use Cloudflare Tunnel for public
+  exposure by default (migration of the existing Cloudflare Tunnel and
+  Caddy VMs: stage "Proxmox to NixOS").
 - Calibre on a Raspberry Pi is published with Tailscale Funnel; consider
   moving it behind Cloudflare Tunnel as well.
 - Tailnet access policy (ACL) is managed manually in the Tailscale admin
@@ -239,17 +328,20 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
   one control server at a time. Switch with `tailscale.loginServer` in
   `hosts/fleet.nix`, then `tailscale-join` on every machine. The same VPS
   can run a Tailscale peer relay (see "Direct connections to pfSense").
-- Reinstall the Proxmox host with NixOS and move its containers to altair
-  (separate stage).
 - Raspberry Pi 5 machines (aarch64) - add to the fleet later; needs
   `meta.nodeNixpkgs` in the Colmena hive and a build strategy.
-- Central log collection for analysis and reporting.
 - Backups: the Proxmox backup (vzdump) does not include bind mounts, so
   `/mnt/bigstorage` (Nextcloud data, databases, dumps) has no copy on
   another disk.
 - Nextcloud 32 -> 33 upgrade as a separate operation with its own backup.
-- Rotate Grafana's `secret_key` (currently the publicly known pre-26.05
-  default).
+- **External probes from mydevil.net** (shell account, no root): a cron
+  job that fetches the public pages and pings a healthchecks.io check on
+  success, so outages seen from outside are reported too. Possibly also
+  replace healthchecks.io for the Watchdog with a small PHP endpoint plus
+  a cron freshness check there.
+- **Alert mail relay**, if direct delivery from altair is rejected or
+  spam-filtered: relay Postfix through an authenticated mailbox (e.g. on
+  mydevil.net), password in sops.
 
 ## Repository privacy
 

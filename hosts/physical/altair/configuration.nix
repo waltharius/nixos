@@ -38,8 +38,11 @@ in {
     ./hardware-configuration.nix
     ../../../modules/servers/security/hardening.nix
     ../../../modules/servers/base-baremetal.nix
-    ../../../modules/servers/monitoring/default.nix
     ../../../modules/servers/nvidia.nix
+    # GPU metrics for Prometheus. The rest of the monitoring (exporters,
+    # and the monitoring stack because altair is `monitoring.server` in
+    # hosts/fleet.nix) comes from lib/monitoring.nix.
+    ../../../modules/servers/monitoring/nvidia-exporter.nix
     ../../../modules/servers/incus/default.nix
 
     # AI / LLM stack — Phase 1
@@ -53,12 +56,6 @@ in {
     # Reverse proxy — Phase 3
     ../../../modules/servers/caddy.nix
 
-    # -------------------------------------------------------------------------
-    # Phase 4+ modules — uncomment when ready:
-    # -------------------------------------------------------------------------
-    # ../../../modules/servers/monitoring/prometheus.nix
-    # ../../../modules/servers/monitoring/grafana.nix
-    # ../../../modules/servers/monitoring/psu-monitor.nix
     # Cloudflare Tunnel config goes here in Phase 4
 
     ../../../modules/servers/ai/zotero2readwise.nix

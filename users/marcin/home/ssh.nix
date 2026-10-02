@@ -10,7 +10,7 @@
 #   local    - yours, never managed or overwritten; temporary/test hosts
 #   hosts    - encrypted private list (secrets/users/marcin/admin.yaml)
 #   fleet    - generated from hosts/machines/*.nix
-#   devices  - generated from hosts/devices.nix
+#   devices  - generated from hosts/devices/*.nix
 # hosts, fleet and devices only exist where marcin has nix-admin.
 #
 # Uses the `programs.ssh.settings` API of Home Manager 26.05 (the older
@@ -68,7 +68,7 @@ in {
     # ~/.ssh/config.d/local - your own SSH hosts, highest precedence.
     # Not managed by Home Manager: nothing here is ever overwritten.
     # Use it for temporary and test entries; move permanent hosts to
-    # hosts/devices.nix in the nixos repository. See README.md here.
+    # hosts/devices/ in the nixos repository. See README.md here.
     EOF
       fi
     fi

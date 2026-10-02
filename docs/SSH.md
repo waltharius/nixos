@@ -20,7 +20,7 @@ into servers.
 
 `~/.ssh/config` includes, in this order: `local` (yours, never managed),
 `hosts` (encrypted), `fleet` (generated from `hosts/machines/`), `devices`
-(generated from `hosts/devices.nix`). ssh takes the first value it finds,
+(generated from `hosts/devices/*.nix`). ssh takes the first value it finds,
 so earlier files win. The generated texts come from `lib/ssh.nix`.
 
 ## Known hosts
@@ -30,7 +30,7 @@ so earlier files win. The generated texts come from `lib/ssh.nix`.
 
 - `ssh.hostKey` in `hosts/machines/<host>.nix` (and `hostKey` of
   `ssh.aliases`),
-- `hostKey` of entries in `hosts/devices.nix`,
+- `hostKey` of SSH aliases in `hosts/devices/*.nix`,
 - the published ed25519 keys of github.com and gitlab.com.
 
 Hosts with a pinned key are verified without trust on first use, also by

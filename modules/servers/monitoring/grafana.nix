@@ -1,24 +1,34 @@
 # modules/servers/monitoring/grafana.nix
 #
-# Grafana visualization layer.
-# Phase A: accessible at http://192.168.50.150:3000 (LAN IP, no TLS).
-# Phase B (later): Caddy on Dell (192.168.50.114) proxies grafana.home.lan
-#                  -> 192.168.50.150:3000 with FreeIPA-issued cert.
-#                  At that point: set domain, root_url, cookie_secure = true.
+# Grafana on the monitoring server (lib/monitoring.nix, docs/MONITORING.md).
+# Phase A: accessible at http://<monitoring server>:3000 (LAN IP, no TLS).
+# Phase B (later): a reverse proxy serves grafana.home.lan with TLS; then
+#                  set domain, root_url, cookie_secure = true.
 #
-# Firewall: port 3000 allowed from 192.168.50.0/24 only (see hardening.nix).
-# Admin password: SOPS secret → /run/secrets/grafana-admin-password
+# Everything Grafana shows is provisioned from this file: the Prometheus
+# and Alertmanager data sources and the community dashboards below. Nothing
+# is configured by hand in the UI, so grafana.db holds no state worth
+# keeping (metrics live in Prometheus, not in Grafana).
+#
+# Alerts: Alerting -> Alert rules lists the Prometheus rules with their
+# state (view "State" groups them like Checkmk's problem list); Alerting ->
+# Silences (choose the Alertmanager data source) mutes alerts during
+# maintenance.
+#
+# Firewall: port 3000 allowed on the LAN interface only.
+# Admin password: SOPS secret -> /run/secrets/grafana-admin-password
 #                 File must contain a single line: GF_SECURITY_ADMIN_PASSWORD=<pass>
-# Secret key:     SOPS secret → /run/secrets/grafana-secret-key (raw value, no KEY= prefix)
+# Secret key:     SOPS secret -> /run/secrets/grafana-secret-key (raw value, no KEY= prefix)
 #                 Read by Grafana's file provider at startup, never lands in the Nix store.
-#                 Currently holds the pre-26.05 default key ("SW2YcwTIb9zpOOhoPsMm") so that
-#                 anything already encrypted in grafana.db stays readable. Changing it breaks
-#                 decryption of existing secrets in the DB — rotate deliberately, see:
-#                 https://github.com/erooke/grafana-secretkey-rotation-tool
+#                 Grafana encrypts secrets stored in grafana.db with it and cannot
+#                 switch an existing database to a new key; replacing the key means
+#                 starting with an empty grafana.db (refactor stage 5a did this once
+#                 to leave the publicly known pre-26.05 default behind, CHANGELOG.md).
 {
   config,
   lib,
   pkgs,
+  host,
   ...
 }: {
   services.grafana = {
@@ -72,6 +82,21 @@
             uid = "prometheus";
             jsonData = {
               timeInterval = "15s";
+              # Show the Prometheus alert rules under Alerting -> Alert rules.
+              manageAlerts = true;
+              alertmanagerUid = "alertmanager";
+            };
+          }
+          {
+            name = "Alertmanager";
+            type = "alertmanager";
+            uid = "alertmanager";
+            url = "http://127.0.0.1:${toString config.services.prometheus.alertmanager.port}";
+            access = "proxy";
+            jsonData = {
+              implementation = "prometheus";
+              # Grafana-managed alerts are not used; all rules live in Prometheus.
+              handleGrafanaManagedAlerts = false;
             };
           }
         ];
@@ -100,21 +125,19 @@
 
   # Pre-download community dashboards before Grafana starts.
   #
-  # Download is guarded by file existence (idempotent).
-  # Patching is always re-run so it applies correctly after every
-  # colmena deploy without needing to manually delete cached JSON.
+  # Download is guarded by file existence (idempotent): a dashboard is
+  # fetched once and then kept. To get a newer revision, delete its file in
+  # /var/lib/grafana/dashboards and restart grafana.
   #
-  # Why the nvidia-gpu dashboard needs patching:
-  #   grafana.com API downloads use the "export for sharing" format which
-  #   includes __inputs/__requires sections. Grafana's file provisioner does
-  #   NOT process this format and silently skips the file entirely - making
-  #   the dashboard invisible in the UI. We use jq to strip those sections,
-  #   then sed to replace the ''${DS_PROMETHEUS} datasource variable reference
-  #   with the hard-coded UID of our provisioned datasource ("prometheus").
+  # Patching runs on every start for every file: grafana.com API downloads
+  # use the "export for sharing" format with __inputs/__requires sections,
+  # which Grafana's file provisioner does NOT process - it silently skips
+  # the file. jq strips those sections and sed replaces the
+  # ${DS_PROMETHEUS} datasource variable with the UID of the provisioned
+  # Prometheus data source ("prometheus"). Both steps are idempotent.
   #
   # Note on Nix string escaping: inside ''...'' strings, ${ is still
-  # interpreted as Nix interpolation. Use ''${ to emit a literal ${ in
-  # the resulting shell script (i.e. ''${DS_PROMETHEUS} -> ${DS_PROMETHEUS}).
+  # interpreted as Nix interpolation. Use ''${ to emit a literal ${.
   systemd.services.grafana-provision-dashboards = {
     description = "Download Grafana community dashboards";
     wantedBy = ["grafana.service"];
@@ -133,6 +156,9 @@
         "node-exporter-full.json" = "https://grafana.com/api/dashboards/1860/revisions/latest/download";
         # NVIDIA GPU metrics (nvidia-smi exporter, utkuozdemir/nvidia_gpu_exporter)
         "nvidia-gpu.json" = "https://grafana.com/api/dashboards/14574/revisions/latest/download";
+        # Blackbox exporter probes: hosts up/down, websites, response times
+        # (updated version of dashboard 7587)
+        "blackbox.json" = "https://grafana.com/api/dashboards/15873/revisions/latest/download";
       };
       downloads = lib.concatStrings (lib.mapAttrsToList (file: url: ''
           if [ ! -f "/var/lib/grafana/dashboards/${file}" ]; then
@@ -147,22 +173,15 @@
       mkdir -p /var/lib/grafana/dashboards
       ${downloads}
 
-      # Strip __inputs / __requires / __elements so Grafana's file provisioner
-      # can load the dashboard (it silently skips files containing these
-      # export-format sections). Then replace the datasource variable reference
-      # with the hard-coded UID of our provisioned Prometheus datasource.
-      # Runs on every service start - both operations are idempotent.
-      if [ -f "/var/lib/grafana/dashboards/nvidia-gpu.json" ]; then
-        echo "Patching nvidia-gpu.json: stripping __inputs/__requires and fixing datasource UID"
-        ${pkgs.jq}/bin/jq 'del(.__inputs) | del(.__requires) | del(.__elements)' \
-          /var/lib/grafana/dashboards/nvidia-gpu.json \
-          > /tmp/nvidia-gpu-clean.json \
-          && mv /tmp/nvidia-gpu-clean.json /var/lib/grafana/dashboards/nvidia-gpu.json
+      for f in /var/lib/grafana/dashboards/*.json; do
+        [ -f "$f" ] || continue
+        echo "Patching $f: stripping __inputs/__requires/__elements, fixing datasource UID"
+        ${pkgs.jq}/bin/jq 'del(.__inputs) | del(.__requires) | del(.__elements)' "$f" > "$f.tmp" \
+          && mv "$f.tmp" "$f"
         ${pkgs.gnused}/bin/sed -i \
           's/"''${DS_PROMETHEUS}"/"prometheus"/g;s/"''${ds_prometheus}"/"prometheus"/g' \
-          /var/lib/grafana/dashboards/nvidia-gpu.json
-        echo "Patching nvidia-gpu.json: done"
-      fi
+          "$f"
+      done
     '';
   };
 
@@ -182,11 +201,10 @@
     # Key in secrets/altair.yaml: grafana-secret-key (raw value, no KEY= prefix)
   };
 
-  # Firewall rule: allow Grafana from LAN interface only.
-  # pfSense is the perimeter - it blocks WAN->LAN:3000 already.
-  # Restricting to enp10s0 (LAN NIC) ensures Grafana is unreachable
-  # from Incus containers (incusbr0) and the internet.
-  networking.firewall.interfaces."enp10s0".allowedTCPPorts = [3000];
+  # Firewall rule: allow Grafana from the LAN interface only
+  # (`lan.interface` in hosts/machines/<host>.nix), so Grafana is not
+  # reachable from Incus containers (incusbr0). pfSense blocks WAN->LAN.
+  networking.firewall.interfaces.${host.lan.interface}.allowedTCPPorts = [3000];
 
   # If you later want to also allow from incusbr0 (for a Caddy container):
   # networking.firewall.interfaces."incusbr0".allowedTCPPorts = [ 3000 ];

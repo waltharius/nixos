@@ -9,6 +9,111 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
+## [2026-10-02] Refactor stage 5a - monitoring from the inventory, alerting
+
+Goal of this stage: every NixOS server and VM is monitored without naming
+it anywhere but in its machine file, alerts reach a person (e-mail, and an
+external Watchdog for the case that the monitoring server itself is
+down), and Grafana shows every alert. Devices without NixOS get ping now
+and full metrics in stage 5b (BACKLOG.md). Overview: `docs/MONITORING.md`.
+
+### Added
+
+- `lib/monitoring.nix`, imported by every host: machines of class
+  `server` and `virtual` run node_exporter; class `server` also runs
+  smartctl_exporter and a monthly btrfs scrub; the machine named in
+  `monitoring.server` (`hosts/fleet.nix`) gets the monitoring stack.
+  Scrape targets are generated from the inventory
+  (`fleet.monitoring.targets`). Exporter ports are open to the monitoring
+  server's address only (nftables or iptables rule, depending on the
+  host's firewall backend). Workstations get nothing.
+- `hosts/fleet.nix`: `monitoring.server` and `monitoring.mail` (recipient
+  and sender of alert e-mails).
+- `hosts/websites.nix`: web pages to probe (placeholder entries for now).
+- Device field `monitoring.ping`: the device is pinged (HostDown).
+- `modules/servers/monitoring/`: `alertmanager.nix` (e-mail of firing and
+  resolved alerts, Watchdog webhook to healthchecks.io, HostDown inhibits
+  the other alerts of the host), `mail.nix` (send-only Postfix on
+  loopback, direct delivery), `blackbox.nix` (ping and HTTP probes),
+  `smartctl.nix`, `btrfs-scrub.nix` (scrub once per btrfs device, result
+  exported hourly through the textfile collector), `alert-rules.nix`
+  (rules as Nix data: availability, websites, resources, services and
+  time, hardware, the monitoring itself).
+- node_exporter textfile collector (`/var/lib/node-exporter-textfile`) on
+  every monitored host.
+- Grafana: Alertmanager data source; the Prometheus data source shows the
+  Prometheus rules under Alerting -> Alert rules; dashboard "Prometheus
+  Blackbox" (grafana.com 15873).
+- `docs/MONITORING.md`.
+
+### Changed
+
+- `hosts/devices.nix` split into `hosts/devices/<name>.nix`, one file per
+  device, loaded like the machines (`lib/inventory.nix`). Descriptions
+  added where the old file only had a section heading.
+- Prometheus: jobs generated from the inventory replace the hand-written
+  `altair-node`, `altair-nvidia` and `opnsense firewall` jobs. Job names
+  are now `node`, `smartctl`, `blackbox-icmp`, `blackbox-http`,
+  `blackbox-internet`, `nvidia`, `incus`, `prometheus`, `alertmanager`,
+  `blackbox`; series carry `instance` = host name. Old series keep their
+  old labels until they age out of the 90-day retention.
+- altair: node_exporter listens on all addresses instead of loopback
+  (port 9100 open to altair's own address only); the monitoring stack is
+  imported through `lib/monitoring.nix`, `nvidia-exporter.nix` directly
+  by the host. cloud-apps now runs node_exporter.
+- Alert rules generalised from `job="altair-node"` to every host.
+- Grafana: new `secret_key`, started with an empty `grafana.db`; the old
+  key was the publicly known pre-26.05 default. Dashboard patching
+  (`__inputs` removal, datasource UID) now runs on every downloaded
+  dashboard, not only the NVIDIA one. Firewall rule uses the host's
+  `lan.interface` instead of a hard-coded `enp10s0`.
+
+### Removed
+
+- `hosts/devices.nix` entry `check-mk` (Checkmk is switched off).
+- Monitoring of OPNsense (broken since an update; the device file stays
+  so its address remains reserved).
+- Alert GPUMemoryHigh: VRAM above 95 % is the normal state while Ollama
+  keeps a large model loaded (BACKLOG.md).
+- The commented-out "Phase 4+" monitoring imports in
+  `hosts/physical/altair/configuration.nix`.
+
+### Verification
+
+To be run after the deploy; record the results here (and remove this
+note):
+
+- `nix flake check` passes; `colmena apply --on altair` and
+  `--on cloud-apps` succeed.
+- Prometheus targets all up: `curl -s localhost:9090/api/v1/targets | jq
+  -r '.data.activeTargets[] | "\(.health) \(.labels.job) \(.labels.instance)"'`
+  on altair. Devices that are permanently down: remove
+  `monitoring.ping` or their file.
+- Grafana: Alerting -> Alert rules lists the rule groups; only Watchdog
+  fires.
+- Test e-mail through Postfix and through Alertmanager arrives
+  (`docs/MONITORING.md`, "Alert e-mail").
+- healthchecks.io check is green; stopping alertmanager produces its
+  e-mail.
+- First btrfs scrub started by hand on altair; `btrfs_scrub_*` series
+  appear after `btrfs-scrub-metrics` runs.
+- smartctl and GPU metric names match the rules (BACKLOG.md, "Check the
+  metric names").
+
+### Lessons learned
+
+- `file_sd` only pays off when something outside the configuration
+  changes the targets. With every target in the repository, a deploy is
+  needed either way, so generated `static_configs` are the simpler and
+  equally reproducible choice.
+- Grafana's database holds no metrics: those live in Prometheus. With
+  everything in Grafana provisioned, a fresh `grafana.db` (needed to
+  change `secret_key`) loses nothing.
+- An alerting pipeline cannot report its own death. Before this stage the
+  rules existed but had no receiver at all; now an always-firing alert is
+  checked from outside (healthchecks.io), which also covers altair
+  waiting for its LUKS passphrase after a power cut.
+
 ## [2026-10-02] Emacs: Polish Hunspell dictionary converted to UTF-8 at build time
 
 ### Fixed

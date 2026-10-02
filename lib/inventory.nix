@@ -6,10 +6,14 @@
 #   hosts/machines/<host>.nix  - one file per machine; the file name is the
 #                                host name. Every *.nix file in the
 #                                directory is loaded automatically.
-#   hosts/devices.nix          - devices that are not NixOS machines
-#                                (address plan, SSH aliases, host keys)
+#   hosts/devices/<name>.nix   - one file per device that is not a NixOS
+#                                machine (address plan, SSH aliases, host
+#                                keys, monitoring); loaded like machines
+#   hosts/websites.nix         - web pages probed by the monitoring
 #
-# The result: { network; sops; machines.<host>; devices.<device>; }
+# The result:
+#   { network; sops; tailscale; monitoring; machines.<host>;
+#     devices.<device>; websites.<site>; }
 #
 # Any violation aborts evaluation with a list of all problems found, so
 # mistakes surface at `nix flake check` / `nixos-rebuild` / `colmena eval`
@@ -37,6 +41,10 @@
 #     and operator only with owner, the operator has an account on the
 #     machine; tagged needs tags (tag:<name>), the others have none
 #   - tailscale.loginServer in hosts/fleet.nix is null or an https:// URL
+#   - `monitoring` in hosts/fleet.nix names an existing machine of class
+#     server as `server`, and mail addresses that contain an @
+#   - device `monitoring` has known fields only; `ping` needs `lan.ip`
+#   - websites have a valid name and an http:// or https:// `url`
 {
   lib,
   classes,
@@ -48,15 +56,22 @@
   machineFiles =
     lib.filterAttrs (file: type: type == "regular" && lib.hasSuffix ".nix" file)
     (builtins.readDir ../hosts/machines);
-  machines =
-    lib.mapAttrs' (file: _:
-      lib.nameValuePair (lib.removeSuffix ".nix" file) (import ../hosts/machines/${file}))
-    machineFiles;
+  machines = lib.mapAttrs' (file: _:
+    lib.nameValuePair (lib.removeSuffix ".nix" file) (import ../hosts/machines/${file}))
+  machineFiles;
 
-  devices = import ../hosts/devices.nix;
+  # hosts/<dir>/<name>.nix -> <name> = import ...; every *.nix file.
+  loadDir = dir:
+    lib.mapAttrs' (file: _: lib.nameValuePair (lib.removeSuffix ".nix" file) (import (dir + "/${file}")))
+    (lib.filterAttrs (file: type: type == "regular" && lib.hasSuffix ".nix" file)
+      (builtins.readDir dir));
+
+  devices = loadDir ../hosts/devices;
   deviceNames = builtins.attrNames devices;
 
-  raw = fleet // {inherit machines devices;};
+  websites = import ../hosts/websites.nix;
+
+  raw = fleet // {inherit machines devices websites;};
   inherit (raw.network.lan) prefix dhcpPool;
 
   names = builtins.attrNames machines;
@@ -117,6 +132,54 @@
     lib.optional (loginServer != null && !(builtins.isString loginServer && lib.hasPrefix "https://" loginServer))
     "hosts/fleet.nix: tailscale.loginServer must be null (Tailscale) or an https:// URL (Headscale)";
 
+  # --- monitoring (lib/monitoring.nix) -------------------------------------
+
+  monitoring = raw.monitoring or {};
+  monitoringServer = monitoring.server or null;
+  isMailAddress = a: builtins.isString a && builtins.match "[^@ ]+@[^@ ]+" a != null;
+
+  fleetMonitoringErrors =
+    lib.optional (monitoringServer == null)
+    "hosts/fleet.nix: `monitoring.server` must name the machine that runs Prometheus"
+    ++ lib.optional (monitoringServer != null && !(machines ? ${monitoringServer}))
+    "hosts/fleet.nix: monitoring.server `${toString monitoringServer}` is not a machine in hosts/machines/"
+    ++ lib.optional (monitoringServer != null && machines ? ${monitoringServer} && (machines.${monitoringServer}.class or null) != "server")
+    "hosts/fleet.nix: monitoring.server `${monitoringServer}` must be of class server"
+    ++ lib.optional (!isMailAddress (monitoring.mail.to or null))
+    "hosts/fleet.nix: monitoring.mail.to must be an e-mail address"
+    ++ lib.optional (!isMailAddress (monitoring.mail.from or null))
+    "hosts/fleet.nix: monitoring.mail.from must be an e-mail address";
+
+  # Fields a device may set under `monitoring`. Stage 5b adds exporters.
+  deviceMonitoringFields = ["ping"];
+
+  deviceMonitoringErrors = name: d: let
+    mon = d.monitoring;
+    label = "device ${name}: monitoring";
+  in
+    if !builtins.isAttrs mon
+    then ["${label} must be an attribute set, e.g. { ping = true; }"]
+    else
+      map (f: "${label}: unknown field `${f}` (known: ${lib.concatStringsSep ", " deviceMonitoringFields})")
+      (builtins.filter (f: !(builtins.elem f deviceMonitoringFields)) (builtins.attrNames mon))
+      ++ lib.optional (mon ? ping && !builtins.isBool mon.ping)
+      "${label}.ping must be true or false"
+      ++ lib.optional ((mon.ping or false) && ipOf d == null)
+      "${label}.ping needs the device's `lan.ip`";
+
+  websiteFields = ["url" "description"];
+
+  websiteErrorsFor = name: let
+    w = websites.${name};
+    label = "website ${name} (hosts/websites.nix)";
+  in
+    lib.optional (builtins.match "[a-z][a-z0-9-]*" name == null)
+    "${label}: not a valid name ([a-z][a-z0-9-]*)"
+    ++ map (f: "${label}: unknown field `${f}` (known: ${lib.concatStringsSep ", " websiteFields})")
+    (builtins.filter (f: !(builtins.elem f websiteFields)) (builtins.attrNames w))
+    ++ lib.optional (!(builtins.isString (w.url or null) && builtins.match "https?://.+" w.url != null))
+    "${label}: `url` must start with http:// or https://";
+
   adminErrors =
     lib.optional ((raw.sops.admins or {}) == {}) "hosts/fleet.nix: no admin key in `sops.admins`"
     ++ lib.concatLists (lib.mapAttrsToList (n: key:
@@ -175,7 +238,8 @@
     ++ lib.optional (machines ? ${name}) "device ${name}: a machine has the same name"
     ++ lib.optionals (ip != null) (addressErrors "device ${name}" ip)
     ++ lib.optional (ip == null && lib.any (a: !(a ? hostName)) (lib.attrValues (d.ssh or {})))
-    "device ${name}: an SSH alias without `hostName` needs the device's `lan.ip`";
+    "device ${name}: an SSH alias without `hostName` needs the device's `lan.ip`"
+    ++ lib.optionals (d ? monitoring) (deviceMonitoringErrors name d);
 
   # Addresses used by more than one machine or device.
   addressOwners =
@@ -189,12 +253,11 @@
       ip = ipOf devices.${n};
     })
     deviceNames;
-  ipOwners =
-    lib.foldl' (acc: o:
-      if o.ip == null
-      then acc
-      else acc // {${o.ip} = (acc.${o.ip} or []) ++ [o.name];}) {}
-    addressOwners;
+  ipOwners = lib.foldl' (acc: o:
+    if o.ip == null
+    then acc
+    else acc // {${o.ip} = (acc.${o.ip} or []) ++ [o.name];}) {}
+  addressOwners;
   duplicateErrors =
     lib.mapAttrsToList (ip: owners: "lan.ip ${ip} is used several times: ${lib.concatStringsSep ", " owners}")
     (lib.filterAttrs (_: owners: builtins.length owners > 1) ipOwners);
@@ -211,6 +274,8 @@
   errors =
     adminErrors
     ++ fleetTailscaleErrors
+    ++ fleetMonitoringErrors
+    ++ lib.concatMap websiteErrorsFor (builtins.attrNames websites)
     ++ lib.concatMap errorsFor names
     ++ lib.concatMap deviceErrorsFor deviceNames
     ++ duplicateErrors
@@ -218,4 +283,4 @@
 in
   if errors == []
   then raw
-  else throw "the inventory (hosts/fleet.nix, hosts/machines/) is invalid:\n  - ${lib.concatStringsSep "\n  - " errors}"
+  else throw "the inventory (hosts/fleet.nix, hosts/machines/, hosts/devices/, hosts/websites.nix) is invalid:\n  - ${lib.concatStringsSep "\n  - " errors}"

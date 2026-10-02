@@ -6,15 +6,16 @@ every evaluation (`nix flake check`, `nixos-rebuild`, `colmena`).
 
 | Path                         | Contents                                         |
 | ---------------------------- | ------------------------------------------------ |
-| `fleet.nix`                  | fleet-wide settings: LAN prefix, DHCP pool, admin age keys, Tailscale login server |
+| `fleet.nix`                  | fleet-wide settings: LAN prefix, DHCP pool, admin age keys, Tailscale login server, monitoring server and alert e-mail |
 | `machines/<host>.nix`        | one NixOS machine; the file name is the host name |
-| `devices.nix`                | devices that are not NixOS machines              |
+| `devices/<name>.nix`         | one device that is not a NixOS machine; the file name is the device name |
+| `websites.nix`               | web pages probed by the monitoring (`docs/MONITORING.md`) |
 | `templates/`                 | files for new hosts (`nix run .#new-host`)       |
 | `workstations/<host>/`       | host files of class `workstation`                |
 | `physical/<host>/`           | host files of class `server`                     |
 | `virtual/<host>/`            | host files of class `virtual`                    |
 
-Every `*.nix` file in `machines/` is loaded automatically. New machines
+Every `*.nix` file in `machines/` and `devices/` is loaded automatically. New machines
 are added with `nix run .#new-host` (see `docs/NEW-HOST.md`).
 
 The inventory is exported as JSON for external tooling:
@@ -43,7 +44,15 @@ The inventory is exported as JSON for external tooling:
 | `tailscale.tags` | `tagged`         | tags the auth key carries, e.g. `["tag:managed"]` |
 | `tailscale.operator` | no           | `owner` only: account that may run `tailscale` without sudo; default `marcin`, must have an account on the machine |
 
-## Device fields (`devices.nix`)
+Monitoring needs no field: machines of class `server` and `virtual` are
+monitored automatically, workstations are not (`lib/monitoring.nix`,
+`docs/MONITORING.md`).
+
+## Device fields (`devices/<name>.nix`)
+
+One file per device, named after it (`[a-z][a-z0-9-]*`). Start a new one by
+copying a similar file. Each file starts with
+`# hosts/devices/<name>.nix - fields are described in hosts/README.md`.
 
 | Field | Meaning |
 | ----- | ------- |
@@ -55,6 +64,7 @@ The inventory is exported as JSON for external tooling:
 | `ssh.<alias>.key` | `"tabby"` (default), `"gitlab"`, `"github"` or `null`: which `IdentityFile` |
 | `ssh.<alias>.hostKey` | public host key, pinned in `/etc/ssh/ssh_known_hosts` |
 | `ssh.<alias>.extraOptions` | other ssh_config options, e.g. `{PreferredAuthentications = "publickey";}` |
+| `monitoring.ping` | `true`: the monitoring server pings the device; HostDown alert when it stops answering. Needs `lan.ip`. Leave it out for devices that are often switched off |
 
 Temporary SSH hosts do not belong here: use `~/.ssh/config.d/local` (see
 `docs/SSH.md`).
@@ -62,6 +72,14 @@ Temporary SSH hosts do not belong here: use `~/.ssh/config.d/local` (see
 The shape deliberately mirrors Clan's inventory (`machines.<n>.tags`,
 `machines.<n>.deploy.targetHost`, `machines.<n>.description`) so that a
 later migration to Clan stays mostly a mechanical rename.
+
+## Fleet fields for monitoring (`fleet.nix`)
+
+| Field | Meaning |
+| ----- | ------- |
+| `monitoring.server` | machine (class `server`) that runs Prometheus, Alertmanager and Grafana |
+| `monitoring.mail.to` | recipient of alert e-mails |
+| `monitoring.mail.from` | sender address of alert e-mails |
 
 ## Validation
 
@@ -73,4 +91,7 @@ the router's DHCP pool or used twice, an SSH alias is defined twice, a
 user or group does not exist, a `sops` field is missing or malformed, or
 a `tailscale` entry breaks the rules in the table above (unknown field or
 `join`, a field that does not fit the `join`, a malformed tag, a
-`loginServer` in `fleet.nix` that is not null or an `https://` URL).
+`loginServer` in `fleet.nix` that is not null or an `https://` URL), the
+`monitoring` settings in `fleet.nix` are missing or name no server, a
+device's `monitoring` has an unknown field or `ping` without `lan.ip`, or a
+page in `websites.nix` has an invalid name or no `http(s)://` URL.
