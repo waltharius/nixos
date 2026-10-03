@@ -17,7 +17,7 @@ reason for reverting them.
   per alert, a separate one when it fires and when it is resolved. Before,
   alerts were grouped by alertname and host, so one e-mail titled
   `[FIRING:3] SystemdUnitFailed caddy (false proxmox-guest device caddy
-  node warning failed)` could report resolved alerts inside.
+node warning failed)` could report resolved alerts inside.
 - E-mail subject: `[WARNING]` / `[CRITICAL]` or `[RESOLVED]` plus the
   rule's summary, e.g. "[WARNING] Service sssd-nss.socket failed on
   caddy".
@@ -33,17 +33,17 @@ reason for reverting them.
   has a `services` line, and clears their failed state. FreeIPA clients
   (pve and Debian guests) had them failed since enrolment ('sssd-nss.socket:
   Control process exited, status=17'; sssd.conf: `services = nss, pam,
-  ssh, sudo`), which raised SystemdUnitFailed once node_exporter ran.
+ssh, sudo`), which raised SystemdUnitFailed once node_exporter ran.
 
 ### Verification
 
-To be run after the deploy; record the results here (and remove this
-note):
+Run on 2026-10-03: "fix apply" sssd-sockets (check, then apply) on all
+node devices; the SystemdUnitFailed alerts for `sssd-*.socket` resolved
+and the fleet overview shows no active alert.
 
-- "fix apply" sssd-sockets, check then apply on all node devices; the
-  SystemdUnitFailed alerts for `sssd-*.socket` resolve, each with its own
-  `[RESOLVED]` e-mail.
-- A new alert arrives as `[WARNING] ...` in its own e-mail.
+Still to check: the next alert arrives as `[WARNING] ...` / `[RESOLVED] ...`
+in its own e-mail (the sssd resolutions were sent before the new
+grouping was deployed).
 
 ### Notes
 
@@ -120,7 +120,7 @@ Still to check: "device add" with a test device, then delete the file.
 
 - A rule over a long window (`rate(...[12h])`) assumes the series is at
   least that old. New targets need a guard, e.g. `and on (host) (up
-  offset 12h)`; promtool showed the unguarded rule firing for an idle
+offset 12h)`; promtool showed the unguarded rule firing for an idle
   host with one hour of data.
 
 ## [2026-10-03] Refactor stage 5b step 2 - container metrics, `nix run .#fleet`
