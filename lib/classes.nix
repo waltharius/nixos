@@ -88,6 +88,7 @@ in {
         ../modules/system/networking.nix
         ../modules/system/locale.nix
         ../modules/system/secrets.nix
+        ../modules/system/atuin-login.nix
         ../modules/system/sshd.nix
         ../modules/system/wifi.nix
         ../modules/system/base.nix
@@ -98,6 +99,10 @@ in {
         ../modules/system/hardware/audio.nix
         ../modules/system/hardware/printing.nix
         ../modules/system/hardware/flatpak.nix
+
+        # Atuin login from sops for marcin (modules/system/atuin-login.nix);
+        # needs services.secrets.enable, set in each host's custom.nix.
+        {services.atuin-auto-login.enable = true;}
 
         sops-nix.nixosModules.sops
         home-manager.nixosModules.home-manager

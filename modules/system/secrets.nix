@@ -1,7 +1,8 @@
 # modules/system/secrets.nix
 #
 # sops-nix on a host: where the host's age key comes from, plus the Atuin
-# credentials used by servers.
+# credentials used by modules/system/atuin-login.nix (servers and
+# workstations).
 #
 # The key source is chosen per machine in hosts/machines/<host>.nix:
 #   sops.keySource = "key-file"      - /var/lib/sops-nix/key.txt, created

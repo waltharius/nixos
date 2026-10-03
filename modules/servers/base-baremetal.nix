@@ -20,7 +20,7 @@
     ../system/secrets.nix
     ../system/certificates.nix
     ./users.nix
-    ./atuin-login.nix
+    ../system/atuin-login.nix
     ./encryption/initrd-ssh.nix
   ];
 
@@ -40,7 +40,7 @@
   # ---------------------------------------------------------------------------
   services.atuin-auto-login = {
     enable = true;
-    user = "nixadm";
+    users = ["nixadm"];
     username = "admin";
   };
 

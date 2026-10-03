@@ -9,9 +9,10 @@
 #   - servers and virtual machines: no user session is guaranteed, so the
 #     shell syncs by itself (auto_sync) every 5 minutes.
 #
-# Logging in: on servers the NixOS service `atuin-auto-login`
-# (modules/servers/atuin-login.nix) logs nixadm in from sops secrets. On
-# workstations `atuin login` is run once by hand.
+# Logging in: the NixOS services `atuin-auto-login-<user>`
+# (modules/system/atuin-login.nix) log nixadm (servers) and marcin
+# (workstations) in with the fleet credentials from sops and fail when a
+# host uses a different key. Never run `atuin login` by hand.
 {host, ...}: let
   onWorkstation = host.class == "workstation";
 in {

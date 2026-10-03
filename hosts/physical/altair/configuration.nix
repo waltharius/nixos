@@ -20,11 +20,7 @@
 #     --write-efi-boot-entries \
 #     --disk main /dev/disk/by-id/nvme-WD_BLACK_SN850X_2000GB_25503L800955 \
 #     --disk data /dev/disk/by-id/ata-TOSHIBA_HDWG51EUZSVA_8562A02HFQ6H
-{
-  lib,
-  pkgs,
-  ...
-}: let
+{pkgs, ...}: let
   gpu-burn-sm86 = pkgs.gpu-burn.overrideAttrs (old: {
     # RTX 3090 = Ampere = compute_86
     makeFlags = (old.makeFlags or []) ++ ["COMPUTE=86"];
@@ -120,7 +116,6 @@ in {
   };
 
   networking.hostName = "altair";
-  services.atuin-auto-login.enable = lib.mkForce false;
 
   system.stateVersion = "25.11";
 

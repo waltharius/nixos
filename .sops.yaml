@@ -24,13 +24,17 @@ creation_rules:
       - age:
           - *admin
           - *altair
+          - *baal
           - *cloud-apps
+          - *sukkub
   - path_regex: '(^|/)secrets/atuin-password\.txt$'
     key_groups:
       - age:
           - *admin
           - *altair
+          - *baal
           - *cloud-apps
+          - *sukkub
   - path_regex: '(^|/)secrets/mariadb-root-password\.txt$'
     key_groups:
       - age:

@@ -9,6 +9,60 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
+## [2026-10-02] Atuin login from sops on workstations, key check on every host
+
+Workstations logged in to Atuin by hand. A host that ran Atuin before
+logging in with the fleet key synced records nobody else could decrypt:
+sukkub (repaired 2026-09-30), and on 2026-10-02 again records under a third
+key from a host whose store was created on 2026-10-01 at 08:57 UTC (host
+ID `01a0f6ae...`, a UUIDv7 timestamp; baal was installed that day), while
+the current key of azazel, baal, altair and cloud-apps matched the fleet
+key. Records uploaded under a wrong key stay on the server after the host
+switches keys; only the store repair (`store purge`, `push --force`,
+`pull --force`) removes them.
+
+### Changed
+
+- `modules/servers/atuin-login.nix` moved to `modules/system/atuin-login.nix`
+  and generalised: one oneshot service per account,
+  `atuin-auto-login-<user>` (was `atuin-auto-login`, nixadm only). Default
+  accounts: those of marcin and nixadm that exist on the host; keeper is
+  left out (separate Atuin account in stage 6).
+- Every workstation enables it (`lib/classes.nix`), so marcin logs in with
+  the fleet key from `secrets/atuin-key.txt`; the generated `.sops.yaml`
+  adds the workstations to the Atuin secret files.
+- altair: the unexplained `services.atuin-auto-login.enable = lib.mkForce false`
+  is removed; nixadm there gets the key check like the other servers.
+- The service compares the local key with the fleet key on every start
+  and fails with exit code 3 (no retry) when they differ; it never
+  re-keys a store. Network failures are retried every minute.
+- "Logged in" is detected by Atuin's session file instead of
+  `atuin status`, which needs the server.
+
+### Verification
+
+To be run after the deploy; record the results here (and remove this
+note):
+
+- `nix run .#sops-config`: baal (and sukkub) added to
+  `secrets/atuin-password.txt` and `secrets/atuin-key.txt`.
+- azazel and baal: `systemctl status atuin-auto-login-marcin` -> "Already
+  logged in to Atuin with the fleet key".
+- cloud-apps and altair: `systemctl status atuin-auto-login-nixadm`, same
+  message; the old unit `atuin-auto-login` is gone.
+- `atuin sync` on azazel without errors.
+
+### Lessons learned
+
+- A shared encryption key that each machine receives by hand drifts as
+  soon as one machine is set up differently. Hand it out from the secret
+  store, and check it on every start instead of trusting that a login
+  once happened correctly.
+- Equal keys on every host today do not prove the server's data is clean:
+  the check covers the key a host uses now, not records it uploaded
+  earlier. `atuin store verify` on a host that has pulled everything is
+  the check for the data.
+
 ## [2026-10-02] Monitoring: working links in alert e-mails, Grafana root_url
 
 ### Changed

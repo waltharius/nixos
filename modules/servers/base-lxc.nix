@@ -14,7 +14,7 @@
     ../system/certificates.nix
     ../system/secrets.nix
     ./users.nix
-    ./atuin-login.nix
+    ../system/atuin-login.nix
   ];
 
   # Default LXC container settings
@@ -36,7 +36,7 @@
     # Automatic Atuin login for shell history sync
     services.atuin-auto-login = {
       enable = true;
-      user = "nixadm";
+      users = ["nixadm"];
       username = "admin"; # Shared account across all servers
     };
 
