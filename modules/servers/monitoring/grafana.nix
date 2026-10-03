@@ -157,7 +157,10 @@ in {
   # which Grafana's file provisioner does NOT process - it silently skips
   # the file. jq strips those sections and sed replaces the
   # ${DS_PROMETHEUS} datasource variable with the UID of the provisioned
-  # Prometheus data source ("prometheus"). Both steps are idempotent.
+  # Prometheus data source ("prometheus"). Dashboards without an automatic
+  # refresh get one of 1m (it runs only while the dashboard is open; the
+  # picker at the top right overrides it per view); a refresh set by the
+  # dashboard's author is kept. All steps are idempotent.
   #
   # Note on Nix string escaping: inside ''...'' strings, ${ is still
   # interpreted as Nix interpolation. Use ''${ to emit a literal ${.
@@ -202,8 +205,9 @@ in {
 
       for f in /var/lib/grafana/dashboards/*.json; do
         [ -f "$f" ] || continue
-        echo "Patching $f: stripping __inputs/__requires/__elements, fixing datasource UID"
-        ${pkgs.jq}/bin/jq 'del(.__inputs) | del(.__requires) | del(.__elements)' "$f" > "$f.tmp" \
+        echo "Patching $f: stripping __inputs/__requires/__elements, default refresh, fixing datasource UID"
+        ${pkgs.jq}/bin/jq 'del(.__inputs) | del(.__requires) | del(.__elements)
+          | if ((.refresh // "") | tostring) == "" or .refresh == false then .refresh = "1m" else . end' "$f" > "$f.tmp" \
           && mv "$f.tmp" "$f"
         ${pkgs.gnused}/bin/sed -i \
           's/"''${DS_PROMETHEUS}"/"prometheus"/g;s/"''${ds_prometheus}"/"prometheus"/g' \

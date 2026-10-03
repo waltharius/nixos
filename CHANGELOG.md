@@ -65,6 +65,12 @@ without NixOS is installed by the first task of the new `fleet` command.
 - `nix run .#fleet`: `ANSIBLE_COLLECTIONS_PATH` is set before the
   collections are installed (ansible-galaxy warned that the target was not
   a configured collections path).
+- Job `cadvisor` drops series whose `id` ends in "/": Podman runs each
+  container in a child cgroup `libpod-<id>.scope/container`, which
+  cAdvisor reported next to the scope, so every Podman container appeared
+  twice. Under cgroup v2 the scope's statistics include the child.
+- Grafana: community dashboards without an automatic refresh get 1m
+  (jq in `grafana-provision-dashboards`); the fleet overview keeps 30s.
 
 ### Verification
 
@@ -77,12 +83,12 @@ note):
   walthpi16; both answer on `/metrics`; dashboard Cadvisor exporter lists
   portainer_agent and atuin-server (docker), portainer, gitlab and
   vikunja-todo-vikunja-1 (walthpi16).
-- altair, after the `autoRemoveOnStop` change: `systemctl status cadvisor`
-  without 'Failed to create existing container' errors;
-  `curl -s 127.0.0.1:8099/metrics | grep -o 'name="[^"]*"' | sort | uniq -c`
-  lists open-webui and searxng (zotero2readwise only while its timer runs
-  it), and no systemd services (checks that `-docker_only` keeps the
-  Podman containers).
+- altair, run on 2026-10-03 after the `autoRemoveOnStop` change: no new
+  'Failed to create existing container' errors; cAdvisor reports
+  open-webui and searxng and no systemd services (`-docker_only` keeps the
+  Podman containers), each twice (scope and `/container` child; the
+  child is now dropped). Still to check after this deploy: one row per
+  container in the dashboard.
 - Prometheus target `cadvisor` up for docker, walthpi16 and altair;
   dashboard Cadvisor exporter shows containers per host.
 

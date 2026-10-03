@@ -170,6 +170,18 @@ in {
         job_name = "cadvisor";
         scrape_interval = "30s";
         static_configs = staticConfigs cadvisorTargets;
+        # Podman runs a container in libpod-<id>.scope/container, a child
+        # of its scope; cAdvisor reports both, the child with an `id` ending
+        # in "/", so every Podman container appeared twice. With cgroup v2
+        # the scope's statistics include the child, so the child series are
+        # dropped. The root cgroup ("/") is kept; Docker ids never end in /.
+        metric_relabel_configs = [
+          {
+            source_labels = ["id"];
+            regex = ".+/";
+            action = "drop";
+          }
+        ];
       }
       ++ lib.optional nvidiaEnabled
       (localJob "nvidia" config.services.prometheus.exporters.nvidia-gpu.port {role = "gpu";})
