@@ -80,10 +80,10 @@
 in {
   virtualisation.oci-containers.containers.searxng = {
     image = "docker.io/searxng/searxng:latest";
-    extraOptions = [ "--network=host" ];
+    extraOptions = ["--network=host"];
 
     environment = {
-      SEARXNG_BIND_ADDRESS  = "0.0.0.0:8080";
+      SEARXNG_BIND_ADDRESS = "0.0.0.0:8080";
       SEARXNG_SETTINGS_PATH = "/etc/searxng";
     };
 
@@ -95,14 +95,14 @@ in {
   };
 
   systemd.services."podman-searxng" = {
-    after    = [ "mnt-data.mount" ];
-    requires = [ "mnt-data.mount" ];
-    serviceConfig.ExecStartPre = [ "+${prepScript}" ];
+    after = ["mnt-data.mount"];
+    requires = ["mnt-data.mount"];
+    serviceConfig.ExecStartPre = ["+${prepScript}"];
   };
 
   # Port 8080 (SearXNG) and 11434 (Ollama) allowed on Podman bridges only.
   # LAN (enp10s0) access to both ports stays blocked.
-  networking.firewall.interfaces."podman0".allowedTCPPorts     = [ 11434 8080 ];
-  networking.firewall.interfaces."podman1".allowedTCPPorts     = [ 11434 8080 ];
-  networking.firewall.interfaces."cni-podman0".allowedTCPPorts = [ 11434 8080 ];
+  networking.firewall.interfaces."podman0".allowedTCPPorts = [11434 8080];
+  networking.firewall.interfaces."podman1".allowedTCPPorts = [11434 8080];
+  networking.firewall.interfaces."cni-podman0".allowedTCPPorts = [11434 8080];
 }

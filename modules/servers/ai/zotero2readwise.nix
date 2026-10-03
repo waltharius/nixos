@@ -48,7 +48,10 @@ with lib; let
   # Empty list → no flags → run.py syncs all colors (its default behaviour).
   filterColorFlags = concatMapStringsSep " " (c: "--filter_color \"${c}\"") cfg.filterColors;
 
-  useSinceFlag = if cfg.useSince then "--use_since" else "";
+  useSinceFlag =
+    if cfg.useSince
+    then "--use_since"
+    else "";
 
   # Build a wrapper script at runtime containing secrets as positional args.
   # Written to tmpfs (/run) with mode 0700 — never touches the Nix store.
@@ -76,7 +79,7 @@ in {
     enable = mkEnableOption "Zotero → Readwise highlight sync";
 
     image = mkOption {
-      type    = types.str;
+      type = types.str;
       default = "docker.io/justinlee901227/zotero2readwise:latest";
       description = ''
         OCI image to use. Consider pinning to a specific digest once tested:
@@ -86,17 +89,17 @@ in {
     };
 
     zoteroLibraryType = mkOption {
-      type    = types.enum [ "user" "group" ];
+      type = types.enum ["user" "group"];
       default = "user";
       description = "Zotero library type: 'user' or 'group'.";
     };
 
     filterColors = mkOption {
-      type    = types.listOf types.str;
+      type = types.listOf types.str;
       # Default excludes grey (#aaaaaa) — used for navigation/chapter headings.
       # Set to [] to sync all colors.
-      default = [ "#ffd400" "#ff6666" "#5fb236" "#2ea8e5" "#a28ae5" "#e56eee" "#f19837" ];
-      example = [ "#ffd400" "#ff6666" ];
+      default = ["#ffd400" "#ff6666" "#5fb236" "#2ea8e5" "#a28ae5" "#e56eee" "#f19837"];
+      example = ["#ffd400" "#ff6666"];
       description = ''
         Highlight colours to include. Each becomes a --filter_color flag.
         Set to [] to sync all colours including grey.
@@ -107,7 +110,7 @@ in {
     };
 
     useSince = mkOption {
-      type    = types.bool;
+      type = types.bool;
       default = true;
       description = ''
         Pass --use_since to run.py so only highlights added since the last
@@ -117,7 +120,7 @@ in {
     };
 
     syncInterval = mkOption {
-      type    = types.str;
+      type = types.str;
       default = "*-*-* 00,06,12,18:00:00";
       description = ''
         OnCalendar expression for the systemd timer.
@@ -127,7 +130,6 @@ in {
   };
 
   config = mkIf cfg.enable {
-
     sops.secrets."zotero2readwise-readwise-token" = {
       sopsFile = ../../../secrets/altair.yaml;
     };
@@ -139,15 +141,15 @@ in {
     };
 
     virtualisation.oci-containers.containers.zotero2readwise = {
-      image     = cfg.image;
+      image = cfg.image;
       autoStart = false;
 
       # Bypass crond: execute the runtime wrapper script directly.
       entrypoint = "/bin/sh";
-      cmd        = [ "/run/zotero2readwise-cmd" ];
+      cmd = ["/run/zotero2readwise-cmd"];
 
       # Bind-mount the runtime cmd wrapper into the container (read-only).
-      volumes = [ "/run/zotero2readwise-cmd:/run/zotero2readwise-cmd:ro" ];
+      volumes = ["/run/zotero2readwise-cmd:/run/zotero2readwise-cmd:ro"];
 
       environment = {
         ZOTERO_LIBRARY_TYPE = cfg.zoteroLibraryType;
@@ -155,23 +157,23 @@ in {
     };
 
     systemd.services."podman-zotero2readwise" = {
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
+      after = ["network-online.target"];
+      wants = ["network-online.target"];
 
       serviceConfig = {
-        ExecStartPre = [ "+${prepScript}" ];
-        ExecStopPost = [ "+${cleanupScript}" ];
-        Restart      = mkForce "no";
+        ExecStartPre = ["+${prepScript}"];
+        ExecStopPost = ["+${cleanupScript}"];
+        Restart = mkForce "no";
       };
     };
 
     systemd.timers."podman-zotero2readwise" = {
-      wantedBy  = [ "timers.target" ];
+      wantedBy = ["timers.target"];
       timerConfig = {
-        OnCalendar         = cfg.syncInterval;
-        Persistent         = true;
+        OnCalendar = cfg.syncInterval;
+        Persistent = true;
         RandomizedDelaySec = "5min";
-        Unit               = "podman-zotero2readwise.service";
+        Unit = "podman-zotero2readwise.service";
       };
     };
   };
