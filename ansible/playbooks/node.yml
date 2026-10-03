@@ -1,0 +1,37 @@
+# ansible/playbooks/node.yml - node_exporter on devices with
+# `monitoring.node = true` in hosts/devices/<name>.nix.
+#
+# Run it through `nix run .#fleet` (task "monitoring apply"), not by hand:
+# the inventory group `node` is generated from the Nix inventory.
+#
+# The role installs the binary from node_exporter's GitHub releases (checked
+# against the release checksums) as the systemd service `node_exporter`,
+# user node-exp. It listens on all addresses (the LAN is trusted; no
+# authentication), port 9100, which must match ports.node in
+# lib/monitoring.nix. Upgrade: change node_exporter_version, run the task on
+# all devices.
+---
+- name: Node exporter
+  hosts: node
+  become: true
+  roles:
+    - role: prometheus.prometheus.node_exporter
+      vars:
+        node_exporter_version: "1.11.1"
+        node_exporter_web_listen_address: "0.0.0.0:9100"
+        # Same collectors and exclusions as the NixOS hosts
+        # (modules/servers/monitoring/node-exporter.nix): systemd for the
+        # SystemdUnitFailed alert, textfile for later *.prom files. No
+        # backslashes in the patterns: systemd would read them as escapes in
+        # ExecStart, hence [.] instead of \. .
+        node_exporter_enabled_collectors:
+          - systemd
+          - textfile:
+              directory: "{{ node_exporter_textfile_dir }}"
+          - filesystem:
+              mount-points-exclude: "^/(dev|proc|sys|run|tmp)($|/)"
+              fs-types-exclude: "^(tmpfs|devtmpfs|devpts|sysfs|proc|cgroup|cgroup2|overlay|squashfs|fuse[.].*)$"
+          - netdev:
+              # Proxmox: fwbr/fwpr/fwln are per-guest firewall bridges, tap
+              # the VM interfaces; vmbr (the host's own bridges) stays.
+              device-exclude: "^(lo|veth.*|docker.*|br-.*|fwbr.*|fwpr.*|fwln.*|tap.*|tailscale.*)$"

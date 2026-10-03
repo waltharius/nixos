@@ -16,10 +16,12 @@
         name = "fleet";
         # nix itself comes from the caller's PATH, as in new-host.
         runtimeInputs = with pkgs; [
+          alejandra
           ansible
           coreutils
           curl
           git
+          gawk
           gnugrep
           gum
           jq

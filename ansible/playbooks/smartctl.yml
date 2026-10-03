@@ -1,0 +1,29 @@
+# ansible/playbooks/smartctl.yml - smartctl_exporter on devices with
+# `monitoring.smartctl = true` (and `baremetal = true`) in
+# hosts/devices/<name>.nix.
+#
+# Run it through `nix run .#fleet` (task "monitoring apply"), not by hand:
+# the inventory group `smartctl` is generated from the Nix inventory.
+#
+# smartmontools comes from the distribution; the exporter binary from its
+# GitHub releases (checked against the release checksums) as the systemd
+# service `smartctl_exporter`. It runs as root: smartctl needs root for
+# SMART commands (smartctl_exporter README, "Why is root required?"). It
+# listens on all addresses (the LAN is trusted), port 9633, which must
+# match ports.smartctl in lib/monitoring.nix.
+---
+- name: Smartctl exporter
+  hosts: smartctl
+  become: true
+  pre_tasks:
+    - name: Install smartmontools
+      ansible.builtin.package:
+        name: smartmontools
+        state: present
+  roles:
+    - role: prometheus.prometheus.smartctl_exporter
+      vars:
+        smartctl_exporter_version: "0.14.0"
+        smartctl_exporter_web_listen_address: "0.0.0.0:9633"
+        smartctl_exporter_system_user: root
+        smartctl_exporter_system_group: root
