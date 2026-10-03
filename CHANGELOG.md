@@ -9,6 +9,27 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
+## [2026-10-03] Alert e-mail subject: host first, no brackets
+
+### Changed
+
+- Subject `CRITICAL office-asus: Filesystem / is read-only`, later
+  `RESOLVED office-asus: ...`: status, host, then the rule's summary
+  without its " on <host>" (`reReplaceAll` in the subject template).
+  With `[CRITICAL] ...` / `[RESOLVED] ...` Proton Mail still grouped the
+  firing and the resolved e-mail into one conversation, apparently
+  ignoring a bracketed prefix; and the host was cut off in the mail list.
+- `docs/devices/asus-routers.md`: Entware installed with amtm, package
+  `prometheus-node-exporter` 1.9.1-1, update commands.
+
+### Verification
+
+To be run after the deploy; record the results here (and remove this
+note): the next alert arrives as "WARNING <host>: ..." and its end as a
+separate conversation "RESOLVED <host>: ...". If Proton still joins them,
+switch off conversation grouping in Proton (Settings -> Messages and
+composing).
+
 ## [2026-10-03] Refactor stage 5b step 5 (part) - UPS through NUT, pfSense node_exporter
 
 ### Added

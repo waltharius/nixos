@@ -74,11 +74,22 @@ in {
             {
               to = mail.to;
               send_resolved = true;
-              # "[WARNING] Service sssd-nss.socket failed on caddy" when it
-              # fires, "[RESOLVED] ..." when it ends; the rule's summary
-              # (alert-rules.nix) already names the host. The body stays
+              # "CRITICAL office-asus: Filesystem / is read-only" when it
+              # fires, "RESOLVED office-asus: ..." when it ends: the host first
+              # (it is what fits in a mail list), then the rule's summary
+              # with its " on <host>" removed. No [brackets] around the status:
+              # with "[CRITICAL] x" / "[RESOLVED] x" Proton Mail still put
+              # firing and resolved into one conversation, apparently
+              # ignoring a bracketed prefix (observed 2026-10-03). Rules
+              # without a host label: status and summary. The body stays
               # Alertmanager's default HTML.
-              headers.Subject = ''{{ if eq .Status "firing" }}[{{ .CommonLabels.severity | toUpper }}]{{ else }}[RESOLVED]{{ end }} {{ with .CommonAnnotations.summary }}{{ . }}{{ else }}{{ .CommonLabels.alertname }} on {{ .CommonLabels.host }}{{ end }}'';
+              headers.Subject = builtins.concatStringsSep "" [
+                ''{{ if eq .Status "firing" }}{{ .CommonLabels.severity | toUpper }}{{ else }}RESOLVED{{ end }} ''
+                ''{{ with .CommonLabels.host }}{{ . }}: {{ end }}''
+                ''{{ with .CommonAnnotations.summary }}''
+                ''{{ if $.CommonLabels.host }}{{ reReplaceAll (printf " on %s" $.CommonLabels.host) "" . }}{{ else }}{{ . }}{{ end }}''
+                ''{{ else }}{{ $.CommonLabels.alertname }}{{ end }}''
+              ];
             }
           ];
         }

@@ -57,15 +57,20 @@ and see whether it arrives.
 
 ## Entware and node_exporter on office-asus
 
-Entware lives on the USB stick in `/tmp/mnt/usb/entware`, linked to
-`/tmp/opt` (so `/opt/bin`, `/opt/etc/init.d`). node_exporter is an
-Entware package with the init script `/opt/etc/init.d/S99node_exporter`,
-listening on port 9100. Set up in September 2025; it has survived the
-reboots since.
+Entware was installed with `amtm` (Merlin's terminal menu, `/usr/sbin/amtm`,
+its files in `/jffs/addons/amtm`; `/jffs/addons/shared-whitelists` is
+there too) onto the USB stick, in `/tmp/mnt/usb/entware`, linked to
+`/tmp/opt` (so `/opt/bin`, `/opt/etc/init.d`). node_exporter is the
+Entware package `prometheus-node-exporter` (1.9.1-1 on 2026-10-03), with
+the init script `/opt/etc/init.d/S99node_exporter`, listening on port
+9100. Set up in September 2025; it has survived the reboots since.
 
-To fill in: the package name (`opkg list-installed | grep -i node`) and
-how Entware was installed (presumably with `amtm`, Merlin's terminal
-menu).
+```sh
+ssh office-asus 'export PATH=/opt/bin:/opt/sbin:$PATH; opkg list-installed | grep -i node'
+```
+
+Update: `opkg update && opkg upgrade prometheus-node-exporter` (with
+the PATH above), then `/opt/etc/init.d/S99node_exporter restart`.
 
 Two scripts in `/jffs/scripts` (both executable) start it:
 
@@ -119,8 +124,9 @@ Check from azazel: `curl -s http://192.168.50.220:9100/metrics | head -3`.
 ## To do: node_exporter on parter-asus
 
 1. Plug in a small USB stick, format it ext4 (label as on office-asus).
-2. Install Entware onto it the same way as on office-asus (see "To fill
-   in" above) and the same node_exporter package.
+2. Install Entware onto it with `amtm` (run `amtm` over SSH, choose
+   Entware, the USB stick as target), then
+   `opkg install prometheus-node-exporter`.
 3. Copy `post-mount` and `services-start` from office-asus to
    `/jffs/scripts/` and make them executable (`chmod +x`).
 4. Check `curl -s http://192.168.50.221:9100/metrics | head -3`, then set

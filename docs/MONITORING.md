@@ -82,9 +82,10 @@ pve, GPU) listen on loopback.
   Status -> Targets shows every scrape target and its last error.
 - **E-mail**: every alert, when it fires and when it is resolved, to
   `monitoring.mail.to` in `hosts/fleet.nix`, one e-mail per alert. The
-  subject is `[WARNING]`/`[CRITICAL]` or `[RESOLVED]` plus the rule's
-  summary, e.g. "[WARNING] Service sssd-nss.socket failed on caddy". A
-  still-firing alert is repeated every 12 hours.
+  subject is the severity (`WARNING`, `CRITICAL`) or `RESOLVED`, the host,
+  then the rule's summary, e.g. "CRITICAL office-asus: Filesystem / is
+  read-only" and later "RESOLVED office-asus: Filesystem / is read-only".
+  A still-firing alert is repeated every 12 hours.
 - **healthchecks.io**: e-mails on its own when the Watchdog pings stop,
   i.e. when the monitoring server, Alertmanager or the internet
   connection is down. Nothing on the monitoring server can tell you that
