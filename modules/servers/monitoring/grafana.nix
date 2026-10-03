@@ -189,6 +189,9 @@ in {
         "proxmox.json" = "https://grafana.com/api/dashboards/10347/revisions/latest/download";
         # Cadvisor exporter (job cadvisor): CPU, memory, network per container
         "cadvisor.json" = "https://grafana.com/api/dashboards/14282/revisions/latest/download";
+        # UPS statistics, the nut exporter's own dashboard (job nut), pinned
+        # to the exporter version in nixpkgs
+        "ups.json" = "https://raw.githubusercontent.com/DRuggeri/nut_exporter/v3.2.5/dashboard/dashboard.json";
       };
       downloads = lib.concatStrings (lib.mapAttrsToList (file: url: ''
           if [ ! -f "/var/lib/grafana/dashboards/${file}" ]; then

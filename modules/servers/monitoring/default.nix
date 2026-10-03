@@ -17,6 +17,7 @@
     ./blackbox.nix
     ./pve.nix
     ./cadvisor.nix
+    ./nut.nix
     ./grafana.nix
   ];
 }

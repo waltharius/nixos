@@ -31,7 +31,11 @@
 #     node_exporter (9100) and smartctl_exporter (9633), installed the same
 #     way (ansible/playbooks/node.yml, smartctl.yml), scraped in the jobs
 #     `node` and `smartctl` with `class = "device"`, `baremetal` from the
-#     device file and `category` when set;
+#     device file and `category` when set; `monitoring.nodeExternal = true`
+#     is scraped the same way, but node_exporter is installed outside the
+#     repository (pfSense package);
+#   - devices with `monitoring.ups = "<name>"`: that UPS on the device's NUT
+#     server, read by the nut exporter on the monitoring server (nut.nix);
 #   - hosts/websites.nix: an HTTP probe per page.
 # The generated lists are exposed as `fleet.monitoring.targets` and read by
 # modules/servers/monitoring/prometheus.nix. See docs/MONITORING.md.
@@ -70,7 +74,10 @@
   pingedDevices = lib.filterAttrs (_: d: d.monitoring.ping or false) devices;
   pveDevices = lib.filterAttrs (_: d: d.monitoring.pve or false) devices;
   cadvisorDevices = lib.filterAttrs (_: d: d.monitoring.cadvisor or false) devices;
-  nodeDevices = lib.filterAttrs (_: d: d.monitoring.node or false) devices;
+  nodeDevices = lib.filterAttrs (_: d: (d.monitoring.node or false) || (d.monitoring.nodeExternal or false)) devices;
+  # `or {}`: devices without a `monitoring` block (`?` does not tolerate a
+  # missing parent attribute, `or` in a selection does).
+  upsDevices = lib.filterAttrs (_: d: (d.monitoring or {}) ? ups) devices;
   smartctlDevices = lib.filterAttrs (_: d: d.monitoring.smartctl or false) devices;
   # Must match cadvisor_port in ansible/playbooks/cadvisor.yml.
   cadvisorPort = 8080;
@@ -140,6 +147,19 @@
         };
       })
       pveDevices;
+    # UPSes on NUT servers of devices. __param_ups becomes the `ups` query
+    # parameter of the nut exporter; the address its `server` parameter
+    # (job nut in prometheus.nix).
+    nut =
+      lib.mapAttrsToList (name: d: {
+        address = d.lan.ip;
+        labels = {
+          instance = name;
+          host = name;
+          __param_ups = d.monitoring.ups;
+        };
+      })
+      upsDevices;
     # Docker hosts without NixOS. The monitoring server adds its own
     # cAdvisor (Podman) as a local target (modules/servers/monitoring/cadvisor.nix).
     cadvisor =

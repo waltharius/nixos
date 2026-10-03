@@ -8,5 +8,8 @@
   };
   category = "network";
   baremetal = true;
+  # Ping only for now: no USB stick, so no Entware and no node_exporter.
+  # With a stick: Entware and node_exporter as on office-asus, then
+  # `monitoring.nodeExternal = true` (BACKLOG.md, stage 5b step 5).
   monitoring.ping = true;
 }

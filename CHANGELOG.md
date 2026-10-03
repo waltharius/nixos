@@ -9,6 +9,45 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
+## [2026-10-03] Refactor stage 5b step 5 (part) - UPS through NUT, pfSense node_exporter
+
+### Added
+
+- `modules/servers/monitoring/nut.nix`: nut_exporter 3.2.5 on the
+  monitoring server (loopback, 9199) for devices with `monitoring.ups`;
+  reads the UPS from the device's upsd without a NUT login. Job `nut`
+  passes the device address as `?server=` and the UPS name as `?ups=`
+  (target label `__param_ups`). Variables: the exporter's defaults plus
+  battery runtime, charge limit, voltage limits, nominal power.
+- Alert group `ups`: UpsOnBattery (critical, 1 min), UpsBatteryLow
+  (critical), UpsOverload (critical), UpsReplaceBattery (1 h), UpsLoadHigh
+  (> 80 % for 15 min), UpsUnreachable.
+- Grafana dashboard "UPS statistics" (the exporter's own, pinned to
+  v3.2.5).
+- Device fields `monitoring.ups` (UPS name) and `monitoring.nodeExternal`
+  (node_exporter installed outside the repository, only scraped).
+- pfsense: `ups = "apcups"` (APC Back-UPS 850 on USB, NUT package, upsd
+  listening on 0.0.0.0:3493) and `nodeExternal = true` (node_exporter
+  package from the pfSense package manager, installed by hand).
+- office-asus: `nodeExternal = true` (node_exporter from Entware on its
+  USB stick, set up in September 2025). parter-asus stays at ping: no USB
+  stick, no Entware.
+
+### Verification
+
+To be run after the deploy; record the results here (and remove this
+note):
+
+- From altair: `nix shell nixpkgs#nut -c upsc apcups@192.168.50.1` lists
+  the UPS variables without a login.
+- pfSense: package node_exporter installed (System -> Package Manager),
+  listening on LAN:9100; `curl -s http://192.168.50.1:9100/metrics | head`
+  from altair. On pfSense 2.7.2 the uname and os collectors may fail with
+  'cannot allocate memory' (https://redmine.pfsense.org/issues/14452);
+  disable them in the package settings if they do.
+- Prometheus targets `nut` (pfsense) and `node` (pfsense) up; dashboard
+  UPS statistics shows charge, load, runtime, input voltage.
+
 ## [2026-10-03] Alert e-mails per alert, `fleet fix apply`, sssd sockets
 
 ### Changed

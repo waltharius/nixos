@@ -157,7 +157,11 @@
   # Fields a device may set under `monitoring` (all true/false, all need
   # `lan.ip`). Agents are installed by `nix run .#fleet` (monitoring
   # apply), which logs in through the SSH alias named like the device.
-  deviceMonitoringFields = ["ping" "pve" "cadvisor" "node" "smartctl"];
+  # nodeExternal: node_exporter installed outside `nix run .#fleet` (pfSense
+  # package); only scraped. ups: name of a UPS on the device's NUT server
+  # (upsd, port 3493), read by the nut exporter on the monitoring server.
+  deviceBoolMonitoringFields = ["ping" "pve" "cadvisor" "node" "smartctl" "nodeExternal"];
+  deviceMonitoringFields = deviceBoolMonitoringFields ++ ["ups"];
   deviceAgentFields = ["cadvisor" "node" "smartctl"];
 
   # Values of a device's `category` (tiles of the fleet overview).
@@ -178,7 +182,13 @@
         "${label}.${f} must be true or false"
         ++ lib.optional (on f && ipOf d == null)
         "${label}.${f} needs the device's `lan.ip`")
-      deviceMonitoringFields
+      deviceBoolMonitoringFields
+      ++ lib.optional (mon ? ups && !(builtins.isString mon.ups && mon.ups != ""))
+      "${label}.ups must be the UPS name on the device's NUT server, e.g. \"apcups\""
+      ++ lib.optional (mon ? ups && ipOf d == null)
+      "${label}.ups needs the device's `lan.ip`"
+      ++ lib.optional (on "node" && on "nodeExternal")
+      "${label}: set either node (installed by nix run .#fleet) or nodeExternal (installed otherwise), not both"
       ++ lib.concatMap (f:
         lib.optional (on f && !((d.ssh or {}) ? ${name}))
         "${label}.${f} needs an SSH alias named like the device (ssh.${name}), used by `nix run .#fleet`")

@@ -99,7 +99,8 @@ priority is Proxmox and containers):
       14282 shows days with one decimal, so anything younger than about
       2.5 hours reads "0.0 day". Native panels (Stat with data links), no
       plugins; Polystat only if wanted later.
-   5. **pfSense, UPS, Wi-Fi routers**:
+   5. **pfSense, UPS, Wi-Fi routers** (pfSense node_exporter and the UPS
+      written on 2026-10-03, CHANGELOG.md; the routers still open):
       - pfSense 2.7.2 (2.8.1 hangs on this box): the package node_exporter
         is known to fail with 'cannot allocate memory' in the uname and
         os collectors on 2.7.x (https://redmine.pfsense.org/issues/14452;
@@ -110,10 +111,17 @@ priority is Proxmox and containers):
         server against pfSense's upsd (needs a NUT user and upsd listening
         on the LAN). Alerts: on battery, battery low, replace battery, UPS
         unreachable, load high.
-      - Two ASUS RT-AX92U on gnuton firmware (Asuswrt-Merlin port): check
-        whether SNMP is available; otherwise node_exporter from Entware,
-        or ping only. Check whether per-client Wi-Fi traffic can be
-        exported.
+      - Two ASUS RT-AX92U on gnuton firmware (Asuswrt-Merlin port,
+        3004.388.9_2, aarch64), SSH on LAN port 1024, no SNMP page.
+        office-asus (.220): Entware on the USB stick with node_exporter,
+        started by /jffs/scripts/post-mount, scraped since 2026-10-03
+        (`nodeExternal`). Still to check: it comes back after a reboot of
+        the router. parter-asus (.221): no USB stick, ping only; its web
+        UI redirects to .220 (probably an AiMesh node). To do: buy a small
+        USB stick, install Entware and node_exporter as on office-asus,
+        copy post-mount and services-start, set `nodeExternal`. Later:
+        per-client Wi-Fi (signal, rates) through the textfile collector
+        from a script around `wl`.
 5c. Service exporters (after 5b): Nextcloud (nextcloud-exporter), MariaDB
    (mysqld_exporter), Redis, Immich (built-in, `IMMICH_TELEMETRY_INCLUDE=all`),
    Caddy and GitLab (built-in), Podman if not done in 5b; dashboards in

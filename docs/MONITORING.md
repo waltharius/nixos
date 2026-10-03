@@ -15,6 +15,8 @@ no module names a host.
 | Devices without NixOS | ping (up/down); full metrics follow in stage 5b | `monitoring.ping = true` in `hosts/devices/<name>.nix` |
 | Proxmox VE (host, VMs, LXC containers, storage) | pve exporter on the monitoring server reading the Proxmox API with a read-only token; nothing installed on Proxmox | `monitoring.pve = true` in `hosts/devices/<name>.nix` |
 | Devices without NixOS that run Linux with systemd (Proxmox host and guests, Raspberry Pis) | node_exporter (9100) and, on real hardware with SMART disks, smartctl_exporter (9633), installed with `nix run .#fleet` -> "monitoring apply"; same jobs (`node`, `smartctl`) and alerts as the NixOS hosts, label `class="device"` | `monitoring.node` / `monitoring.smartctl = true` (and `baremetal`, `category`) in `hosts/devices/<name>.nix` |
+| pfSense | node_exporter from the pfSense package manager (job `node`), installed by hand in the GUI | `monitoring.nodeExternal = true` |
+| UPS (APC on pfSense) | nut_exporter on the monitoring server reading pfSense's upsd (port 3493); alerts on battery, battery low, replace battery, overload, load, unreachable; dashboard "UPS statistics" | `monitoring.ups = "apcups"` |
 | Docker containers on devices without NixOS | cAdvisor on the device (port 8080), installed with `nix run .#fleet` -> "monitoring apply" (Ansible) | `monitoring.cadvisor = true` in `hosts/devices/<name>.nix` |
 | Podman containers on the monitoring server | cAdvisor on loopback (port 8099) | automatic when the server runs Podman (`cadvisor.nix`) |
 | Web pages | HTTP probe: status, response time, certificate expiry | `hosts/websites.nix` |
@@ -45,6 +47,7 @@ pve, GPU) listen on loopback.
 | `modules/servers/monitoring/mail.nix` | send-only Postfix |
 | `modules/servers/monitoring/blackbox.nix` | ping and HTTP probes |
 | `modules/servers/monitoring/pve.nix` | Proxmox API exporter, its token (sops) and CA |
+| `modules/servers/monitoring/nut.nix` | nut exporter for UPSes on NUT servers of devices |
 | `modules/servers/monitoring/cadvisor.nix` | cAdvisor for the server's own Podman containers |
 | `scripts/fleet.sh` (`nix run .#fleet`) | task menu; "monitoring apply" installs agents on devices with Ansible |
 | `ansible/` | playbooks per agent, pinned collections (`requirements.yml`), `ansible.cfg`; used only through `nix run .#fleet` |
@@ -101,6 +104,7 @@ info alerts are suppressed.
 | resources | DiskSpaceLow, DiskSpaceCritical, DiskWillFillIn24h, FilesystemReadOnly, CpuBusy12h, OomKill |
 | services and time | SystemdUnitFailed, ClockNotSynchronised, TextfileCollectorError |
 | hardware (bare metal) | HostTemperatureHigh, HostTemperatureCriticalAlarm, GpuTemperatureHigh, GpuBusy12h, SmartHealthFailed, DiskTemperatureHigh, NvmeCriticalWarning, NvmeWearHigh, BtrfsScrubErrors, BtrfsScrubUncorrectable, BtrfsScrubStale |
+| ups | UpsOnBattery, UpsBatteryLow (critical), UpsOverload (critical), UpsReplaceBattery, UpsLoadHigh, UpsUnreachable |
 | containers | CadvisorDown (no "container stopped" rule: stopped containers just vanish from cAdvisor) |
 | proxmox | PveExporterDown, PveGuestDown (only guests set to start at boot), PveGuestNotBackedUp, PveStorageLow, PveStorageCritical |
 | monitoring | Watchdog, MonitoringTargetDown, AlertmanagerNotificationsFailing, PrometheusRuleEvaluationFailures, PrometheusConfigReloadFailed |

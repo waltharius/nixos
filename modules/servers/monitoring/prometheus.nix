@@ -17,6 +17,8 @@
 #   blackbox-internet - ping of public DNS resolvers (InternetDown)
 #   pve               - Proxmox API of devices with `monitoring.pve = true`,
 #                       through the local pve exporter (pve.nix)
+#   nut               - UPSes on NUT servers of devices with
+#                       `monitoring.ups`, through the local nut exporter
 #   cadvisor          - containers: cAdvisor on devices with
 #                       `monitoring.cadvisor = true` (Docker) and on this
 #                       server when it runs Podman (cadvisor.nix); label
@@ -165,6 +167,24 @@ in {
         };
         static_configs = staticConfigs targets.pve;
         relabel_configs = viaExporter "127.0.0.1:${toString config.services.prometheus.exporters.pve.port}";
+      }
+      # NUT: the device address becomes ?server=, __param_ups (target
+      # label from lib/monitoring.nix) ?ups=.
+      ++ lib.optional (targets.nut != []) {
+        job_name = "nut";
+        scrape_interval = "30s";
+        metrics_path = "/ups_metrics";
+        static_configs = staticConfigs targets.nut;
+        relabel_configs = [
+          {
+            source_labels = ["__address__"];
+            target_label = "__param_server";
+          }
+          {
+            target_label = "__address__";
+            replacement = "127.0.0.1:${toString config.services.prometheus.exporters.nut.port}";
+          }
+        ];
       }
       ++ lib.optional (cadvisorTargets != []) {
         job_name = "cadvisor";

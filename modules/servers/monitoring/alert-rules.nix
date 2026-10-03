@@ -262,6 +262,39 @@ in {
       ];
     }
 
+    # UPS through the nut exporter (job nut, nut.nix). `host` is the device
+    # running the NUT server (pfSense), so HostDown on it suppresses the
+    # warnings. Status flags as NUT reports them: OB on battery, LB battery
+    # low, RB replace battery, OVER overload.
+    {
+      name = "ups";
+      rules = [
+        (rule "UpsOnBattery" ''network_ups_tools_ups_status{job="nut",flag="OB"} == 1'' "1m" "critical"
+          "UPS {{ $labels.ups }} on ${hostRef} runs on battery"
+          "Mains power is gone. Charge and estimated runtime: see the UPS dashboard. At low battery NUT on ${hostRef} shuts down the connected machines.")
+
+        (rule "UpsBatteryLow" ''network_ups_tools_ups_status{job="nut",flag="LB"} == 1'' "0m" "critical"
+          "UPS {{ $labels.ups }} on ${hostRef}: battery low"
+          "The UPS reports a low battery; shutdown of the connected machines is imminent or under way.")
+
+        (rule "UpsReplaceBattery" ''network_ups_tools_ups_status{job="nut",flag="RB"} == 1'' "1h" "warning"
+          "UPS {{ $labels.ups }} on ${hostRef}: replace the battery"
+          "The UPS's self-test reports a worn-out battery.")
+
+        (rule "UpsOverload" ''network_ups_tools_ups_status{job="nut",flag="OVER"} == 1'' "0m" "critical"
+          "UPS {{ $labels.ups }} on ${hostRef} is overloaded"
+          "The connected load exceeds what the UPS can carry.")
+
+        (rule "UpsLoadHigh" ''network_ups_tools_ups_load{job="nut"} > 80'' "15m" "warning"
+          "UPS {{ $labels.ups }} on ${hostRef} at {{ $value }} % load"
+          "Load above 80 % for 15 minutes shortens the runtime on battery.")
+
+        (rule "UpsUnreachable" ''up{job="nut"} == 0'' "5m" "warning"
+          "UPS on ${hostRef} cannot be read"
+          "The nut exporter on the monitoring server cannot read the UPS from upsd on ${hostRef} (port 3493): upsd stopped, not listening on the LAN, or the UPS name in hosts/devices/ is wrong. journalctl -u prometheus-nut-exporter on the monitoring server.")
+      ];
+    }
+
     # Containers (cAdvisor, job cadvisor). Stopped containers simply
     # disappear from cAdvisor's metrics, so there is no "container down"
     # rule yet; that needs a list of expected containers.

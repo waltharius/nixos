@@ -8,5 +8,11 @@
   };
   category = "network";
   baremetal = true;
-  monitoring.ping = true;
+  monitoring = {
+    ping = true;
+    # node_exporter from Entware on the USB stick, started by
+    # /jffs/scripts/post-mount (/opt/etc/init.d/S99node_exporter); not
+    # installed by `nix run .#fleet`.
+    nodeExternal = true;
+  };
 }
