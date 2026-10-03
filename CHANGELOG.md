@@ -29,15 +29,9 @@ reason for reverting them.
 
 ### Verification
 
-To be run after the deploy; record the results here (and remove this
-note):
-
-- From azazel: `http://altair.home.lan:9093` and `:9090` open; an amtool
-  test alert (docs/MONITORING.md) arrives with a "View In Alertmanager"
-  link to `http://altair.home.lan:9093/#/alerts?receiver=email` that
-  opens, and "Source" opens the expression in Prometheus.
-- Grafana: Share -> Export as image works (BACKLOG.md, "Grafana Export as
-  image fails"), or the browser's Network tab shows which URL fails.
+Run on 2026-10-02: from azazel `http://altair.home.lan:9093` and `:9090`
+open, and the "View In Alertmanager" and "Source" links in alert e-mails
+work. Not yet checked: Grafana Share -> Export as image (BACKLOG.md).
 
 ### Lessons learned
 
@@ -115,7 +109,7 @@ Still to check:
 - In PromQL `*` binds tighter than `==` and `and`; joining a label with
   `* on (...) group_left (...)` after a filter needs parentheses, or the
   join silently lands on the wrong operand. Tested with `promtool test
-  rules` before the commit.
+rules` before the commit.
 
 ## [2026-10-02] Monitoring: fleet overview dashboard, image export, instance labels
 
@@ -423,9 +417,9 @@ Run on azazel on 2026-10-01:
 
 - Away from home (phone hotspot): `ip route get 192.168.50.150` shows
   `tailscale0`, `ping` and `ssh altair` work, `resolvectl query
-  altair.home.lan` answers through `tailscale0`. The connection to pfSense
+altair.home.lan` answers through `tailscale0`. The connection to pfSense
   is relayed through DERP (Warsaw), never direct (`tailscale ping
-  pfsense`): about 100-200 ms.
+pfsense`): about 100-200 ms.
 - At home: `ip rule` shows the rule with priority 2500 (only while a home
   profile is up).
 - Tailnet policy tests pass on save.
