@@ -10,3 +10,6 @@ collections:
   # Declared dependency of prometheus.prometheus.
   - name: community.general
     version: "13.4.0"
+  # firewalld module (ansible/tasks/open-port.yml).
+  - name: ansible.posix
+    version: "2.2.2"

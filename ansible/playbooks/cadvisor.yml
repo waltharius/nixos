@@ -15,6 +15,11 @@
   # Root on the device for installing the service; the role's download
   # tasks on the admin workstation keep `become: false`.
   become: true
+  post_tasks:
+    - name: Open the metrics port
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../tasks/open-port.yml"
+      vars:
+        fleet_metrics_port: 8080
   roles:
     - role: prometheus.prometheus.cadvisor
       vars:

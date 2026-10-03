@@ -1,0 +1,17 @@
+# ansible/tasks/open-port.yml - open an agent's metrics port in firewalld,
+# on devices that run firewalld (Rocky/RHEL, e.g. ipa). Debian, Ubuntu and
+# Proxmox have no active host firewall by default; there it does nothing.
+# Included by the playbooks with `fleet_metrics_port` set.
+---
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Open the metrics port in firewalld
+  ansible.posix.firewalld:
+    port: "{{ fleet_metrics_port }}/tcp"
+    permanent: true
+    immediate: true
+    state: enabled
+  when:
+    - "'firewalld.service' in ansible_facts.services"
+    - "ansible_facts.services['firewalld.service'].state == 'running'"

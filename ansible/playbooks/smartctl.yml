@@ -15,6 +15,11 @@
 - name: Smartctl exporter
   hosts: smartctl
   become: true
+  post_tasks:
+    - name: Open the metrics port
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../tasks/open-port.yml"
+      vars:
+        fleet_metrics_port: 9633
   pre_tasks:
     - name: Install smartmontools
       ansible.builtin.package:
