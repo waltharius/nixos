@@ -7,6 +7,7 @@ is done, move it to `CHANGELOG.md` together with its lessons learned.
 ## Refactor stages still ahead
 
 5b. Monitoring of Proxmox, containers and devices without NixOS (stage
+<<<<<<< ours
 5a covered the NixOS machines, ping of devices, websites and alerting;
 docs/MONITORING.md). Decided on 2026-10-02, in this order (the user's
 priority is Proxmox and containers):
@@ -67,6 +68,86 @@ priority is Proxmox and containers):
     Flathub and GNOME Software/KDE Discover for the user).
 7.  Documentation: rewrite `README.md` (still describes `colmena.nix` and the
     removed `nixos-test` host) and add an architecture document.
+=======
+   5a covered the NixOS machines, ping of devices, websites and alerting;
+   docs/MONITORING.md). Decided on 2026-10-02, in this order (the user's
+   priority is Proxmox and containers):
+   1. ~~Proxmox: prometheus-pve-exporter on altair~~: done on 2026-10-02
+      (CHANGELOG.md).
+   2. **Containers**: cAdvisor on the Docker VM (`docker`: portainer
+      agent, atuin-server) and on walthpi16 (`docker ps` on 2026-10-02:
+      gitlab-ce, vikunja, portainer), prometheus-podman-exporter on altair
+      (Open WebUI, SearXNG, zotero2readwise), Incus is already scraped.
+      Labels `host` and `runtime` (docker, podman, incus, lxc, vm); a
+      "Containers" dashboard: choose a host, see every container.
+   3. **node_exporter on everything with Linux** (pve, Proxmox guests on
+      Debian/Ubuntu/Alpine/Rocky, walthpi, walthpi16), smartctl_exporter
+      on the bare-metal ones. Onboarding: `nix run .#monitor-device`, a
+      `gum` script that asks for the device, writes
+      `hosts/devices/<name>.nix` and runs Ansible underneath (the user
+      never runs Ansible by hand). Ansible is a runtime input of the
+      script only (pinned by flake.lock, not installed in any group); the
+      `prometheus.prometheus` collection is pinned in `requirements.yml`
+      and installed into a git-ignored directory in the repository. The
+      script has an "apply to all devices" mode for version or setting
+      changes. Ansible inventory generated from
+      `nix eval --json .#inventory`. Check whether the roles support
+      Alpine (OpenRC). Hardware alerts only for devices with
+      `baremetal = true`; new device field `category` (e.g. `network`,
+      `proxmox-guest`, `pi`) to group tiles. win11 stays unmonitored.
+   4. **Overview v2**: a recording rule computes a status per host:
+      0 green, 1 yellow (a firing warning alert, or load without e-mail:
+      CPU > 90 % for 15 min, RAM > 90 %, disk > 85 %, PSI pressure),
+      2 red (a firing critical alert, HostDown). Tiles per host grouped by
+      category, showing CPU, RAM and uptime (adjust after use); a state
+      timeline below; click a tile -> new "Host detail" dashboard (status,
+      the host's alerts, CPU/RAM/disk/network, failed units, temperatures,
+      SMART and scrub on bare metal) -> Node Exporter Full / NVIDIA /
+      Explore for that host. Native panels (Stat with data links), no
+      plugins; Polystat only if wanted later.
+   5. **pfSense, UPS, Wi-Fi routers**:
+      - pfSense 2.7.2 (2.8.1 hangs on this box): the package node_exporter
+        is known to fail with 'cannot allocate memory' in the uname and
+        os collectors on 2.7.x (https://redmine.pfsense.org/issues/14452;
+        fixed only in 24.11 Plus). Try the package with those two
+        collectors disabled; install through the GUI package manager.
+      - UPS: APC Back-UPS 850 (BE850G2-GR) on USB to pfSense, which runs
+        NUT and tells Proxmox to shut down. nut_exporter on the monitoring
+        server against pfSense's upsd (needs a NUT user and upsd listening
+        on the LAN). Alerts: on battery, battery low, replace battery, UPS
+        unreachable, load high.
+      - Two ASUS RT-AX92U on gnuton firmware (Asuswrt-Merlin port): check
+        whether SNMP is available; otherwise node_exporter from Entware,
+        or ping only. Check whether per-client Wi-Fi traffic can be
+        exported.
+5c. Service exporters (after 5b): Nextcloud (nextcloud-exporter), MariaDB
+   (mysqld_exporter), Redis, Immich (built-in, `IMMICH_TELEMETRY_INCLUDE=all`),
+   Caddy and GitLab (built-in), Podman if not done in 5b; dashboards in
+   folders Overview, Hosts, Containers, Services, Network. No known
+   exporter for Calibre and Ollama: HTTP probes only. Check whether
+   Syncthing exposes Prometheus metrics. Later and optional:
+   healthchecks.io, Cloudflare, any JSON API through the Infinity plugin.
+6. Class `managed` for family and friends' laptops (`keeper` admin account,
+   Flathub and GNOME Software/KDE Discover for the user).
+7. Documentation: rewrite `README.md` (still describes `colmena.nix` and the
+   removed `nixos-test` host) and add an architecture document.
+8. **Repository management CLI** (requested 2026-10-02). One command that
+   changes the repository for common tasks so nobody has to remember paths
+   and dependencies: it asks for the new values, writes the files,
+   validates (evaluation or `nix flake check`), `git add`s them and prints a
+   ready-to-copy `git commit` command; it never commits by itself.
+   Decided 2026-10-02:
+   - run without arguments it shows the list of tasks with a one-line
+     description each and lets you pick one (searchable, gum); tasks also
+     run directly as subcommands for scripting;
+   - one Nix file per item, as `hosts/machines/` and `hosts/devices/`
+     already do: the tool creates files from templates and deletes them,
+     never parses Nix, and adds no JSON/TOML data files. `hosts/websites.nix`
+     becomes `hosts/websites/<name>.nix`;
+   - bash and gum, like `new-host`;
+   - built during stage 5b: first the device onboarding (5b) and website
+     add/remove, then remove-host (below); `new-host` moves under it.
+>>>>>>> theirs
 
 ## Stages after the refactor
 
@@ -144,6 +225,30 @@ priority is Proxmox and containers):
   working: GitLab only with a push mirror to GitHub (GitHub read-only), or
   a rule never to edit on GitHub. Decide together with "Repository
   privacy".
+
+## Small fixes collected during the refactor
+
+One pass when the refactor is done (or sooner, between stages).
+
+- **yazi config rejected** (seen 2026-10-02 on azazel): 'TOML parse error
+  at line 7 ... [[open.rules]] at least one of `url` or `mime` must be
+  specified'. yazi 26.5 renamed the rule field `name` to `url`; the first
+  rule in `modules/groups/cli/yazi.nix` still uses `name = "*/"`. yazi then
+  ignores the whole file and runs with its presets: Enter opens files with
+  the desktop default (GNOME Text Editor) instead of the `edit` opener, and
+  the other settings (ratio, sorting, hidden files) are lost. After the fix
+  check: the `edit` opener runs `vim` (is it nixvim's alias on every
+  host?), and the preview pane shows file contents (on 2026-10-02 it showed
+  only "File Type Classification: ASCII text" for BACKLOG.md).
+
+- **Starship shows a red "⬢ [Systemd]" on cloud-apps.** Starship's
+  `container` module: inside an LXC container systemd writes
+  `/run/systemd/container`, and starship names anything it does not
+  recognise there "Systemd" (red is the module's default style). The
+  information is right (the shell runs in a container), the label is
+  not helpful. In `modules/home/admin/starship.nix`: either
+  `container.format` with a fixed label such as LXC on class `virtual`,
+  or `container.disabled = true`.
 
 ## Repository cleanup
 
@@ -300,6 +405,16 @@ priority is Proxmox and containers):
   NVIDIA driver); Enter continues the boot. Not investigated. Start with
   `systemctl --failed` and `journalctl -b -p err` (likely a mount or a
   unit required by local-fs.target).
+- **Atuin on sukkub before first use** (sukkub is off and treated as out
+  of service since 2026-10-02). It has the fleet key since 2026-09-30, but
+  it missed the repair of 2026-10-02 (`store pull --force`). If it synced
+  between 2026-10-01 09:00 UTC (baal's first records) and that repair, its
+  local store may hold baal's undecryptable records and upload them again.
+  First thing after booting it, in a terminal:
+  `systemctl --user stop atuin-daemon.socket atuin-daemon`, then
+  `atuin store verify`; if that fails, `atuin store purge && atuin store verify`;
+  then `atuin sync` and start the socket again. Its next rebuild brings
+  `atuin-auto-login-marcin`, which checks the key on every boot.
 
 ## Follow-ups from stage 1
 
@@ -366,6 +481,7 @@ priority is Proxmox and containers):
   `modules/system/btrfs.nix`, which needs the writing subvolumes of the
   host's disk layout; add it to sukkub or the Wyse together with that
   layout.
+<<<<<<< ours
 - **Atuin key on workstations from sops.** Servers log in with the key from
   `secrets/atuin-key.txt`; workstations log in by hand, which let an old
   host sync records under a different key ('attempting to decrypt with
@@ -375,6 +491,8 @@ priority is Proxmox and containers):
   removed sukkub from them because nothing on sukkub used them).
   Happened again on 2026-10-02: baal (installed 2026-10-01) logged in by
   hand with its own key.
+=======
+>>>>>>> theirs
 - **Rotate the Atuin encryption key.** The current key (in
   `secrets/atuin-key.txt`) was exposed in a chat transcript on 2026-09-30.
   Generate a new key, re-encrypt the store on one host, push it with
