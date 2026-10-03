@@ -152,6 +152,10 @@ task_monitoring_apply() {
     mode=${choice%% *}
   fi
 
+  # Before installing, so ansible-galaxy knows the target directory is a
+  # configured collections path.
+  export ANSIBLE_CONFIG="$PWD/ansible/ansible.cfg"
+  export ANSIBLE_COLLECTIONS_PATH="$PWD/ansible/.collections"
   ensure_collections
 
   # Inventory for Ansible: the group named like the agent, one host per
@@ -176,8 +180,6 @@ task_monitoring_apply() {
             end)})
         | from_entries)}}}}' "${selected[@]}" <<<"$inventory" >"$tmp/inventory.json"
 
-  export ANSIBLE_CONFIG="$PWD/ansible/ansible.cfg"
-  export ANSIBLE_COLLECTIONS_PATH="$PWD/ansible/.collections"
   local args=(-i "$tmp/inventory.json" "$playbook" --diff)
   [[ $mode == check ]] && args+=(--check)
 
