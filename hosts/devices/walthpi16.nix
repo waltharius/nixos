@@ -16,8 +16,14 @@
       extraOptions.PreferredAuthentications = "publickey";
     };
   };
+  category = "pi";
+  baremetal = true;
   monitoring = {
     ping = true;
+    # node_exporter and smartctl_exporter (the NVMe disk; the SD card has
+    # no SMART), installed with `nix run .#fleet` (monitoring apply).
+    node = true;
+    smartctl = true;
     # Container metrics: cAdvisor installed with `nix run .#fleet`
     # (monitoring apply); runs gitlab-ce, vikunja and portainer.
     cadvisor = true;

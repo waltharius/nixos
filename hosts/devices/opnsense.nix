@@ -5,4 +5,6 @@
 {
   description = "OPNsense router (Dell Wyse 5070, broken, see BACKLOG.md)";
   lan.ip = "192.168.50.149";
+  category = "network";
+  baremetal = true;
 }

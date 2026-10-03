@@ -58,6 +58,8 @@ copying a similar file. Each file starts with
 | ----- | ------- |
 | `description` | free text |
 | `lan.ip` | address; checked like machine addresses (in the LAN, outside the DHCP pool, not used twice) |
+| `category` | one of `proxmox`, `proxmox-guest`, `pi`, `network` (`deviceCategories` in `lib/inventory.nix`); label `category` on the device's node and smartctl series, groups the tiles of the fleet overview |
+| `baremetal` | `true` for real hardware: label `baremetal="true"`, so the hardware alerts (temperatures, SMART) apply; required by `monitoring.smartctl` |
 | `ssh.<alias>` | one SSH `Host` block in `~/.ssh/config.d/devices` of admin accounts |
 | `ssh.<alias>.user`, `.port` | `User`, `Port` |
 | `ssh.<alias>.hostName` | `HostName` when it is not `lan.ip` (e.g. a DNS name) |
@@ -65,6 +67,8 @@ copying a similar file. Each file starts with
 | `ssh.<alias>.hostKey` | public host key, pinned in `/etc/ssh/ssh_known_hosts` |
 | `ssh.<alias>.extraOptions` | other ssh_config options, e.g. `{PreferredAuthentications = "publickey";}` |
 | `monitoring.ping` | `true`: the monitoring server pings the device; HostDown alert when it stops answering. Needs `lan.ip`. Leave it out for devices that are often switched off |
+| `monitoring.node` | `true`: node_exporter on the device (port 9100), installed with `nix run .#fleet` -> "monitoring apply", scraped in job `node` with `class="device"`; all host alerts (disk, load, memory, systemd units, clock) apply. Needs `lan.ip` and an SSH alias named like the device. systemd distributions only (not Alpine) |
+| `monitoring.smartctl` | `true`: smartctl_exporter (port 9633, runs as root) and smartmontools, installed the same way, job `smartctl`. Needs `baremetal = true` and a disk with SMART (not an SD card) |
 | `monitoring.cadvisor` | `true`: Docker host; cAdvisor runs on the device (port 8080), installed with `nix run .#fleet` -> "monitoring apply", scraped as job `cadvisor` with `runtime="docker"`. Needs `lan.ip` and an SSH alias named like the device (`ssh.<name>`), through which Ansible logs in (root, or a user with sudo) |
 | `monitoring.pve` | `true`: a Proxmox VE host; the pve exporter on the monitoring server reads its API (host, VMs, containers, storage) at `https://<lan.ip>:8006`. Needs `lan.ip`, the read-only token from `modules/servers/monitoring/pve.nix` and a pveproxy certificate that covers the address |
 

@@ -9,6 +9,62 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
+## [2026-10-03] Refactor stage 5b step 3 - node_exporter and smartctl on devices, `fleet device add`
+
+### Added
+
+- Agents `node` and `smartctl` in `nix run .#fleet` -> "monitoring apply"
+  (`ansible/playbooks/node.yml`, `smartctl.yml`; roles
+  prometheus.prometheus.node_exporter 1.11.1 and smartctl_exporter 0.14.0
+  with smartmontools from the distribution, smartctl_exporter as root).
+  node_exporter uses the collectors and exclusions of the NixOS hosts
+  (systemd, textfile, filesystem and netdev excludes; Proxmox firewall
+  bridges and VM taps excluded, vmbr kept).
+- Device fields `monitoring.node`, `monitoring.smartctl`, `baremetal`
+  and `category` (`proxmox`, `proxmox-guest`, `pi`, `network`),
+  validated in `lib/inventory.nix` (smartctl needs baremetal; every agent
+  needs `lan.ip` and an SSH alias named like the device).
+- Device targets in the jobs `node` and `smartctl` (`class="device"`,
+  `baremetal`, `category`); every existing host and hardware alert
+  applies to them.
+- Set on: pve (node, smartctl, baremetal, proxmox), walthpi16 (node,
+  smartctl for the NVMe disk, baremetal, pi), walthpi (node, baremetal,
+  pi; SD card only, no SMART), docker and the LXC guests apache, caddy,
+  cloudflare-ddns, immich, ipa, syncthing-server (node, proxmox-guest).
+  alpine-mariadb gets the category only; pfSense, both ASUS routers and
+  OPNsense get `baremetal` and `network` for later; luna and yumeko a
+  description.
+- `nix run .#fleet` -> "device add": asks for the device, writes
+  `hosts/devices/<name>.nix` (formatted with alejandra), stages it,
+  validates the inventory and the monitoring server's scrape
+  configuration (removes the file again when either fails), optionally
+  installs the agents, and prints the next steps with the commit command.
+- "monitoring apply" checks first that each device's SSH alias exists in
+  this workstation's ssh configuration (a device added since the last
+  rebuild has none) and says to rebuild instead of failing inside Ansible.
+
+### Changed
+
+- NodeExporterDown and SmartctlExporterDown name the unit on devices
+  (`node_exporter`, `smartctl_exporter`) next to the NixOS one.
+
+### Verification
+
+To be run after the deploy; record the results here (and remove this
+note):
+
+- "monitoring apply" for node (check, then apply) on all ten devices and
+  for smartctl on pve and walthpi16; every device answers on `/metrics`.
+  Watch the check run of ipa (Rocky, SELinux: the role labels the port
+  with community.general.seport) and pve (Debian 13, not in the role's
+  platform list).
+- Prometheus targets `node` and `smartctl` up for the devices; Node
+  Exporter Full shows them; `smartctl_device_smart_status` for pve's
+  disks and walthpi16's NVMe.
+- Alerts: no new SystemdUnitFailed from the LXC guests (unprivileged LXC
+  can report failed mount units; exclude them only if it happens).
+- "device add" with a test device, then delete the file again.
+
 ## [2026-10-03] Refactor stage 5b step 2 - container metrics, `nix run .#fleet`
 
 Containers on the Docker hosts (VM `docker`, walthpi16) and the Podman

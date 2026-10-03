@@ -6,5 +6,7 @@
     user = "horacjusz";
     port = 1024;
   };
+  category = "network";
+  baremetal = true;
   monitoring.ping = true;
 }

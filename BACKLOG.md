@@ -79,18 +79,13 @@ priority is Proxmox and containers):
       job `cadvisor` with label `runtime`, dashboard 14282. Left for step
       4: one own "Containers" dashboard that also shows Incus (and
       Proxmox guests from the pve exporter).
-   3. **node_exporter on everything with Linux** (pve, Proxmox guests on
-      Debian/Ubuntu/Rocky, walthpi, walthpi16), smartctl_exporter on the
-      bare-metal ones. The machinery exists since step 2: add agents
-      `node` and `smartctl` to "monitoring apply" in `nix run .#fleet`
-      (a playbook each, device fields `monitoring.node`,
-      `monitoring.smartctl`), plus a task "device add" that asks for a new
-      device and writes `hosts/devices/<name>.nix`. The roles of the
-      collection support only systemd distributions (Ubuntu, Debian, EL):
-      Alpine guests (`alpine-mariadb`) stay at ping until they disappear
-      in the migration to NixOS (decided 2026-10-03). Hardware alerts only for devices with
-      `baremetal = true`; new device field `category` (e.g. `network`,
-      `proxmox-guest`, `pi`) to group tiles. win11 stays unmonitored.
+   3. ~~node_exporter on everything with Linux~~: written on 2026-10-03
+      (CHANGELOG.md): node_exporter on pve, docker, walthpi, walthpi16 and
+      the LXC guests apache, caddy, cloudflare-ddns, immich, ipa,
+      syncthing-server; smartctl_exporter on pve and walthpi16 (NVMe);
+      device fields `baremetal` and `category`; `nix run .#fleet` task
+      "device add". Alpine (`alpine-mariadb`) stays at ping; win11, luna
+      and yumeko are not monitored.
    4. **Overview v2**: a recording rule computes a status per host:
       0 green, 1 yellow (a firing warning alert, or load without e-mail:
       CPU > 90 % for 15 min, RAM > 90 %, disk > 85 %, PSI pressure),
@@ -99,7 +94,10 @@ priority is Proxmox and containers):
       timeline below; click a tile -> new "Host detail" dashboard (status,
       the host's alerts, CPU/RAM/disk/network, failed units, temperatures,
       SMART and scrub on bare metal) -> Node Exporter Full / NVIDIA /
-      Explore for that host. Native panels (Stat with data links), no
+      Explore for that host. The own "Containers" dashboard (step 2) shows
+      container uptime in seconds with Grafana's duration unit: dashboard
+      14282 shows days with one decimal, so anything younger than about
+      2.5 hours reads "0.0 day". Native panels (Stat with data links), no
       plugins; Polystat only if wanted later.
    5. **pfSense, UPS, Wi-Fi routers**:
       - pfSense 2.7.2 (2.8.1 hangs on this box): the package node_exporter
@@ -124,7 +122,12 @@ priority is Proxmox and containers):
    Syncthing exposes Prometheus metrics. Later and optional:
    healthchecks.io, Cloudflare, any JSON API through the Infinity plugin.
 6. Class `managed` for family and friends' laptops (`keeper` admin account,
-   Flathub and GNOME Software/KDE Discover for the user).
+   Flathub and GNOME Software/KDE Discover for the user). First candidates:
+   luna (ThinkPad W540, Fedora 42 KDE) and yumeko (usually off), family
+   laptops marcin looks after for non-technical users. Until they are
+   reinstalled with NixOS: Tailscale on luna (Fedora package, joined as a
+   tagged device with the `tag:managed` rule), so marcin can reach it from
+   outside; then the same on yumeko.
 7. Documentation: rewrite `README.md` (still describes `colmena.nix` and the
    removed `nixos-test` host) and add an architecture document.
 8. **Repository management CLI** (requested 2026-10-02). One command that

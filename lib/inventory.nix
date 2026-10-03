@@ -43,9 +43,10 @@
 #   - tailscale.loginServer in hosts/fleet.nix is null or an https:// URL
 #   - `monitoring` in hosts/fleet.nix names an existing machine of class
 #     server as `server`, and mail addresses that contain an @
-#   - device `monitoring` has known fields only; `ping`, `pve` and
-#     `cadvisor` need `lan.ip`, `cadvisor` also an SSH alias named like the
-#     device
+#   - device `monitoring` has known true/false fields only, each needs
+#     `lan.ip`; agents (cadvisor, node, smartctl) also an SSH alias named
+#     like the device; smartctl needs `baremetal = true`
+#   - device `baremetal` is true/false, `category` one of deviceCategories
 #   - websites have a valid name and an http:// or https:// `url`
 {
   lib,
@@ -153,33 +154,43 @@
     "hosts/fleet.nix: monitoring.mail.from must be an e-mail address";
 
   # Fields a device may set under `monitoring`.
-  deviceMonitoringFields = ["ping" "pve" "cadvisor"];
+  # Fields a device may set under `monitoring` (all true/false, all need
+  # `lan.ip`). Agents are installed by `nix run .#fleet` (monitoring
+  # apply), which logs in through the SSH alias named like the device.
+  deviceMonitoringFields = ["ping" "pve" "cadvisor" "node" "smartctl"];
+  deviceAgentFields = ["cadvisor" "node" "smartctl"];
+
+  # Values of a device's `category` (tiles of the fleet overview).
+  deviceCategories = ["proxmox" "proxmox-guest" "pi" "network"];
 
   deviceMonitoringErrors = name: d: let
     mon = d.monitoring;
     label = "device ${name}: monitoring";
+    on = f: mon.${f} or false;
   in
     if !builtins.isAttrs mon
     then ["${label} must be an attribute set, e.g. { ping = true; }"]
     else
       map (f: "${label}: unknown field `${f}` (known: ${lib.concatStringsSep ", " deviceMonitoringFields})")
       (builtins.filter (f: !(builtins.elem f deviceMonitoringFields)) (builtins.attrNames mon))
-      ++ lib.optional (mon ? ping && !builtins.isBool mon.ping)
-      "${label}.ping must be true or false"
-      ++ lib.optional ((mon.ping or false) && ipOf d == null)
-      "${label}.ping needs the device's `lan.ip`"
-      ++ lib.optional (mon ? pve && !builtins.isBool mon.pve)
-      "${label}.pve must be true or false"
-      ++ lib.optional ((mon.pve or false) && ipOf d == null)
-      "${label}.pve needs the device's `lan.ip`"
-      ++ lib.optional (mon ? cadvisor && !builtins.isBool mon.cadvisor)
-      "${label}.cadvisor must be true or false"
-      ++ lib.optional ((mon.cadvisor or false) && ipOf d == null)
-      "${label}.cadvisor needs the device's `lan.ip`"
-      # `nix run .#fleet` (monitoring apply) logs in through the SSH alias
-      # named like the device.
-      ++ lib.optional ((mon.cadvisor or false) && !((d.ssh or {}) ? ${name}))
-      "${label}.cadvisor needs an SSH alias named like the device (ssh.${name}), used by `nix run .#fleet`";
+      ++ lib.concatMap (f:
+        lib.optional (mon ? ${f} && !builtins.isBool mon.${f})
+        "${label}.${f} must be true or false"
+        ++ lib.optional (on f && ipOf d == null)
+        "${label}.${f} needs the device's `lan.ip`")
+      deviceMonitoringFields
+      ++ lib.concatMap (f:
+        lib.optional (on f && !((d.ssh or {}) ? ${name}))
+        "${label}.${f} needs an SSH alias named like the device (ssh.${name}), used by `nix run .#fleet`")
+      deviceAgentFields
+      ++ lib.optional (on "smartctl" && !(d.baremetal or false))
+      "${label}.smartctl needs `baremetal = true` (disks with SMART exist only on real hardware)";
+
+  deviceFieldErrors = name: d:
+    lib.optional (d ? baremetal && !builtins.isBool d.baremetal)
+    "device ${name}: `baremetal` must be true or false"
+    ++ lib.optional (d ? category && !(builtins.elem d.category deviceCategories))
+    "device ${name}: `category` must be one of ${lib.concatStringsSep ", " deviceCategories}";
 
   websiteFields = ["url" "description"];
 
@@ -253,6 +264,7 @@
     ++ lib.optionals (ip != null) (addressErrors "device ${name}" ip)
     ++ lib.optional (ip == null && lib.any (a: !(a ? hostName)) (lib.attrValues (d.ssh or {})))
     "device ${name}: an SSH alias without `hostName` needs the device's `lan.ip`"
+    ++ deviceFieldErrors name d
     ++ lib.optionals (d ? monitoring) (deviceMonitoringErrors name d);
 
   # Addresses used by more than one machine or device.

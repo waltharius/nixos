@@ -27,6 +27,11 @@
 #   - devices with `monitoring.cadvisor = true`: cAdvisor (container
 #     metrics) on port 8080, installed by `nix run .#fleet` (task
 #     "monitoring apply", ansible/playbooks/cadvisor.yml);
+#   - devices with `monitoring.node = true` / `monitoring.smartctl = true`:
+#     node_exporter (9100) and smartctl_exporter (9633), installed the same
+#     way (ansible/playbooks/node.yml, smartctl.yml), scraped in the jobs
+#     `node` and `smartctl` with `class = "device"`, `baremetal` from the
+#     device file and `category` when set;
 #   - hosts/websites.nix: an HTTP probe per page.
 # The generated lists are exposed as `fleet.monitoring.targets` and read by
 # modules/servers/monitoring/prometheus.nix. See docs/MONITORING.md.
@@ -65,6 +70,8 @@
   pingedDevices = lib.filterAttrs (_: d: d.monitoring.ping or false) devices;
   pveDevices = lib.filterAttrs (_: d: d.monitoring.pve or false) devices;
   cadvisorDevices = lib.filterAttrs (_: d: d.monitoring.cadvisor or false) devices;
+  nodeDevices = lib.filterAttrs (_: d: d.monitoring.node or false) devices;
+  smartctlDevices = lib.filterAttrs (_: d: d.monitoring.smartctl or false) devices;
   # Must match cadvisor_port in ansible/playbooks/cadvisor.yml.
   cadvisorPort = 8080;
 
@@ -86,6 +93,21 @@
     };
   };
 
+  # Same labels for devices: class "device", baremetal from the device file
+  # (hardware alerts), category for grouping. Ports as for machines; they
+  # must match ansible/playbooks/node.yml and smartctl.yml.
+  deviceTarget = port: name: d: {
+    address = "${d.lan.ip}:${toString port}";
+    labels =
+      {
+        instance = name;
+        host = name;
+        class = "device";
+        baremetal = boolLabel (d.baremetal or false);
+      }
+      // lib.optionalAttrs (d ? category) {inherit (d) category;};
+  };
+
   pingTarget = kind: name: x: {
     address = x.lan.ip;
     labels = {
@@ -96,8 +118,12 @@
   };
 
   targets = {
-    node = lib.mapAttrsToList (machineTarget ports.node) monitoredMachines;
-    smartctl = lib.mapAttrsToList (machineTarget ports.smartctl) baremetalMachines;
+    node =
+      lib.mapAttrsToList (machineTarget ports.node) monitoredMachines
+      ++ lib.mapAttrsToList (deviceTarget ports.node) nodeDevices;
+    smartctl =
+      lib.mapAttrsToList (machineTarget ports.smartctl) baremetalMachines
+      ++ lib.mapAttrsToList (deviceTarget ports.smartctl) smartctlDevices;
     # The monitoring server does not ping itself: if it is down, nothing
     # evaluates the alert anyway (the Watchdog covers that case).
     ping =

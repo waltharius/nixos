@@ -14,6 +14,7 @@ no module names a host.
 | Workstations (laptops) | not monitored | - |
 | Devices without NixOS | ping (up/down); full metrics follow in stage 5b | `monitoring.ping = true` in `hosts/devices/<name>.nix` |
 | Proxmox VE (host, VMs, LXC containers, storage) | pve exporter on the monitoring server reading the Proxmox API with a read-only token; nothing installed on Proxmox | `monitoring.pve = true` in `hosts/devices/<name>.nix` |
+| Devices without NixOS that run Linux with systemd (Proxmox host and guests, Raspberry Pis) | node_exporter (9100) and, on real hardware with SMART disks, smartctl_exporter (9633), installed with `nix run .#fleet` -> "monitoring apply"; same jobs (`node`, `smartctl`) and alerts as the NixOS hosts, label `class="device"` | `monitoring.node` / `monitoring.smartctl = true` (and `baremetal`, `category`) in `hosts/devices/<name>.nix` |
 | Docker containers on devices without NixOS | cAdvisor on the device (port 8080), installed with `nix run .#fleet` -> "monitoring apply" (Ansible) | `monitoring.cadvisor = true` in `hosts/devices/<name>.nix` |
 | Podman containers on the monitoring server | cAdvisor on loopback (port 8099) | automatic when the server runs Podman (`cadvisor.nix`) |
 | Web pages | HTTP probe: status, response time, certificate expiry | `hosts/websites.nix` |
@@ -112,6 +113,8 @@ loaded.
 | ---- | ----- |
 | Monitor a new NixOS server or VM | `nix run .#new-host` (class `server` or `virtual`), deploy the host, then deploy the monitoring server (`colmena apply --on altair`) so Prometheus learns the new target |
 | Ping a device | add `monitoring.ping = true;` to `hosts/devices/<name>.nix`, deploy the monitoring server |
+| Add a device | `nix run .#fleet` -> "device add": asks for name, address, SSH, category, baremetal, ping and agents, writes and stages `hosts/devices/<name>.nix`, validates the inventory and the monitoring server, and prints the next steps (commit; rebuild this workstation for the SSH alias; install the agents; deploy the monitoring server) |
+| Monitor an existing device with node_exporter / smartctl | add `monitoring.node = true;` (and `smartctl`, `baremetal`, `category`) to its file, rebuild this workstation if the SSH alias is new, `nix run .#fleet` -> "monitoring apply" (check, then apply), deploy the monitoring server |
 | Monitor containers on a Docker host | the device needs `lan.ip` and an SSH alias named like the device (`ssh.<name>`); add `monitoring.cadvisor = true;` to its file, run `nix run .#fleet` -> "monitoring apply" (check first, then apply), deploy the monitoring server. Upgrade cAdvisor: change `cadvisor_version` in `ansible/playbooks/cadvisor.yml`, run the task for all devices |
 | Monitor a Proxmox host | create the read-only token (commands at the top of `pve.nix`), put its value in `secrets/altair.yaml` as `pve-exporter-token`, add `monitoring.pve = true;` to the device file, deploy the monitoring server. Check the token on Proxmox with `pveum user token permissions prometheus@pve monitoring` |
 | Stop pinging a device | remove the line (or the whole file), deploy the monitoring server |

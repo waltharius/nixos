@@ -55,11 +55,11 @@ in {
 
         (rule "NodeExporterDown" ''up{job="node"} == 0'' "5m" "warning"
           "node_exporter on ${hostRef} is unreachable"
-          "Prometheus cannot scrape node_exporter on ${hostRef}. If the host answers ping, the exporter or the firewall rule is the problem: systemctl status prometheus-node-exporter.")
+          "Prometheus cannot scrape node_exporter on ${hostRef}. If the host answers ping, the exporter or the firewall rule is the problem: systemctl status prometheus-node-exporter (NixOS) or node_exporter (devices; reinstall with nix run .#fleet).")
 
         (rule "SmartctlExporterDown" ''up{job="smartctl"} == 0'' "10m" "warning"
           "smartctl_exporter on ${hostRef} is unreachable"
-          "Prometheus cannot scrape smartctl_exporter on ${hostRef}: systemctl status prometheus-smartctl-exporter.")
+          "Prometheus cannot scrape smartctl_exporter on ${hostRef}: systemctl status prometheus-smartctl-exporter (NixOS) or smartctl_exporter (devices; reinstall with nix run .#fleet).")
 
         (rule "InternetDown" ''max(probe_success{job="blackbox-internet"}) == 0'' "3m" "critical"
           "Internet connection is down"
