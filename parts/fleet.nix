@@ -20,9 +20,11 @@
           ansible
           coreutils
           curl
+          findutils
           git
           gawk
           gnugrep
+          gnused
           gum
           jq
           openssh

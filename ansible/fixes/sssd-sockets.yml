@@ -1,0 +1,58 @@
+# ansible/fixes/sssd-sockets.yml - Mask SSSD responder sockets on FreeIPA clients whose sssd.conf starts the responders itself
+#
+# ipa-client-install writes `services = nss, pam, ssh, sudo` into
+# /etc/sssd/sssd.conf. sssd then starts those responders itself, and their
+# socket units (socket activation) refuse to start: pve on 2026-09-07
+# 'sssd-nss.socket: Control process exited, status=17', with the hint
+# "systemctl disable sssd-nss.socket". They stay failed and trigger
+# SystemdUnitFailed. In this setup the sockets are never used, so they are
+# masked (and their failed state cleared). A device without sssd.conf or
+# without a `services` line is left alone.
+#
+# Run it through `nix run .#fleet` (task "fix apply"), not by hand.
+# Undo on a device: systemctl unmask <the sockets below>.
+---
+- name: SSSD responder sockets
+  hosts: all
+  become: true
+  vars:
+    sssd_responder_sockets:
+      - sssd-nss.socket
+      - sssd-pam.socket
+      - sssd-pam-priv.socket
+      - sssd-ssh.socket
+      - sssd-sudo.socket
+      - sssd-pac.socket
+      - sssd-autofs.socket
+  tasks:
+    - name: Read sssd.conf
+      ansible.builtin.slurp:
+        src: /etc/sssd/sssd.conf
+      register: sssd_conf
+      failed_when: false
+
+    - name: Decide whether sssd starts its responders itself
+      ansible.builtin.set_fact:
+        sssd_services_listed: "{{ (sssd_conf.content | default('') | b64decode) is regex('(?m)^\\s*services\\s*=') }}"
+
+    - name: List the SSSD socket units this system has
+      ansible.builtin.command: systemctl list-unit-files --no-legend --plain "sssd-*.socket"
+      register: sssd_socket_units
+      changed_when: false
+      check_mode: false
+      when: sssd_services_listed
+
+    - name: Mask the responder sockets
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        masked: true
+      # default([]): `loop` is expanded before `when` is evaluated, also
+      # where the listing above was skipped.
+      loop: "{{ sssd_responder_sockets | intersect(sssd_socket_units.stdout_lines | default([]) | map('split') | map('first') | list) }}"
+      when: sssd_services_listed
+
+    - name: Clear their failed state
+      ansible.builtin.command: systemctl reset-failed {{ sssd_responder_sockets | join(' ') }}
+      changed_when: false
+      failed_when: false
+      when: sssd_services_listed and not ansible_check_mode

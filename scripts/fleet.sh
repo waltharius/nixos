@@ -39,6 +39,7 @@ nix_string() {
 TASKS=(
   "device add|Add a device without NixOS (hosts/devices/), optionally install its monitoring agents"
   "monitoring apply|Install or update monitoring agents (node, smartctl, cadvisor) on devices without NixOS (Ansible)"
+  "fix apply|Run a one-off fix (ansible/fixes/) on devices without NixOS, e.g. masking failed sssd sockets"
   "host new|Register a new NixOS machine (nix run .#new-host)"
   "host install|Install a registered machine with nixos-anywhere (nix run .#install-host)"
   "secrets update|Regenerate .sops.yaml and re-encrypt every secret for its audience (nix run .#sops-config)"
@@ -51,6 +52,7 @@ usage() {
     printf '  %-18s %s\n' "${t%%|*}" "${t#*|}"
   done
   printf '\nmonitoring apply options: --agent <name> --check | --apply --all | --limit <device> (repeatable)\n'
+  printf 'fix apply options:        --fix <name>   --check | --apply --all | --limit <device> (repeatable)\n'
 }
 
 # Prints the chosen task ("<word> <word>"), nothing when cancelled.
@@ -138,19 +140,18 @@ missing_ssh_aliases() {
   done
 }
 
-# apply_agent <agent> <check|apply> <device>... ; returns 1 when an agent
-# does not answer afterwards.
-apply_agent() {
-  local agent=$1 mode=$2
-  shift 2
+# run_playbook <playbook> <group> <check|apply> <device>... : runs the
+# playbook on the devices, which form the inventory group <group>.
+run_playbook() {
+  local playbook=$1 group=$2 mode=$3
+  shift 3
   local selected=("$@")
-  agent_lookup "$agent"
 
   local missing
   missing=$(missing_ssh_aliases "${selected[@]}")
   if [[ -n $missing ]]; then
     warn "No SSH alias yet for: $(paste -sd' ' <<<"$missing")."
-    warn "Rebuild this workstation first (nrs) so ~/.ssh/config.d/devices has them, then run: nix run .#fleet -- monitoring apply --agent $agent --limit <device>"
+    warn "Rebuild this workstation first (nrs) so ~/.ssh/config.d/devices has them, then run the task again with --limit <device>."
     return 1
   fi
 
@@ -160,17 +161,18 @@ apply_agent() {
   export ANSIBLE_COLLECTIONS_PATH="$PWD/ansible/.collections"
   ensure_collections
 
-  # Inventory for Ansible: the group named like the agent, one host per
-  # device, named like its SSH alias so the generated ssh config supplies
-  # address, user and key. Playbooks set `become: true` at play level (the
-  # roles keep `become: false` for their downloads on this machine); root
-  # logins become root with su, because Debian guests may have no sudo,
-  # other users with sudo. ansible_become itself is not set here: as a
-  # variable it would override the roles' `become: false`.
+  # Inventory for Ansible: one host per device, named like its SSH alias
+  # so the generated ssh config supplies address, user and key. Playbooks
+  # set `become: true` at play level (the roles keep `become: false` for
+  # their downloads on this machine); root logins become root with su,
+  # because Debian guests may have no sudo, other users with sudo.
+  # ansible_become itself is not set here: as a variable it would override
+  # the roles' `become: false`.
   # Global, not local: the EXIT trap runs after this function returns.
   fleet_tmp=${fleet_tmp:-$(mktemp -d)}
   trap 'rm -rf "${fleet_tmp:-}"' EXIT
-  jq --arg group "$agent" --args '
+  local inv="$fleet_tmp/inventory-$group.json"
+  jq --arg group "$group" --args '
     .devices as $devs
     | {all: {children: {($group): {hosts: (
         $ARGS.positional
@@ -179,14 +181,24 @@ apply_agent() {
             then {ansible_become_method: "su"}
             else {}
             end)})
-        | from_entries)}}}}' "${selected[@]}" <<<"$inventory" >"$fleet_tmp/inventory-$agent.json"
+        | from_entries)}}}}' "${selected[@]}" <<<"$inventory" >"$inv"
 
-  local args=(-i "$fleet_tmp/inventory-$agent.json" "$agent_playbook" --diff)
+  local args=(-i "$inv" "$playbook" --diff)
   [[ $mode == check ]] && args+=(--check)
 
-  info "ansible-playbook $agent_playbook ($mode) on: ${selected[*]}"
+  info "ansible-playbook $playbook ($mode) on: ${selected[*]}"
   ansible-playbook "${args[@]}" || die "ansible-playbook failed"
+}
 
+# apply_agent <agent> <check|apply> <device>... ; returns 1 when an agent
+# does not answer afterwards or a device has no SSH alias yet.
+apply_agent() {
+  local agent=$1 mode=$2
+  shift 2
+  local selected=("$@")
+  agent_lookup "$agent"
+
+  run_playbook "$agent_playbook" "$agent" "$mode" "${selected[@]}" || return 1
   [[ $mode == apply ]] || return 0
 
   # Is the agent answering?
@@ -201,6 +213,30 @@ apply_agent() {
     fi
   done
   return "$failed"
+}
+
+# Picks devices from a list: --limit values, all with --all, otherwise an
+# interactive choice with everything preselected. Prints one per line.
+select_devices() {
+  local select_all=$1 header=$2
+  shift 2
+  local -n _limit=$1
+  shift
+  local candidates=("$@") d
+  if ((${#_limit[@]} > 0)); then
+    for d in "${_limit[@]}"; do
+      printf '%s\n' "${candidates[@]}" | grep -qx -- "$d" || die "$d is not one of: ${candidates[*]}"
+    done
+    printf '%s\n' "${_limit[@]}"
+  elif [[ $select_all == true ]]; then
+    printf '%s\n' "${candidates[@]}"
+  else
+    gum choose --no-limit --header "$header (space toggles, enter confirms)" \
+      --selected "$(
+        IFS=,
+        printf '%s' "${candidates[*]}"
+      )" "${candidates[@]}"
+  fi
 }
 
 choose_mode() {
@@ -258,24 +294,10 @@ task_monitoring_apply() {
     die "no device sets monitoring.$agent_field = true; add it to hosts/devices/<name>.nix first"
 
   # Which of them.
-  local selected=() d
-  if ((${#limit[@]} > 0)); then
-    for d in "${limit[@]}"; do
-      printf '%s\n' "${devices[@]}" | grep -qx -- "$d" ||
-        die "$d does not set monitoring.$agent_field = true"
-    done
-    selected=("${limit[@]}")
-  elif $select_all; then
-    selected=("${devices[@]}")
-  else
-    mapfile -t selected < <(gum choose --no-limit \
-      --header "Devices for $agent (space toggles, enter confirms)" \
-      --selected "$(
-        IFS=,
-        printf '%s' "${devices[*]}"
-      )" "${devices[@]}")
-    ((${#selected[@]} > 0)) || exit 0
-  fi
+  local selected=()
+  mapfile -t selected < <(select_devices "$select_all" "Devices for $agent" limit "${devices[@]}")
+  # Empty: cancelled, or a --limit value was rejected (message above).
+  ((${#selected[@]} > 0)) || exit "$((${#limit[@]} > 0))"
 
   [[ -n $mode ]] || mode=$(choose_mode)
 
@@ -283,6 +305,57 @@ task_monitoring_apply() {
   apply_agent "$agent" "$mode" "${selected[@]}" || rc=$?
   [[ $mode == apply ]] && monitoring_server_hint
   return "$rc"
+}
+
+# --- fix apply ------------------------------------------------------------
+
+# One-off fixes: ansible/fixes/<name>.yml, `hosts: all`; the first line
+# reads "# ansible/fixes/<name>.yml - <description>". Candidates are the
+# devices with monitoring.node (Linux with systemd, reachable over SSH).
+task_fix_apply() {
+  local fix="" mode="" select_all=false limit=()
+  while (($# > 0)); do
+    case $1 in
+      --fix)
+        fix=${2:-}
+        shift
+        ;;
+      --check) mode=check ;;
+      --apply) mode=apply ;;
+      --all) select_all=true ;;
+      --limit)
+        limit+=("${2:-}")
+        shift
+        ;;
+      *) die "fix apply: unknown option $1 (see --help)" ;;
+    esac
+    shift
+  done
+
+  local files=() f lines=()
+  mapfile -t files < <(find ansible/fixes -maxdepth 1 -name '*.yml' | sort)
+  ((${#files[@]} > 0)) || die "no fixes in ansible/fixes/"
+  if [[ -z $fix ]]; then
+    for f in "${files[@]}"; do
+      lines+=("$(printf '%-16s %s' "$(basename "$f" .yml)" "$(head -1 "$f" | sed 's/^# [^ ]* - //')")")
+    done
+    fix=$(gum choose --header "Fix" "${lines[@]}") || exit 0
+    fix=${fix%% *}
+  fi
+  local playbook="ansible/fixes/$fix.yml"
+  [[ -f $playbook ]] || die "no fix $fix (ansible/fixes/)"
+
+  load_inventory
+  local devices=()
+  mapfile -t devices < <(agent_devices node)
+  ((${#devices[@]} > 0)) || die "no device sets monitoring.node = true"
+
+  local selected=()
+  mapfile -t selected < <(select_devices "$select_all" "Devices for $fix" limit "${devices[@]}")
+  ((${#selected[@]} > 0)) || exit "$((${#limit[@]} > 0))"
+  [[ -n $mode ]] || mode=$(choose_mode)
+
+  run_playbook "$playbook" fix "$mode" "${selected[@]}"
 }
 
 # --- device add -----------------------------------------------------------
@@ -451,6 +524,7 @@ shift $(($# < 2 ? $# : 2))
 case $task in
   "device add") task_device_add "$@" ;;
   "monitoring apply") task_monitoring_apply "$@" ;;
+  "fix apply") task_fix_apply "$@" ;;
   "host new") exec nix run .#new-host -- "$@" ;;
   "host install") exec nix run .#install-host -- "$@" ;;
   "secrets update") exec nix run .#sops-config -- "$@" ;;
