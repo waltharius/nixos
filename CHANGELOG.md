@@ -41,16 +41,18 @@ switches keys; only the store repair (`store purge`, `push --force`,
 
 ### Verification
 
-To be run after the deploy; record the results here (and remove this
-note):
+Run on 2026-10-03:
 
-- `nix run .#sops-config`: baal (and sukkub) added to
-  `secrets/atuin-password.txt` and `secrets/atuin-key.txt`.
-- azazel and baal: `systemctl status atuin-auto-login-marcin` -> "Already
-  logged in to Atuin with the fleet key".
-- cloud-apps and altair: `systemctl status atuin-auto-login-nixadm`, same
-  message; the old unit `atuin-auto-login` is gone.
-- `atuin sync` on azazel without errors.
+- Store repaired again with the procedure of 2026-09-30 (azazel: store
+  purge, history init-store, push --force; altair and cloud-apps:
+  pull --force, rebuild history). baal was not logged in again (it already
+  had the fleet key); its local store, which still held its first records
+  under the old key, verifies after the repair.
+- cloud-apps and altair: atuin-auto-login-nixadm reports 'Already logged
+  in to Atuin with the fleet key'.
+
+Still to check: azazel and baal (`systemctl status atuin-auto-login-marcin`),
+`atuin store verify` on every host.
 
 ### Lessons learned
 
