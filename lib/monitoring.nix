@@ -24,6 +24,9 @@
 #   - devices with `monitoring.ping = true`: an ICMP probe;
 #   - devices with `monitoring.pve = true`: the Proxmox API, read by the pve
 #     exporter on the monitoring server (modules/servers/monitoring/pve.nix);
+#   - devices with `monitoring.cadvisor = true`: cAdvisor (container
+#     metrics) on port 8080, installed by `nix run .#fleet` (task
+#     "monitoring apply", ansible/playbooks/cadvisor.yml);
 #   - hosts/websites.nix: an HTTP probe per page.
 # The generated lists are exposed as `fleet.monitoring.targets` and read by
 # modules/servers/monitoring/prometheus.nix. See docs/MONITORING.md.
@@ -61,6 +64,9 @@
   baremetalMachines = lib.filterAttrs (_: isBaremetal) machines;
   pingedDevices = lib.filterAttrs (_: d: d.monitoring.ping or false) devices;
   pveDevices = lib.filterAttrs (_: d: d.monitoring.pve or false) devices;
+  cadvisorDevices = lib.filterAttrs (_: d: d.monitoring.cadvisor or false) devices;
+  # Must match cadvisor_port in ansible/playbooks/cadvisor.yml.
+  cadvisorPort = 8080;
 
   boolLabel = b:
     if b
@@ -108,6 +114,18 @@
         };
       })
       pveDevices;
+    # Docker hosts without NixOS. The monitoring server adds its own
+    # cAdvisor (Podman) as a local target (modules/servers/monitoring/cadvisor.nix).
+    cadvisor =
+      lib.mapAttrsToList (name: d: {
+        address = "${d.lan.ip}:${toString cadvisorPort}";
+        labels = {
+          instance = name;
+          host = name;
+          runtime = "docker";
+        };
+      })
+      cadvisorDevices;
     websites =
       lib.mapAttrsToList (name: w: {
         address = w.url;

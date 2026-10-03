@@ -1,0 +1,26 @@
+# ansible/playbooks/cadvisor.yml - cAdvisor (container metrics) on devices
+# with `monitoring.cadvisor = true` in hosts/devices/<name>.nix.
+#
+# Run it through `nix run .#fleet` (task "monitoring apply"), not by hand:
+# the inventory group `cadvisor` is generated from the Nix inventory.
+#
+# The role installs the binary from cAdvisor's GitHub releases as the
+# systemd service `cadvisor`. It listens on all addresses (the LAN is
+# trusted; no authentication), port 8080, which must match cadvisorPort in
+# lib/monitoring.nix. Upgrade: change cadvisor_version, run the task on all
+# devices.
+---
+- name: CAdvisor
+  hosts: cadvisor
+  # Root on the device for installing the service; the role's download
+  # tasks on the admin workstation keep `become: false`.
+  become: true
+  roles:
+    - role: prometheus.prometheus.cadvisor
+      vars:
+        cadvisor_version: "0.60.3"
+        cadvisor_listen_ip: "0.0.0.0"
+        cadvisor_port: "8080"
+        # Containers only (and the root cgroup); without it cAdvisor reports
+        # every systemd service as a container.
+        cadvisor_docker_only: true

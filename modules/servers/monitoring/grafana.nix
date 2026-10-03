@@ -184,6 +184,8 @@ in {
         "blackbox.json" = "https://grafana.com/api/dashboards/15873/revisions/latest/download";
         # Proxmox via Prometheus (pve exporter, job pve): host, guests, storage
         "proxmox.json" = "https://grafana.com/api/dashboards/10347/revisions/latest/download";
+        # Cadvisor exporter (job cadvisor): CPU, memory, network per container
+        "cadvisor.json" = "https://grafana.com/api/dashboards/14282/revisions/latest/download";
       };
       downloads = lib.concatStrings (lib.mapAttrsToList (file: url: ''
           if [ ! -f "/var/lib/grafana/dashboards/${file}" ]; then

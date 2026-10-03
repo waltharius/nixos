@@ -17,6 +17,10 @@
 #   blackbox-internet - ping of public DNS resolvers (InternetDown)
 #   pve               - Proxmox API of devices with `monitoring.pve = true`,
 #                       through the local pve exporter (pve.nix)
+#   cadvisor          - containers: cAdvisor on devices with
+#                       `monitoring.cadvisor = true` (Docker) and on this
+#                       server when it runs Podman (cadvisor.nix); label
+#                       `runtime` = docker / podman
 #   nvidia, incus     - only on a monitoring server that has them (altair)
 #   prometheus, alertmanager, blackbox - the monitoring stack itself
 #
@@ -89,6 +93,19 @@
   };
 
   nvidiaEnabled = config.services.prometheus.exporters.nvidia-gpu.enable or false;
+
+  # cAdvisor targets: Docker hosts from the inventory plus this server's own
+  # cAdvisor for Podman.
+  cadvisorTargets =
+    targets.cadvisor
+    ++ lib.optional config.services.cadvisor.enable {
+      address = "127.0.0.1:${toString config.services.cadvisor.port}";
+      labels = {
+        instance = host.name;
+        host = host.name;
+        runtime = "podman";
+      };
+    };
   incusEnabled = config.virtualisation.incus.enable or false;
 
   rulesFile = pkgs.writeText "fleet-alert-rules.yml" (builtins.toJSON (import ./alert-rules.nix));
@@ -148,6 +165,11 @@ in {
         };
         static_configs = staticConfigs targets.pve;
         relabel_configs = viaExporter "127.0.0.1:${toString config.services.prometheus.exporters.pve.port}";
+      }
+      ++ lib.optional (cadvisorTargets != []) {
+        job_name = "cadvisor";
+        scrape_interval = "30s";
+        static_configs = staticConfigs cadvisorTargets;
       }
       ++ lib.optional nvidiaEnabled
       (localJob "nvidia" config.services.prometheus.exporters.nvidia-gpu.port {role = "gpu";})

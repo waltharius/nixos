@@ -65,6 +65,7 @@ copying a similar file. Each file starts with
 | `ssh.<alias>.hostKey` | public host key, pinned in `/etc/ssh/ssh_known_hosts` |
 | `ssh.<alias>.extraOptions` | other ssh_config options, e.g. `{PreferredAuthentications = "publickey";}` |
 | `monitoring.ping` | `true`: the monitoring server pings the device; HostDown alert when it stops answering. Needs `lan.ip`. Leave it out for devices that are often switched off |
+| `monitoring.cadvisor` | `true`: Docker host; cAdvisor runs on the device (port 8080), installed with `nix run .#fleet` -> "monitoring apply", scraped as job `cadvisor` with `runtime="docker"`. Needs `lan.ip` and an SSH alias named like the device (`ssh.<name>`), through which Ansible logs in (root, or a user with sudo) |
 | `monitoring.pve` | `true`: a Proxmox VE host; the pve exporter on the monitoring server reads its API (host, VMs, containers, storage) at `https://<lan.ip>:8006`. Needs `lan.ip`, the read-only token from `modules/servers/monitoring/pve.nix` and a pveproxy certificate that covers the address |
 
 Temporary SSH hosts do not belong here: use `~/.ssh/config.d/local` (see

@@ -61,6 +61,7 @@
         ./parts/secrets.nix
         ./parts/new-host.nix
         ./parts/install-host.nix
+        ./parts/fleet.nix
       ];
     };
 }

@@ -14,6 +14,8 @@ no module names a host.
 | Workstations (laptops) | not monitored | - |
 | Devices without NixOS | ping (up/down); full metrics follow in stage 5b | `monitoring.ping = true` in `hosts/devices/<name>.nix` |
 | Proxmox VE (host, VMs, LXC containers, storage) | pve exporter on the monitoring server reading the Proxmox API with a read-only token; nothing installed on Proxmox | `monitoring.pve = true` in `hosts/devices/<name>.nix` |
+| Docker containers on devices without NixOS | cAdvisor on the device (port 8080), installed with `nix run .#fleet` -> "monitoring apply" (Ansible) | `monitoring.cadvisor = true` in `hosts/devices/<name>.nix` |
+| Podman containers on the monitoring server | cAdvisor on loopback (port 8099) | automatic when the server runs Podman (`cadvisor.nix`) |
 | Web pages | HTTP probe: status, response time, certificate expiry | `hosts/websites.nix` |
 | Internet connection | ping of 1.1.1.1 and 9.9.9.9 | `modules/servers/monitoring/prometheus.nix` |
 | GPUs (altair) | nvidia_gpu_exporter | `hosts/physical/altair/configuration.nix` |
@@ -42,6 +44,9 @@ pve, GPU) listen on loopback.
 | `modules/servers/monitoring/mail.nix` | send-only Postfix |
 | `modules/servers/monitoring/blackbox.nix` | ping and HTTP probes |
 | `modules/servers/monitoring/pve.nix` | Proxmox API exporter, its token (sops) and CA |
+| `modules/servers/monitoring/cadvisor.nix` | cAdvisor for the server's own Podman containers |
+| `scripts/fleet.sh` (`nix run .#fleet`) | task menu; "monitoring apply" installs agents on devices with Ansible |
+| `ansible/` | playbooks per agent, pinned collections (`requirements.yml`), `ansible.cfg`; used only through `nix run .#fleet` |
 | `modules/servers/monitoring/grafana.nix` | Grafana, data sources, dashboards, image renderer |
 | `modules/servers/monitoring/dashboards/*.nix` | the repository's own dashboards (Fleet overview), as Nix data |
 | `modules/servers/monitoring/nvidia-exporter.nix` | GPU metrics (altair only) |
@@ -60,7 +65,8 @@ pve, GPU) listen on loopback.
     top): mute alerts during maintenance.
   - Dashboards: Node Exporter Full (per host: choose job `node`, then the
     instance), NVIDIA GPU (job `nvidia`), Prometheus Blackbox, Proxmox via
-    Prometheus (choose instance `pve`). The
+    Prometheus (choose instance `pve`), Cadvisor exporter (containers; job
+    `cadvisor`). The
     Blackbox dashboard is built for HTTP probes: choose a page in
     `target`; for a pinged host only Status and Probe Duration show data,
     the HTTP, SSL and DNS panels stay empty by design.
@@ -92,6 +98,7 @@ info alerts are suppressed.
 | resources | DiskSpaceLow, DiskSpaceCritical, DiskWillFillIn24h, FilesystemReadOnly, CpuBusy12h, OomKill |
 | services and time | SystemdUnitFailed, ClockNotSynchronised, TextfileCollectorError |
 | hardware (bare metal) | HostTemperatureHigh, HostTemperatureCriticalAlarm, GpuTemperatureHigh, GpuBusy12h, SmartHealthFailed, DiskTemperatureHigh, NvmeCriticalWarning, NvmeWearHigh, BtrfsScrubErrors, BtrfsScrubUncorrectable, BtrfsScrubStale |
+| containers | CadvisorDown (no "container stopped" rule: stopped containers just vanish from cAdvisor) |
 | proxmox | PveExporterDown, PveGuestDown (only guests set to start at boot), PveGuestNotBackedUp, PveStorageLow, PveStorageCritical |
 | monitoring | Watchdog, MonitoringTargetDown, AlertmanagerNotificationsFailing, PrometheusRuleEvaluationFailures, PrometheusConfigReloadFailed |
 
@@ -105,6 +112,7 @@ loaded.
 | ---- | ----- |
 | Monitor a new NixOS server or VM | `nix run .#new-host` (class `server` or `virtual`), deploy the host, then deploy the monitoring server (`colmena apply --on altair`) so Prometheus learns the new target |
 | Ping a device | add `monitoring.ping = true;` to `hosts/devices/<name>.nix`, deploy the monitoring server |
+| Monitor containers on a Docker host | the device needs `lan.ip` and an SSH alias named like the device (`ssh.<name>`); add `monitoring.cadvisor = true;` to its file, run `nix run .#fleet` -> "monitoring apply" (check first, then apply), deploy the monitoring server. Upgrade cAdvisor: change `cadvisor_version` in `ansible/playbooks/cadvisor.yml`, run the task for all devices |
 | Monitor a Proxmox host | create the read-only token (commands at the top of `pve.nix`), put its value in `secrets/altair.yaml` as `pve-exporter-token`, add `monitoring.pve = true;` to the device file, deploy the monitoring server. Check the token on Proxmox with `pveum user token permissions prometheus@pve monitoring` |
 | Stop pinging a device | remove the line (or the whole file), deploy the monitoring server |
 | Add a web page | add an entry to `hosts/websites.nix`, deploy the monitoring server |

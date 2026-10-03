@@ -43,8 +43,9 @@
 #   - tailscale.loginServer in hosts/fleet.nix is null or an https:// URL
 #   - `monitoring` in hosts/fleet.nix names an existing machine of class
 #     server as `server`, and mail addresses that contain an @
-#   - device `monitoring` has known fields only; `ping` and `pve` need
-#     `lan.ip`
+#   - device `monitoring` has known fields only; `ping`, `pve` and
+#     `cadvisor` need `lan.ip`, `cadvisor` also an SSH alias named like the
+#     device
 #   - websites have a valid name and an http:// or https:// `url`
 {
   lib,
@@ -152,7 +153,7 @@
     "hosts/fleet.nix: monitoring.mail.from must be an e-mail address";
 
   # Fields a device may set under `monitoring`.
-  deviceMonitoringFields = ["ping" "pve"];
+  deviceMonitoringFields = ["ping" "pve" "cadvisor"];
 
   deviceMonitoringErrors = name: d: let
     mon = d.monitoring;
@@ -170,7 +171,15 @@
       ++ lib.optional (mon ? pve && !builtins.isBool mon.pve)
       "${label}.pve must be true or false"
       ++ lib.optional ((mon.pve or false) && ipOf d == null)
-      "${label}.pve needs the device's `lan.ip`";
+      "${label}.pve needs the device's `lan.ip`"
+      ++ lib.optional (mon ? cadvisor && !builtins.isBool mon.cadvisor)
+      "${label}.cadvisor must be true or false"
+      ++ lib.optional ((mon.cadvisor or false) && ipOf d == null)
+      "${label}.cadvisor needs the device's `lan.ip`"
+      # `nix run .#fleet` (monitoring apply) logs in through the SSH alias
+      # named like the device.
+      ++ lib.optional ((mon.cadvisor or false) && !((d.ssh or {}) ? ${name}))
+      "${label}.cadvisor needs an SSH alias named like the device (ssh.${name}), used by `nix run .#fleet`";
 
   websiteFields = ["url" "description"];
 

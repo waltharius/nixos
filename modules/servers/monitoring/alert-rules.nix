@@ -257,6 +257,18 @@ in {
       ];
     }
 
+    # Containers (cAdvisor, job cadvisor). Stopped containers simply
+    # disappear from cAdvisor's metrics, so there is no "container down"
+    # rule yet; that needs a list of expected containers.
+    {
+      name = "containers";
+      rules = [
+        (rule "CadvisorDown" ''up{job="cadvisor"} == 0'' "5m" "warning"
+          "Container metrics of ${hostRef} are missing"
+          "cAdvisor on ${hostRef} ({{ $labels.runtime }}) does not answer. Docker hosts: systemctl status cadvisor on the device, reinstall with nix run .#fleet (monitoring apply). Monitoring server: systemctl status cadvisor.")
+      ];
+    }
+
     {
       name = "monitoring";
       rules = [

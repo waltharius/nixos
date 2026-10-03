@@ -74,25 +74,21 @@ priority is Proxmox and containers):
    priority is Proxmox and containers):
    1. ~~Proxmox: prometheus-pve-exporter on altair~~: done on 2026-10-02
       (CHANGELOG.md).
-   2. **Containers**: cAdvisor on the Docker VM (`docker`: portainer
-      agent, atuin-server) and on walthpi16 (`docker ps` on 2026-10-02:
-      gitlab-ce, vikunja, portainer), prometheus-podman-exporter on altair
-      (Open WebUI, SearXNG, zotero2readwise), Incus is already scraped.
-      Labels `host` and `runtime` (docker, podman, incus, lxc, vm); a
-      "Containers" dashboard: choose a host, see every container.
+   2. ~~Containers~~: done on 2026-10-03 (CHANGELOG.md): cAdvisor on the
+      Docker hosts (through `nix run .#fleet`) and on altair for Podman,
+      job `cadvisor` with label `runtime`, dashboard 14282. Left for step
+      4: one own "Containers" dashboard that also shows Incus (and
+      Proxmox guests from the pve exporter).
    3. **node_exporter on everything with Linux** (pve, Proxmox guests on
-      Debian/Ubuntu/Alpine/Rocky, walthpi, walthpi16), smartctl_exporter
-      on the bare-metal ones. Onboarding: `nix run .#monitor-device`, a
-      `gum` script that asks for the device, writes
-      `hosts/devices/<name>.nix` and runs Ansible underneath (the user
-      never runs Ansible by hand). Ansible is a runtime input of the
-      script only (pinned by flake.lock, not installed in any group); the
-      `prometheus.prometheus` collection is pinned in `requirements.yml`
-      and installed into a git-ignored directory in the repository. The
-      script has an "apply to all devices" mode for version or setting
-      changes. Ansible inventory generated from
-      `nix eval --json .#inventory`. Check whether the roles support
-      Alpine (OpenRC). Hardware alerts only for devices with
+      Debian/Ubuntu/Rocky, walthpi, walthpi16), smartctl_exporter on the
+      bare-metal ones. The machinery exists since step 2: add agents
+      `node` and `smartctl` to "monitoring apply" in `nix run .#fleet`
+      (a playbook each, device fields `monitoring.node`,
+      `monitoring.smartctl`), plus a task "device add" that asks for a new
+      device and writes `hosts/devices/<name>.nix`. The roles of the
+      collection support only systemd distributions (Ubuntu, Debian, EL):
+      Alpine guests (`alpine-mariadb`) stay at ping until they disappear
+      in the migration to NixOS (decided 2026-10-03). Hardware alerts only for devices with
       `baremetal = true`; new device field `category` (e.g. `network`,
       `proxmox-guest`, `pi`) to group tiles. win11 stays unmonitored.
    4. **Overview v2**: a recording rule computes a status per host:
@@ -147,6 +143,15 @@ priority is Proxmox and containers):
    - bash and gum, like `new-host`;
    - built during stage 5b: first the device onboarding (5b) and website
      add/remove, then remove-host (below); `new-host` moves under it.
+<<<<<<< ours
+>>>>>>> theirs
+=======
+   Started 2026-10-03: `nix run .#fleet` with the task menu, "monitoring
+   apply" and shortcuts to new-host, install-host, sops-config. Open: how
+   a task changes a field of an existing hand-written file (e.g. enabling
+   an agent in a device file) without parsing Nix: regenerate the whole
+   file from its fields (comments would be lost), or open the file in
+   `$EDITOR` at the right place and validate afterwards.
 >>>>>>> theirs
 
 ## Stages after the refactor

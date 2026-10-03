@@ -16,5 +16,10 @@
       extraOptions.PreferredAuthentications = "publickey";
     };
   };
-  monitoring.ping = true;
+  monitoring = {
+    ping = true;
+    # Container metrics: cAdvisor installed with `nix run .#fleet`
+    # (monitoring apply); runs gitlab-ce, vikunja and portainer.
+    cadvisor = true;
+  };
 }

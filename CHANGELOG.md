@@ -9,6 +9,61 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
+## [2026-10-03] Refactor stage 5b step 2 - container metrics, `nix run .#fleet`
+
+Containers on the Docker hosts (VM `docker`, walthpi16) and the Podman
+containers on altair are measured by cAdvisor; the agent on devices
+without NixOS is installed by the first task of the new `fleet` command.
+
+### Added
+
+- `nix run .#fleet` (`scripts/fleet.sh`, `parts/fleet.nix`): one entry
+  point for repository and fleet tasks (stage 8, started here). Without
+  arguments it shows a searchable list of tasks (gum); tasks also run
+  directly (`nix run .#fleet -- monitoring apply --check --all`). Tasks:
+  "monitoring apply" (new) and shortcuts to `new-host`, `install-host` and
+  `sops-config`.
+- Task "monitoring apply": picks an agent (now only cAdvisor) and the
+  devices that request it (`monitoring.<agent> = true`), check or apply,
+  then runs Ansible: inventory generated from `nix eval --json .#inventory`
+  (hosts named like their SSH aliases, so `~/.ssh/config.d/devices`
+  supplies address, user and key; root logins become root with su, other
+  users with sudo), collections installed from `ansible/requirements.yml`
+  into the git-ignored `ansible/.collections` when that file changes.
+  After apply it checks that each agent answers on `/metrics`. Ansible is
+  a runtime input of the script only (flake.lock), installed in no group.
+- `ansible/`: `ansible.cfg`, `requirements.yml` (prometheus.prometheus
+  0.30.1, community.general 13.4.0), `playbooks/cadvisor.yml` (role
+  prometheus.prometheus.cadvisor: cAdvisor 0.60.3 binary as systemd
+  service, 0.0.0.0:8080, `docker_only`).
+- Device field `monitoring.cadvisor` (validated: needs `lan.ip` and an SSH
+  alias named like the device), set on `docker` and `walthpi16`; target
+  list `fleet.monitoring.targets.cadvisor`.
+- `modules/servers/monitoring/cadvisor.nix`: cAdvisor (nixpkgs module,
+  0.56.2) on the monitoring server when it runs Podman, 127.0.0.1:8099
+  (8080 is SearXNG), `-docker_only=true`, reading rootful Podman through
+  `/run/podman/podman.sock`. Chosen over prometheus-podman-exporter (no
+  NixOS module, different metrics): one exporter for Docker and Podman.
+- Prometheus job `cadvisor` (every 30 s): Docker hosts and the local
+  cAdvisor, label `runtime` = `docker` / `podman`.
+- Alert group `containers`: CadvisorDown.
+- Grafana dashboard "Cadvisor exporter" (grafana.com 14282).
+
+### Verification
+
+To be run after the deploy; record the results here (and remove this
+note):
+
+- `nix run .#fleet` shows the task list; "monitoring apply" in check mode
+  on both devices, then apply; both answer on `http://<ip>:8080/metrics`.
+- altair: `systemctl status cadvisor`;
+  `curl -s 127.0.0.1:8099/metrics | grep -c 'container_last_seen{.*name="'`
+  lists the Podman containers (open-webui, searxng, zotero2readwise), and
+  not dozens of systemd services (checks that `-docker_only` keeps the
+  Podman containers).
+- Prometheus target `cadvisor` up for docker, walthpi16 and altair;
+  dashboard Cadvisor exporter shows containers per host.
+
 ## [2026-10-02] Atuin login from sops on workstations, key check on every host
 
 Workstations logged in to Atuin by hand. A host that ran Atuin before

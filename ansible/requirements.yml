@@ -1,0 +1,12 @@
+# ansible/requirements.yml - Ansible collections used by `nix run .#fleet`.
+# Installed into ansible/.collections (git-ignored) whenever this file
+# changes. Pinned versions: change them here to upgrade.
+---
+collections:
+  # Roles for Prometheus exporters (cadvisor, later node_exporter,
+  # smartctl_exporter): https://github.com/prometheus-community/ansible
+  - name: prometheus.prometheus
+    version: "0.30.1"
+  # Declared dependency of prometheus.prometheus.
+  - name: community.general
+    version: "13.4.0"
