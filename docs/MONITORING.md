@@ -78,8 +78,10 @@ pve, GPU) listen on loopback.
   "Source" link in alert e-mails (the rule's expression as a graph);
   Status -> Targets shows every scrape target and its last error.
 - **E-mail**: every alert, when it fires and when it is resolved, to
-  `monitoring.mail.to` in `hosts/fleet.nix`. A still-firing alert is
-  repeated every 12 hours.
+  `monitoring.mail.to` in `hosts/fleet.nix`, one e-mail per alert. The
+  subject is `[WARNING]`/`[CRITICAL]` or `[RESOLVED]` plus the rule's
+  summary, e.g. "[WARNING] Service sssd-nss.socket failed on caddy". A
+  still-firing alert is repeated every 12 hours.
 - **healthchecks.io**: e-mails on its own when the Watchdog pings stop,
   i.e. when the monitoring server, Alertmanager or the internet
   connection is down. Nothing on the monitoring server can tell you that
@@ -113,6 +115,7 @@ loaded.
 | ---- | ----- |
 | Monitor a new NixOS server or VM | `nix run .#new-host` (class `server` or `virtual`), deploy the host, then deploy the monitoring server (`colmena apply --on altair`) so Prometheus learns the new target |
 | Ping a device | add `monitoring.ping = true;` to `hosts/devices/<name>.nix`, deploy the monitoring server |
+| Run a one-off fix on devices | `nix run .#fleet` -> "fix apply": choose a playbook from `ansible/fixes/` (e.g. `sssd-sockets`), the devices (those with `monitoring.node`), check, then apply |
 | Add a device | `nix run .#fleet` -> "device add": asks for name, address, SSH, category, baremetal, ping and agents, writes and stages `hosts/devices/<name>.nix`, validates the inventory and the monitoring server, and prints the next steps (commit; rebuild this workstation for the SSH alias; install the agents; deploy the monitoring server) |
 | Monitor an existing device with node_exporter / smartctl | add `monitoring.node = true;` (and `smartctl`, `baremetal`, `category`) to its file, rebuild this workstation if the SSH alias is new, `nix run .#fleet` -> "monitoring apply" (check, then apply), deploy the monitoring server |
 | Monitor containers on a Docker host | the device needs `lan.ip` and an SSH alias named like the device (`ssh.<name>`); add `monitoring.cadvisor = true;` to its file, run `nix run .#fleet` -> "monitoring apply" (check first, then apply), deploy the monitoring server. Upgrade cAdvisor: change `cadvisor_version` in `ansible/playbooks/cadvisor.yml`, run the task for all devices |

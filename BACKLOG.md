@@ -274,29 +274,6 @@ One pass when the refactor is done (or sooner, between stages).
 
 ## Follow-ups from stage 5b
 
-- **Useful links in one place** (requested 2026-10-03): the web UIs of
-  the infrastructure (Grafana, Prometheus, Alertmanager, Proxmox,
-  pfSense, FreeIPA, Portainer, GitLab, Immich, Nextcloud, cAdvisor, ...)
-  as a Grafana dashboard and/or dashboard links on the fleet overview.
-  Design to decide: generated from the inventory (monitoring stack URLs
-  from the configuration, a `web` field in device files, the websites
-  list) or a hand-written list; one Nix file per entry so `nix run
-  .#fleet` can add links.
-- **SystemdUnitFailed for sssd sockets** (2026-10-03): `sssd-nss`,
-  `sssd-pam`, `sssd-ssh`, `sssd-sudo`, `sssd-pac` sockets are failed on
-  pve and the Debian guests enrolled in FreeIPA. Probably sssd.conf lists
-  those responders in `services`, and the socket units refuse to start
-  for responders sssd starts itself. Decide: mask the sockets on the
-  hosts (fixes the cause), or exclude them in node_exporter's systemd
-  collector (hides it).
-- **LXC guests report the host's CPU and memory** (2026-10-03):
-  node_exporter in syncthing-server shows 16 CPUs and 63 GiB, the
-  Proxmox host's values, although Proxmox normally gives containers their
-  own /proc/meminfo through lxcfs. Find out whether node_exporter's
-  systemd sandboxing (ProtectKernelTunables etc. in the role's unit) hides
-  the lxcfs mounts; until then CPU and memory alerts of LXC guests repeat
-  the host's.
-
 - **Document the Ansible setup** (requested 2026-10-03, for the user's own
   documentation outside the repository). A detailed description of how
   `nix run .#fleet` drives Ansible: where Ansible and the collections
@@ -312,7 +289,25 @@ One pass when the refactor is done (or sooner, between stages).
   `lib/inventory.nix` and `lib/monitoring.nix`, entry in `AGENTS`), how
   to upgrade an agent version, how to remove an agent from a device
   (stop and disable the unit, delete unit and binary, remove the field);
-  limits (systemd distributions only, no Alpine).
+  limits (systemd distributions only, no Alpine). Also the one-off fixes
+  (`ansible/fixes/`, task "fix apply") and the firewalld task
+  (`ansible/tasks/open-port.yml`).
+- **Useful links in one place** (requested 2026-10-03; design decided,
+  build it with step 4): a "Links" dashboard and links in the fleet
+  overview header, generated from the repository: the monitoring stack's
+  URLs from the configuration, a `web` field in device files (Proxmox,
+  pfSense, FreeIPA, Portainer, ...), one file per extra entry for services
+  without their own device (Immich, Nextcloud, ...), so `nix run .#fleet`
+  can add links. Every link is also probed by blackbox (up/down, response
+  time, and for https the certificate's days left: shows that renewal
+  through certmonger/FreeIPA works once Caddy uses those certificates);
+  the probe state is shown next to each link. Merge with
+  `hosts/websites.nix` (planned as one file per site) instead of keeping
+  two lists.
+- **Alert e-mails marked as spam by Proton** (seen 2026-10-03: `X-Spam:
+  Yes`, no SPF/DKIM for altair.home.lan). Add a Proton filter for
+  alertmanager@altair.home.lan now; later send through a domain with SPF
+  and DKIM (e.g. the mail relay planned with the VPS).
 
 ## Follow-ups from stage 5a
 

@@ -48,7 +48,10 @@ in {
 
       route = {
         receiver = "email";
-        group_by = ["alertname" "host"];
+        # One notification per alert ("..." = all labels), as Checkmk did:
+        # a separate e-mail when it fires and when it is resolved, never a
+        # group mixing both. Costs more mails when many alerts fire at once.
+        group_by = ["..."];
         group_wait = "30s";
         group_interval = "5m";
         # A still-firing alert is e-mailed again twice a day.
@@ -71,6 +74,11 @@ in {
             {
               to = mail.to;
               send_resolved = true;
+              # "[WARNING] Service sssd-nss.socket failed on caddy" when it
+              # fires, "[RESOLVED] ..." when it ends; the rule's summary
+              # (alert-rules.nix) already names the host. The body stays
+              # Alertmanager's default HTML.
+              headers.Subject = ''{{ if eq .Status "firing" }}[{{ .CommonLabels.severity | toUpper }}]{{ else }}[RESOLVED]{{ end }} {{ with .CommonAnnotations.summary }}{{ . }}{{ else }}{{ .CommonLabels.alertname }} on {{ .CommonLabels.host }}{{ end }}'';
             }
           ];
         }

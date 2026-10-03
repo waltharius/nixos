@@ -9,6 +9,51 @@ what went wrong, what was surprising, and what should be done differently
 next time. Changes that were reverted stay in the log together with the
 reason for reverting them.
 
+## [2026-10-03] Alert e-mails per alert, `fleet fix apply`, sssd sockets
+
+### Changed
+
+- Alertmanager groups by all labels (`group_by = ["..."]`): one e-mail
+  per alert, a separate one when it fires and when it is resolved. Before,
+  alerts were grouped by alertname and host, so one e-mail titled
+  `[FIRING:3] SystemdUnitFailed caddy (false proxmox-guest device caddy
+  node warning failed)` could report resolved alerts inside.
+- E-mail subject: `[WARNING]` / `[CRITICAL]` or `[RESOLVED]` plus the
+  rule's summary, e.g. "[WARNING] Service sssd-nss.socket failed on
+  caddy".
+
+### Added
+
+- `nix run .#fleet` -> "fix apply": runs a one-off playbook from
+  `ansible/fixes/` on chosen devices (those with `monitoring.node`), check
+  or apply. "monitoring apply" and "fix apply" share the Ansible runner
+  (`run_playbook`) and the device selection.
+- `ansible/fixes/sssd-sockets.yml`: masks the SSSD responder sockets
+  (nss, pam, pam-priv, ssh, sudo, pac, autofs) on hosts whose sssd.conf
+  has a `services` line, and clears their failed state. FreeIPA clients
+  (pve and Debian guests) had them failed since enrolment ('sssd-nss.socket:
+  Control process exited, status=17'; sssd.conf: `services = nss, pam,
+  ssh, sudo`), which raised SystemdUnitFailed once node_exporter ran.
+
+### Verification
+
+To be run after the deploy; record the results here (and remove this
+note):
+
+- "fix apply" sssd-sockets, check then apply on all node devices; the
+  SystemdUnitFailed alerts for `sssd-*.socket` resolve, each with its own
+  `[RESOLVED]` e-mail.
+- A new alert arrives as `[WARNING] ...` in its own e-mail.
+
+### Notes
+
+- The LXC guest syncthing-server reports the Proxmox host's memory and
+  CPU count (63 GiB, 16 CPUs; inside: 4 GiB, 2 CPUs) because it is a
+  privileged container; unprivileged guests such as immich report their
+  own limits. No change: syncthing-server goes away in the migration from
+  Proxmox (the Syncthing server on altair stays).
+- ipa answers on :9100 after the firewalld change.
+
 ## [2026-10-03] Refactor stage 5b step 3 - node_exporter and smartctl on devices, `fleet device add`
 
 ### Added
