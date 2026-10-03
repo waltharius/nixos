@@ -32,6 +32,19 @@ reason for reverting them.
 - office-asus: `nodeExternal = true` (node_exporter from Entware on its
   USB stick, set up in September 2025). parter-asus stays at ping: no USB
   stick, no Entware.
+- `docs/devices/`: what is configured by hand on devices without NixOS,
+  one file per device or group: ASUS routers (SSH key through nvram,
+  Entware and its start scripts), pfSense (NUT settings, node_exporter
+  package), Proxmox (API token, web UI certificate).
+
+### Changed
+
+- FilesystemReadOnly ignores filesystems that are read-only by design
+  (nullfs, squashfs, iso9660, ubifs): it fired for pfSense's unbound
+  chroot mounts and the ASUS root image.
+- ClockNotSynchronised ignores the kernel sync status on network devices
+  (the ASUS firmware does not maintain it) and also compares each host's
+  clock with the Prometheus server's (more than 2 s apart).
 
 ### Verification
 

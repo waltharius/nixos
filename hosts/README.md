@@ -16,7 +16,9 @@ every evaluation (`nix flake check`, `nixos-rebuild`, `colmena`).
 | `virtual/<host>/`            | host files of class `virtual`                    |
 
 Every `*.nix` file in `machines/` and `devices/` is loaded automatically. New machines
-are added with `nix run .#new-host` (see `docs/NEW-HOST.md`).
+are added with `nix run .#new-host` (see `docs/NEW-HOST.md`). What is
+configured by hand on a device (web UI, SSH, its own package manager) is
+written down in `docs/devices/` (one file per device or device group).
 
 The inventory is exported as JSON for external tooling:
 `nix eval --json .#inventory`.

@@ -115,7 +115,10 @@ in {
           "Disk on ${hostRef} ({{ $labels.mountpoint }}) fills up within 24 h"
           "At the rate of the last 6 hours {{ $labels.mountpoint }} on ${hostRef} is full within a day.")
 
-        (rule "FilesystemReadOnly" ''node_filesystem_readonly{job="node",mountpoint!~"/nix/store|/boot.*"} == 1'' "5m" "critical"
+        # Read-only by design, not after errors: nullfs (FreeBSD bind mounts,
+        # pfSense's unbound chroot), squashfs and iso9660 images, ubifs (the
+        # ASUS routers' root filesystem image).
+        (rule "FilesystemReadOnly" ''node_filesystem_readonly{job="node",mountpoint!~"/nix/store|/boot.*",fstype!~"nullfs|squashfs|iso9660|ubifs"} == 1'' "5m" "critical"
           "Filesystem {{ $labels.mountpoint }} on ${hostRef} is read-only"
           "btrfs switches a filesystem to read-only after errors. Check dmesg and journalctl -k on ${hostRef}.")
 
@@ -147,12 +150,16 @@ in {
           "Service {{ $labels.name }} failed on ${hostRef}"
           "systemctl status {{ $labels.name }} and journalctl -u {{ $labels.name }} on ${hostRef}.")
 
+        # Network devices (ASUS firmware's NTP client) do not maintain the
+        # kernel's sync status; for them, and everywhere, the clock is also
+        # compared with the Prometheus server's time at scrape (> 2 s off).
         (rule "ClockNotSynchronised" ''
             abs(node_timex_offset_seconds{job="node"}) > ${toString t.clockOffset}
-            or node_timex_sync_status{job="node"} == 0
+            or node_timex_sync_status{job="node",category!="network"} == 0
+            or abs(node_time_seconds{job="node"} - timestamp(node_time_seconds{job="node"})) > 2
           '' "15m" "warning"
           "Clock of ${hostRef} is not synchronised"
-          "The clock of ${hostRef} is off by more than ${toString t.clockOffset} s or the kernel reports it as not synchronised. timedatectl status on ${hostRef}.")
+          "The clock of ${hostRef} is off by more than ${toString t.clockOffset} s, the kernel reports it as not synchronised, or it differs from the monitoring server's clock by more than 2 s. timedatectl status on ${hostRef}.")
 
         (rule "TextfileCollectorError" ''node_textfile_scrape_error{job="node"} == 1'' "15m" "warning"
           "Unreadable textfile metrics on ${hostRef}"
