@@ -47,23 +47,36 @@ reason for reverting them.
 
 - NodeExporterDown and SmartctlExporterDown name the unit on devices
   (`node_exporter`, `smartctl_exporter`) next to the NixOS one.
+- CpuBusy12h fires only for hosts that were already scraped one window
+  (12 h) ago: `rate()` divides by the whole window, so a freshly added
+  host read as ~100 % busy and all new devices fired at once.
+- The agent playbooks open their port in firewalld where firewalld runs
+  (`ansible/tasks/open-port.yml`, ansible.posix 2.2.2 added to
+  `ansible/requirements.yml`): node_exporter on ipa (Rocky) ran but was
+  unreachable.
 
 ### Verification
 
-To be run after the deploy; record the results here (and remove this
-note):
+Run on 2026-10-03:
 
-- "monitoring apply" for node (check, then apply) on all ten devices and
-  for smartctl on pve and walthpi16; every device answers on `/metrics`.
-  Watch the check run of ipa (Rocky, SELinux: the role labels the port
-  with community.general.seport) and pve (Debian 13, not in the role's
-  platform list).
-- Prometheus targets `node` and `smartctl` up for the devices; Node
-  Exporter Full shows them; `smartctl_device_smart_status` for pve's
-  disks and walthpi16's NVMe.
-- Alerts: no new SystemdUnitFailed from the LXC guests (unprivileged LXC
-  can report failed mount units; exclude them only if it happens).
-- "device add" with a test device, then delete the file again.
+- node_exporter installed on all ten devices (check, then apply); nine
+  answer on `/metrics`, ipa did not (firewalld, fixed above; to check:
+  apply again on ipa). smartctl_exporter on pve and walthpi16 answers.
+- Prometheus scrapes them; Node Exporter Full shows the devices; alert
+  e-mails arrive.
+- Findings: SystemdUnitFailed for `sssd-*.socket` on the FreeIPA clients
+  (BACKLOG.md); CpuBusy12h on every new device (fixed above); the LXC
+  guests report the Proxmox host's CPU count and memory (syncthing-server:
+  16 CPUs, 63 GiB) - cause not yet known (BACKLOG.md).
+
+Still to check: "device add" with a test device, then delete the file.
+
+### Lessons learned
+
+- A rule over a long window (`rate(...[12h])`) assumes the series is at
+  least that old. New targets need a guard, e.g. `and on (host) (up
+  offset 12h)`; promtool showed the unguarded rule firing for an idle
+  host with one hour of data.
 
 ## [2026-10-03] Refactor stage 5b step 2 - container metrics, `nix run .#fleet`
 

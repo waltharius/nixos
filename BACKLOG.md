@@ -274,6 +274,29 @@ One pass when the refactor is done (or sooner, between stages).
 
 ## Follow-ups from stage 5b
 
+- **Useful links in one place** (requested 2026-10-03): the web UIs of
+  the infrastructure (Grafana, Prometheus, Alertmanager, Proxmox,
+  pfSense, FreeIPA, Portainer, GitLab, Immich, Nextcloud, cAdvisor, ...)
+  as a Grafana dashboard and/or dashboard links on the fleet overview.
+  Design to decide: generated from the inventory (monitoring stack URLs
+  from the configuration, a `web` field in device files, the websites
+  list) or a hand-written list; one Nix file per entry so `nix run
+  .#fleet` can add links.
+- **SystemdUnitFailed for sssd sockets** (2026-10-03): `sssd-nss`,
+  `sssd-pam`, `sssd-ssh`, `sssd-sudo`, `sssd-pac` sockets are failed on
+  pve and the Debian guests enrolled in FreeIPA. Probably sssd.conf lists
+  those responders in `services`, and the socket units refuse to start
+  for responders sssd starts itself. Decide: mask the sockets on the
+  hosts (fixes the cause), or exclude them in node_exporter's systemd
+  collector (hides it).
+- **LXC guests report the host's CPU and memory** (2026-10-03):
+  node_exporter in syncthing-server shows 16 CPUs and 63 GiB, the
+  Proxmox host's values, although Proxmox normally gives containers their
+  own /proc/meminfo through lxcfs. Find out whether node_exporter's
+  systemd sandboxing (ProtectKernelTunables etc. in the role's unit) hides
+  the lxcfs mounts; until then CPU and memory alerts of LXC guests repeat
+  the host's.
+
 - **Document the Ansible setup** (requested 2026-10-03, for the user's own
   documentation outside the repository). A detailed description of how
   `nix run .#fleet` drives Ansible: where Ansible and the collections

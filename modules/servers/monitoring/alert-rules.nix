@@ -119,8 +119,13 @@ in {
           "Filesystem {{ $labels.mountpoint }} on ${hostRef} is read-only"
           "btrfs switches a filesystem to read-only after errors. Check dmesg and journalctl -k on ${hostRef}.")
 
+        # rate() divides by the whole window: for a host scraped for less
+        # than the window it reads as almost no idle time, i.e. ~100 % busy
+        # (every new device fired on 2026-10-03). Hence the guard: the host
+        # must already have been scraped one window ago.
         (rule "CpuBusy12h" ''
             1 - avg by (host) (rate(node_cpu_seconds_total{job="node",mode="idle"}[${t.cpuBusyWindow}])) > ${toString t.cpuBusy}
+            and on (host) (up{job="node"} offset ${t.cpuBusyWindow})
           '' "5m" "warning"
           "CPU on ${hostRef} busy for ${t.cpuBusyWindow}"
           (
