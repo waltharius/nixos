@@ -80,6 +80,11 @@
 in {
   virtualisation.oci-containers.containers.searxng = {
     image = "docker.io/searxng/searxng:latest";
+    # Stable (not volatile) container: cAdvisor below 0.60 sees Podman
+    # containers only in containers.json, and `--rm` puts them into
+    # volatile-containers.json (modules/servers/monitoring/cadvisor.nix).
+    # The unit still removes the container when it stops (postStop).
+    autoRemoveOnStop = false;
     extraOptions = ["--network=host"];
 
     environment = {

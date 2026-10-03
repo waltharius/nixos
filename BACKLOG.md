@@ -269,6 +269,25 @@ One pass when the refactor is done (or sooner, between stages).
   unchanged, and record what went in the changelog. Documents are covered
   by "Documents still to review" below.
 
+## Follow-ups from stage 5b
+
+- **Document the Ansible setup** (requested 2026-10-03, for the user's own
+  documentation outside the repository). A detailed description of how
+  `nix run .#fleet` drives Ansible: where Ansible and the collections
+  come from (flake.lock, `ansible/requirements.yml`, the git-ignored
+  `ansible/.collections` and its reinstall-on-change stamp); how the
+  inventory is generated from `nix eval --json .#inventory` (group per
+  agent, hosts named like their SSH aliases, why `ansible_host` and
+  `ansible_user` are not set); SSH through `~/.ssh/config.d/devices`;
+  privilege escalation (play-level `become`, su for root logins, sudo
+  otherwise, why `ansible_become` is not an inventory variable);
+  `ansible.cfg` settings; check and apply mode, `--diff`, the `/metrics`
+  check afterwards; how to add an agent (playbook, device field in
+  `lib/inventory.nix` and `lib/monitoring.nix`, entry in `AGENTS`), how
+  to upgrade an agent version, how to remove an agent from a device
+  (stop and disable the unit, delete unit and binary, remove the field);
+  limits (systemd distributions only, no Alpine).
+
 ## Follow-ups from stage 5a
 
 - **Grafana "Export as image" fails** in the browser with "Failed to

@@ -47,6 +47,11 @@
 
   virtualisation.oci-containers.containers.open-webui = {
     image = "ghcr.io/open-webui/open-webui:main";
+    # Stable (not volatile) container: cAdvisor below 0.60 sees Podman
+    # containers only in containers.json, and `--rm` puts them into
+    # volatile-containers.json (modules/servers/monitoring/cadvisor.nix).
+    # The unit still removes the container when it stops (postStop).
+    autoRemoveOnStop = false;
 
     # 127.0.0.1:3001 on host → 8080 inside container.
     # Loopback-only: Caddy is the sole external entry point.

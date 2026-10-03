@@ -143,6 +143,11 @@ in {
     virtualisation.oci-containers.containers.zotero2readwise = {
       image = cfg.image;
       autoStart = false;
+      # Stable (not volatile) container: cAdvisor below 0.60 sees Podman
+      # containers only in containers.json, and `--rm` puts them into
+      # volatile-containers.json (modules/servers/monitoring/cadvisor.nix).
+      # The unit still removes the container when it stops (postStop).
+      autoRemoveOnStop = false;
 
       # Bypass crond: execute the runtime wrapper script directly.
       entrypoint = "/bin/sh";

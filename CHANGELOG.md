@@ -49,6 +49,23 @@ without NixOS is installed by the first task of the new `fleet` command.
 - Alert group `containers`: CadvisorDown.
 - Grafana dashboard "Cadvisor exporter" (grafana.com 14282).
 
+### Changed
+
+- open-webui, searxng and zotero2readwise: `autoRemoveOnStop = false`.
+  cAdvisor 0.56.2 found no Podman container ('open
+  /var/lib/containers/storage/overlay-containers/containers.json: no such
+  file or directory'): `podman run --rm`, the oci-containers default,
+  stores containers in `volatile-containers.json`, which cAdvisor reads
+  only from 0.60 on. The oci-containers unit removes the container in
+  postStop and before every start, so dropping `--rm` changes nothing
+  else. `cadvisor.nix` warns at evaluation about Podman containers that
+  still use `--rm` while nixpkgs' cAdvisor is older than 0.60.
+- searxng.nix and zotero2readwise.nix reformatted with alejandra in a
+  separate commit (the pre-commit hook would have done it with the change).
+- `nix run .#fleet`: `ANSIBLE_COLLECTIONS_PATH` is set before the
+  collections are installed (ansible-galaxy warned that the target was not
+  a configured collections path).
+
 ### Verification
 
 To be run after the deploy; record the results here (and remove this
@@ -56,13 +73,26 @@ note):
 
 - `nix run .#fleet` shows the task list; "monitoring apply" in check mode
   on both devices, then apply; both answer on `http://<ip>:8080/metrics`.
-- altair: `systemctl status cadvisor`;
-  `curl -s 127.0.0.1:8099/metrics | grep -c 'container_last_seen{.*name="'`
-  lists the Podman containers (open-webui, searxng, zotero2readwise), and
-  not dozens of systemd services (checks that `-docker_only` keeps the
+- Run on 2026-10-03: "monitoring apply" (check, then apply) on docker and
+  walthpi16; both answer on `/metrics`; dashboard Cadvisor exporter lists
+  portainer_agent and atuin-server (docker), portainer, gitlab and
+  vikunja-todo-vikunja-1 (walthpi16).
+- altair, after the `autoRemoveOnStop` change: `systemctl status cadvisor`
+  without 'Failed to create existing container' errors;
+  `curl -s 127.0.0.1:8099/metrics | grep -o 'name="[^"]*"' | sort | uniq -c`
+  lists open-webui and searxng (zotero2readwise only while its timer runs
+  it), and no systemd services (checks that `-docker_only` keeps the
   Podman containers).
 - Prometheus target `cadvisor` up for docker, walthpi16 and altair;
   dashboard Cadvisor exporter shows containers per host.
+
+### Lessons learned
+
+- A tool's support for a runtime is only as good as its version: the
+  Podman handler of cAdvisor 0.56 assumed a storage layout (one
+  `containers.json`) that Podman no longer guarantees. The error message
+  named the missing file; reading the handler's code for that path found
+  the cause faster than guessing.
 
 ## [2026-10-02] Atuin login from sops on workstations, key check on every host
 
